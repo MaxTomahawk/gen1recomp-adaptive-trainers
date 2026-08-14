@@ -108,6 +108,16 @@ check(type(migrated.rival) == "table" and type(migrated.rival.owned) == "table",
 check(type(migrated.yellowRival) == "table",
   "migration fills only the missing Yellow history bucket")
 
+local future = { schema = schema.VERSION + 1, sentry = "preserve-me" }
+local rejected, schemaError = schema.ensure(future, identity)
+eq(rejected, nil, "a newer save schema fails closed")
+check(type(schemaError) == "string" and schemaError:match("unsupported"),
+  "a newer save schema returns a diagnostic")
+eq(future.schema, schema.VERSION + 1,
+  "forward-schema rejection does not downgrade the state")
+eq(future.sentry, "preserve-me",
+  "forward-schema rejection does not mutate unknown fields")
+
 if failures > 0 then
   io.stderr:write(string.format("%d/%d save schema checks failed\n",
     failures, checks))

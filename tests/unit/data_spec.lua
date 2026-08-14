@@ -65,8 +65,14 @@ for lineId, line in pairs(meta.lines) do
     lineId .. " has ecology tags")
   check(type(line.classTags) == "table",
     lineId .. " has class affinity tags")
+  check(type(line.roles) == "table" and #line.roles > 0,
+    lineId .. " has data-driven combat roles")
   check(type(line.genericEligible) == "boolean",
     lineId .. " explicitly declares generic eligibility")
+  if line.rarity == 4 then
+    eq(line.genericEligible, false,
+      lineId .. " cannot be generic at rarity four")
+  end
   for _, stage in ipairs(line.stages) do
     local species = stage.species
     check(expected[species], lineId .. " uses a Kanto species: " .. tostring(species))
@@ -152,10 +158,14 @@ for id, values in pairs(expectedProfiles) do
       eq(profile[field], values[index], id .. " preserves baseline " .. field)
     end
     check(type(profile.classTags) == "table", id .. " has class tags")
+    check(type(profile.rolePreferences) == "table" and #profile.rolePreferences > 0,
+      id .. " has data-driven role preferences")
     check(profile.mobilityRadius >= 0 and profile.mobilityRadius <= 2,
       id .. " has bounded ecology mobility")
     check(profile.pcRadius >= 0 and profile.pcRadius <= 2,
       id .. " has bounded Center access")
+    check(profile.maxRarity3 == 1 or profile.maxRarity3 == 2,
+      id .. " has an explicit rarity-three team cap")
   end
 end
 eq(profiles.for_class("OPP_YOUNGSTER"), profiles.byName.YOUNGSTER,

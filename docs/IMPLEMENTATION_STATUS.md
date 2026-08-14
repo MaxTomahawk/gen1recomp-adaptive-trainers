@@ -17,7 +17,7 @@ Implement the complete approved Adaptive Trainer Ecology & Challenge System v1 a
 
 ## Phase status
 
-- [x] Phase A — identity, save schema, deterministic RNG, Kanto-only initial standard-trainer generation and persistence (local gates green; PR CI pending)
+- [ ] Phase A — identity, save schema, deterministic RNG, Kanto-only initial standard-trainer generation and persistence (all local gates green; PR #1 re-review pending)
 - [ ] Phase B — elapsed growth, local catches, Center-aware owned/active roster behavior
 - [ ] Phase C — legal persistent movesets, AI sophistication tiers, property tests
 - [ ] Phase D — Gym registration and eligibility, eight Leader identities, challenge scaling
@@ -28,23 +28,26 @@ Implement the complete approved Adaptive Trainer Ecology & Challenge System v1 a
 
 ## Current execution
 
-Phase A implementation is complete locally on `agent/phase-a`. The branch is
-ready for its repository PR and remote CI gate; Phase B begins after the Phase A
-branch is integrated green.
+Phase A implementation is complete locally on `agent/phase-a` and published in
+PR #1. An independent review found missing runtime encounter-bucket weighting,
+placeholder role/team scoring, incomplete rarity/type repair invariants, unused
+indoor ecology overrides, and a non-cooperative trainer hook. The branch now
+contains tested remediations; fresh CI and independent re-review are the active
+gates. Phase B begins as soon as the Phase A branch is integrated green.
 
 Current evidence:
 
 - Public SDK loader: 6/6 checks passed.
-- Phase A public runtime: 323/323 checks passed across Red, Blue, and Yellow,
+- Phase A public runtime: 327/327 checks passed across Red, Blue, and Yellow,
   including 100 byte-equivalent reruns per version and serialized reloads.
 - Deterministic/property/unit suites: 17,000/17,000 property assertions plus
-  4,307 focused data/ecology/generation/identity/power/RNG/schema assertions.
+  4,482 focused data/ecology/generation/identity/power/RNG/schema assertions.
 - `modkit validate --base fixture`: green.
 - `modkit lint`: green, no ROM-derived content detected.
 - Reproducible double-pack check: green; 19 distributable files plus
   `.modkit/pack.json`, with no recursive `dist/`, tests, scripts, docs, or DOCX.
 - Source-date-zero package SHA-256:
-  `41b2424d4ce683008bb9a8b6d4194cb9410018a7909432cbb0b407aea621d5b5`.
+  `8814bc9bef7d77f4a836f11f7a6112f31d050992d74d745067505908b7be7089`.
 
 ## Baseline clarifications
 

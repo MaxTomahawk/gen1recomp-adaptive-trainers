@@ -6,7 +6,7 @@ return function(deps)
   local validator = deps.validator
   local stage_resolver = deps.stage_resolver
   local M = {}
-  local MAX_SLOT_ATTEMPTS = 8
+  local MAX_REPAIR_ATTEMPTS = 24
 
   local function party_from_state(state)
     local byId = {}
@@ -44,13 +44,14 @@ return function(deps)
       species = (choice and choice.species) or fallback,
       level = level,
       lineId = choice and choice.line and choice.line.lineId,
+      score = choice and choice.score,
     }
   end
 
-  local function candidate_options(ranked, chosen, original, fallback, level)
+  local function candidate_options(ranked, chosen, original, blueprint, level)
     local out, seen = {}, {}
     local function add(choice)
-      local slot = as_slot(choice, fallback, level)
+      local slot = as_slot(choice, blueprint.species, level)
       local key = tostring(slot.lineId or "") .. "|" .. tostring(slot.species)
       if not seen[key] then
         seen[key] = true
@@ -60,6 +61,7 @@ return function(deps)
     add(chosen)
     for _, row in ipairs(ranked or {}) do add(row) end
     add(original)
+    add({ species = blueprint.species, line = blueprint.line, score = -1 })
     return out
   end
 
@@ -67,7 +69,7 @@ return function(deps)
     local out = {}
     for index, slot in ipairs(team) do
       out[index] = { species = slot.species, level = slot.level,
-        lineId = slot.lineId }
+        lineId = slot.lineId, score = slot.score }
     end
     return out
   end
@@ -84,10 +86,14 @@ return function(deps)
     if valid then return selected end
     local current = copy_team(selected)
     local distance = power_distance(current, comparison, context)
+    local attempts = 0
+    local candidateBudget = math.max(0, MAX_REPAIR_ATTEMPTS - #current)
     for _ = 1, #current do
       local best, bestDistance
       for index = 1, #current do
-        for optionIndex = 1, math.min(MAX_SLOT_ATTEMPTS, #options[index]) do
+        for optionIndex = 1, #options[index] do
+          if attempts >= candidateBudget then break end
+          attempts = attempts + 1
           local trial = copy_team(current)
           trial[index] = options[index][optionIndex]
           local structural = validator.validate_structure(trial, comparison, context)
@@ -99,16 +105,38 @@ return function(deps)
             end
           end
         end
+        if attempts >= candidateBudget then break end
       end
       if not best then break end
       current, distance = best, bestDistance
       valid = validator.validate_initial(current, comparison, context)
       if valid then return current end
     end
-    -- The vanilla-stage comparison is the final safe repair, not a reroll:
-    -- it is deterministic and restores only after bounded local candidates
-    -- cannot satisfy the hard power invariant.
-    return comparison
+    -- Exhaustion falls back slot by slot, retaining every generated individual
+    -- that is compatible with the hard invariants. The exact blueprint is
+    -- guaranteed to restore the reference power without rerolling the event.
+    for index = #current, 1, -1 do
+      attempts = attempts + 1
+      current[index] = comparison[index]
+      valid = validator.validate_initial(current, comparison, context)
+      if valid then return current end
+    end
+    return current
+  end
+
+  local function vanilla_party_hash(vanillaParty)
+    local parts = { "adaptive-trainers-vanilla-party-v1", #vanillaParty }
+    for index, slot in ipairs(vanillaParty) do
+      parts[#parts + 1] = index
+      parts[#parts + 1] = slot.species or ""
+      parts[#parts + 1] = slot.level or 0
+      for moveIndex, move in ipairs(slot.moves or {}) do
+        parts[#parts + 1] = moveIndex
+        parts[#parts + 1] = move
+      end
+    end
+    local hash = rng.seed(parts)
+    return string.format("%08x%08x", hash.hi, hash.lo)
   end
 
   function M.build(ctx, vanillaParty, root, services)
@@ -119,7 +147,14 @@ return function(deps)
     local data = services.data
     local meta = services.meta
     local profile = services.profile
-    local evidence = ecology.resolve(data, ctx.mapId, profile)
+    local override = services.ecologyOverrides
+      and ((services.ecologyOverrides.byMap or {})[ctx.mapId]
+        or (services.ecologyOverrides.byClass or {})[ctx.oppClass])
+    local evidence = ecology.resolve(data, ctx.mapId, profile, {
+      mapId = ctx.mapId,
+      oppClass = ctx.oppClass,
+      override = override,
+    })
     local stream = rng.stream({ hi = root.seedHi, lo = root.seedLo },
       "trainer-init", ctx.identityKey)
     local reference = player_power.reference(ctx.playerParty)
@@ -147,11 +182,13 @@ return function(deps)
       local choice = selector.choose(ranked, stream)
         or original_row(slot, level, meta, data.pokemon)
       local original = original_row(slot, level, meta, data.pokemon)
-      comparison[index] = as_slot(original, slot.species, level)
+      local blueprintLine = meta.bySpecies and meta.bySpecies[slot.species]
+      local blueprint = { species = slot.species, line = blueprintLine }
+      comparison[index] = as_slot(blueprint, slot.species, level)
       options[index] = candidate_options(ranked, choice, original,
-        slot.species, level)
+        blueprint, level)
       local picked
-      for optionIndex = 1, math.min(MAX_SLOT_ATTEMPTS, #options[index]) do
+      for optionIndex = 1, math.min(MAX_REPAIR_ATTEMPTS, #options[index]) do
         selected[index] = options[index][optionIndex]
         local structureOk = validator.validate_structure(selected,
           comparison, validationContext)
@@ -178,6 +215,7 @@ return function(deps)
       battleCount = 0,
       lossCount = 0,
       generationVersion = 1,
+      vanillaPartyHash = vanilla_party_hash(vanillaParty),
     }
     for index, slot in ipairs(selected) do
       local id = ctx.identityKey .. "#" .. index

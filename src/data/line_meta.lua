@@ -1,5 +1,30 @@
 local rows = {}
 
+local ROLE_RULES = {
+  { "SOFT_SUPPORT", "support" },
+  { "PSYCHIC", "special_control" },
+  { "GHOST", "special_control" },
+  { "ELECTRIC", "fast_special" },
+  { "FIRE", "fast_special" },
+  { "ICE", "special_control" },
+  { "FLYING", "fast_physical" },
+  { "BIRD", "fast_physical" },
+  { "FIGHT", "physical" },
+  { "BRUISER", "physical" },
+  { "ROCK", "physical_wall" },
+  { "GROUND", "physical_wall" },
+  { "BURROWER", "physical" },
+  { "POISON", "attrition" },
+  { "INDUSTRIAL", "special_control" },
+  { "BUG", "swarm" },
+  { "GRASS", "control" },
+  { "WATER", "bulky_damage" },
+  { "ODDITY", "oddity" },
+  { "FOSSIL", "physical_wall" },
+  { "DRAGON", "balanced" },
+  { "COMPANION", "support" },
+}
+
 local function words(value)
   local out = {}
   for word in value:gmatch("[^;]+") do
@@ -20,19 +45,36 @@ local function stages(value, surrogate)
   return out
 end
 
+local function inferred_roles(groups)
+  local out, seen = {}, {}
+  for _, group in ipairs(groups) do
+    for _, rule in ipairs(ROLE_RULES) do
+      if group:find(rule[1], 1, true) and not seen[rule[2]] then
+        seen[rule[2]] = true
+        out[#out + 1] = rule[2]
+      end
+    end
+  end
+  if #out == 0 then out[1] = "balanced" end
+  return out
+end
+
 local function add(id, species, groups, power, rarity, ecology, classTags, opts)
   opts = opts or {}
+  local replacementGroups = words(groups)
+  local configuredRoles = words(opts.roles or "")
   rows[#rows + 1] = {
     lineId = id,
     stages = stages(species, opts.surrogate),
     postGen1Stages = stages(opts.postGen1 or "", opts.postGen1Surrogate),
-    groups = words(groups),
+    groups = replacementGroups,
     powerBand = power,
     rarity = rarity,
     ecology = words(ecology),
     classTags = words(classTags or ""),
-    roles = words(opts.roles or ""),
-    genericEligible = opts.genericEligible ~= false,
+    roles = #configuredRoles > 0 and configuredRoles
+      or inferred_roles(replacementGroups),
+    genericEligible = rarity < 4 and opts.genericEligible ~= false,
     populationModel = opts.populationModel or "COMMON_SPECIES",
     branching = opts.branching == true,
   }

@@ -94,6 +94,49 @@ for index, row in ipairs(ordinary) do
     "ecology evidence weight repeats at row " .. index)
 end
 
+local weighted = ecology.resolve({
+  constants = { encounterBuckets = { 128, 192, 256 } },
+  maps = { BUCKETS = { connections = {}, warps = {} } },
+  encounters = { BUCKETS = { grass = { slots = {
+    { species = "COMMON", level = 3 },
+    { species = "UNCOMMON", level = 4 },
+    { species = "RARE", level = 5 },
+  } } } },
+}, "BUCKETS", { encounterMethods = { grass = true } })
+local weightedBySpecies = ecology.by_species(weighted)
+eq(weightedBySpecies.COMMON.weight, 0.5,
+  "real cumulative encounter buckets give common slots their probability")
+eq(weightedBySpecies.UNCOMMON.weight, 0.25,
+  "real cumulative encounter buckets derive the second slot probability")
+eq(weightedBySpecies.RARE.weight, 0.25,
+  "real cumulative encounter buckets derive the tail slot probability")
+
+local issued = ecology.resolve({
+  constants = { encounterBuckets = { 128, 256 } },
+  maps = {
+    INDOOR = { connections = {}, warps = { { destMap = "OUTSIDE" } } },
+    OUTSIDE = { connections = {}, warps = {} },
+  },
+  encounters = { OUTSIDE = { grass = { slots = {
+    { species = "RATTATA", level = 4 },
+    { species = "PIDGEY", level = 4 },
+  } } } },
+  trainers = { OPP_ROCKET = { parties = {
+    { { species = "KOFFING", level = 17 } },
+    { { species = "GRIMER", level = 17 } },
+  } } },
+}, "INDOOR", { mobilityRadius = 2, encounterMethods = { grass = true } }, {
+  oppClass = "OPP_ROCKET",
+  override = { organizationIssued = true },
+})
+local issuedBySpecies = ecology.by_species(issued)
+check(issuedBySpecies.KOFFING ~= nil and issuedBySpecies.GRIMER ~= nil,
+  "organization ecology derives its issued pool from the runtime trainer registry")
+eq(issuedBySpecies.RATTATA, nil,
+  "organization ecology does not walk through walls to outdoor encounters")
+eq(issuedBySpecies.KOFFING.sources[1].method, "issued",
+  "organization candidates retain explicit issued provenance")
+
 if failures > 0 then
   io.stderr:write(string.format("%d/%d ecology checks failed\n",
     failures, checks))

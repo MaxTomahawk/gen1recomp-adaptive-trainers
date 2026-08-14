@@ -31,6 +31,7 @@ return function(mod)
   })
   local line_meta = module("src/data/line_meta.lua").build()
   local profiles = module("src/data/trainer_profiles.lua")
+  local ecology_overrides = module("src/data/ecology_overrides.lua")
 
   local game
   local pendingTrainer
@@ -49,7 +50,9 @@ return function(mod)
   end
 
   local function ensure_root(save)
-    local root = schema.ensure(mod.save:get("state"), save_identity(save))
+    local root, schemaError = schema.ensure(mod.save:get("state"),
+      save_identity(save))
+    assert(root, schemaError)
     mod.save:set("state", root)
     return root
   end
@@ -122,6 +125,8 @@ return function(mod)
   end)
 
   mod.hooks:wrap("trainer.party", function(next, oppClass, partyIndex, partyDef)
+    local engagedTrainer = pendingTrainer
+    pendingTrainer = nil
     local profile = profiles.for_class(oppClass)
     if not profile or type(partyDef) ~= "table" then
       return next(oppClass, partyIndex, partyDef)
@@ -136,7 +141,7 @@ return function(mod)
 
     local mapId = current_map(save)
     local key = identity.from_context(save.version, { mapId = mapId },
-      oppClass, partyIndex, pendingTrainer)
+      oppClass, partyIndex, engagedTrainer)
     local root = ensure_root(save)
     local generated = standard.build({
       version = save.version,
@@ -150,10 +155,10 @@ return function(mod)
       data = data,
       meta = line_meta,
       profile = profile,
+      ecologyOverrides = ecology_overrides,
     })
-    pendingTrainer = nil
     mod.save:set("state", root)
-    return generated
+    return next(oppClass, partyIndex, generated)
   end, 0)
 
   mod.exports.status = function()

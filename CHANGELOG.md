@@ -15,6 +15,11 @@ The format follows Keep a Changelog, and this project uses Semantic Versioning.
 - Red/Blue/Yellow public-hook integration with save/reload and disabled-mod
   parity coverage.
 - Reproducible staged packaging with archive-layout regression checks.
+- Runtime encounter-bucket ecology weights, organization-issued indoor pools,
+  role/team-aware scoring, rarity and specialist constraints, and bounded
+  slot-local invariant repair.
+- Cooperative trainer-party hook chaining, forward-schema rejection, stable
+  vanilla-party fingerprints, and version-distinct integration fixtures.
 
 ## [0.1.0] - 2026-08-14
 

@@ -17,7 +17,7 @@ local function species(id, stats, evolutions)
   }
 end
 
-local function fixture_data()
+local function fixture_data(version)
   local data = T.fixtures.fresh()
   data.pokemon.PIDGEY = species("PIDGEY",
     { hp = 40, attack = 45, defense = 40, speed = 56, special = 35 }, {
@@ -41,13 +41,14 @@ local function fixture_data()
     })
   data.pokemon.RATICATE = species("RATICATE",
     { hp = 55, attack = 81, defense = 60, speed = 97, special = 50 })
-  data.encounters.FIX_ROUTE = { grass = { rate = 25, slots = {
-    { level = 5, species = "SPEAROW", weight = 1 },
-    { level = 4, species = "RATTATA", weight = 1 },
-  } } }
+  local slots = version == "blue"
+    and { { level = 4, species = "RATTATA" } }
+    or { { level = 5, species = "SPEAROW" } }
+  data.encounters.FIX_ROUTE = { grass = { rate = 25, slots = slots } }
+  local vanillaLevel = ({ red = 8, blue = 9, yellow = 10 })[version] or 8
   data.trainers.OPP_YOUNGSTER = {
     id = "OPP_YOUNGSTER", index = 2, name = "YOUNGSTER", baseMoney = 15,
-    parties = { { { species = "PIDGEY", level = 8 } } },
+    parties = { { { species = "PIDGEY", level = vanillaLevel } } },
   }
   data.maps.FIX_ROUTE.objects = {
     { index = 1, name = "FIX_ROUTE_obj_1", trainerClass = "OPP_YOUNGSTER",
@@ -84,7 +85,7 @@ end
 
 local firstEncoded
 for _, version in ipairs({ "red", "blue", "yellow" }) do
-  local run = T.sdk.loadMod(modPath, { data = fixture_data() })
+  local run = T.sdk.loadMod(modPath, { data = fixture_data(version) })
   local game = {
     data = run.data,
     save = save_for(version),
@@ -98,12 +99,25 @@ for _, version in ipairs({ "red", "blue", "yellow" }) do
   run.loader.modSave = game.save.modData
   Runtime.emit("game.ready", { game = game })
 
+  local downstreamSeen = false
+  Runtime.hooks:wrap("trainer.party", function(nextFn, classId, index, party)
+    downstreamSeen = party[1] and party[1].species or false
+    return nextFn(classId, index, party)
+  end, -100, "phase-a-cooperation-test")
+
   local party = engage(run, game)
   T.eq(#party, 1, version .. " keeps the vanilla party size")
   T.check(party[1].species == "PIDGEY" or party[1].species == "SPEAROW",
     version .. " selects only an eligible runtime-registry line")
-  T.check(party[1].level >= 8,
-    version .. " never scales the initial slot below vanilla")
+  local vanillaFloor = ({ red = 8, blue = 9, yellow = 10 })[version]
+  T.check(party[1].level >= vanillaFloor,
+    version .. " never scales the initial slot below its version blueprint")
+  T.eq(downstreamSeen, party[1].species,
+    version .. " forwards generated output through lower-priority wrappers")
+  if version == "blue" then
+    T.eq(party[1].species, "PIDGEY",
+      "Blue's distinct registry fixture excludes Red's local Spearow line")
+  end
 
   local bucket = game.save.modData.adaptive_trainers
   local root = bucket and bucket.state
@@ -129,7 +143,7 @@ for _, version in ipairs({ "red", "blue", "yellow" }) do
   local savedBytes = SaveSerializer.encode(game.save.modData)
   run.release()
 
-  local reloadedData = fixture_data()
+  local reloadedData = fixture_data(version)
   local reloaded = T.sdk.loadMod(modPath, { data = reloadedData })
   local decoded = assert(SaveSerializer.decode(savedBytes))
   local reloadGame = {
@@ -151,7 +165,7 @@ for _, version in ipairs({ "red", "blue", "yellow" }) do
   reloaded.release()
 end
 
-local none = T.sdk.loadNone({ data = fixture_data() })
+local none = T.sdk.loadNone({ data = fixture_data("red") })
 local vanilla = none.data.trainers.OPP_YOUNGSTER.parties[1]
 local untouched = Runtime.call("trainer.party", function(_, _, party) return party end,
   "OPP_YOUNGSTER", 1, vanilla)

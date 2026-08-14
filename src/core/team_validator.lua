@@ -24,10 +24,22 @@ local function structure_violations(team, vanilla, context)
   local profile = context.profile or {}
   local violations = {}
   local lineCounts, vanillaLineCounts = {}, {}
+  local rarity3 = 0
   for _, slot in ipairs(team) do
     local lineId = slot.lineId
       or (meta.bySpecies[slot.species] and meta.bySpecies[slot.species].lineId)
     if lineId then lineCounts[lineId] = (lineCounts[lineId] or 0) + 1 end
+    local line = (lineId and meta.lines and meta.lines[lineId])
+      or (meta.bySpecies and meta.bySpecies[slot.species])
+    local rarity = tonumber(line and line.rarity) or 0
+    if rarity >= 4 then
+      violations[#violations + 1] = "rarity-4"
+    elseif rarity == 3 then
+      rarity3 = rarity3 + 1
+    end
+  end
+  if rarity3 > (profile.maxRarity3 or 1) then
+    violations[#violations + 1] = "rarity-3-count"
   end
   for _, slot in ipairs(vanilla) do
     local line = meta.bySpecies[slot.species]

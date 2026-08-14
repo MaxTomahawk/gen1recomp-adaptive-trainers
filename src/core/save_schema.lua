@@ -21,6 +21,10 @@ return function(deps)
 
   function M.ensure(root, identity)
     if type(root) ~= "table" then root = {} end
+    if type(root.schema) == "number" and root.schema > M.VERSION then
+      return nil, "unsupported adaptive_trainers schema "
+        .. tostring(root.schema)
+    end
 
     local derived = save_seed(identity)
     if type(root.seedHi) ~= "number" then root.seedHi = derived.hi end

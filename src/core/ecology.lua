@@ -8,6 +8,24 @@ local function enabled_methods(profile)
   return { grass = true }
 end
 
+local function slot_probabilities(data, source)
+  local slots = source and source.slots or {}
+  local buckets = source and source.buckets
+    or (data.constants and data.constants.encounterBuckets)
+  local out = {}
+  if type(buckets) == "table" and #buckets == #slots
+      and buckets[#buckets] == 256 then
+    local previous = 0
+    for index, threshold in ipairs(buckets) do
+      out[index] = (threshold - previous) / 256
+      previous = threshold
+    end
+    return out
+  end
+  for index, slot in ipairs(slots) do out[index] = slot.weight or 1 end
+  return out
+end
+
 local function encounter_rows(data, mapId, profile, distance)
   local encounter = data.encounters and data.encounters[mapId]
   if type(encounter) ~= "table" then return {} end
@@ -15,7 +33,8 @@ local function encounter_rows(data, mapId, profile, distance)
   local rows = {}
   for _, method in ipairs({ "grass", "water" }) do
     local source = methods[method] and encounter[method]
-    for _, slot in ipairs(source and source.slots or {}) do
+    local probabilities = slot_probabilities(data, source)
+    for index, slot in ipairs(source and source.slots or {}) do
       if type(slot.species) == "string" then
         rows[#rows + 1] = {
           species = slot.species,
@@ -23,8 +42,27 @@ local function encounter_rows(data, mapId, profile, distance)
           method = method,
           mapId = mapId,
           distance = distance,
-          weight = (DISTANCE_WEIGHT[distance] or 0) * (slot.weight or 1),
+          weight = (DISTANCE_WEIGHT[distance] or 0) * probabilities[index],
         }
+      end
+    end
+  end
+  return rows
+end
+
+local function issued_rows(data, context)
+  local rows = {}
+  local override = context and context.override or {}
+  for _, species in ipairs(override.species or {}) do
+    rows[#rows + 1] = { species = species, method = "issued",
+      mapId = context.mapId, distance = 0, weight = 1 }
+  end
+  local trainer = data.trainers and data.trainers[context and context.oppClass]
+  for _, party in ipairs(trainer and trainer.parties or {}) do
+    for _, slot in ipairs(party) do
+      if type(slot.species) == "string" then
+        rows[#rows + 1] = { species = slot.species, level = slot.level,
+          method = "issued", mapId = context.mapId, distance = 0, weight = 1 }
       end
     end
   end
@@ -70,8 +108,15 @@ local function aggregate(rows)
   return out
 end
 
-function M.resolve(data, mapId, profile)
+function M.resolve(data, mapId, profile, context)
   data = data or {}
+  context = context or {}
+  context.mapId = context.mapId or mapId
+  local override = context.override
+  if override and (override.organizationIssued or override.contextIssued
+      or type(override.species) == "table") then
+    return aggregate(issued_rows(data, context))
+  end
   local localRows = encounter_rows(data, mapId, profile, 0)
   if #localRows > 0 then return aggregate(localRows) end
 

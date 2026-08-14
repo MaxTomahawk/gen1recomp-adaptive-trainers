@@ -184,6 +184,53 @@ eq(rankedIds.ARTICUNO, nil,
 check(rankedIds.SPEAROW_LINE.score > rankedIds.PIDGEY_LINE.score,
   "local ecology can outweigh the original-line prior")
 
+local scoringLines = {
+  ORIGINAL = { lineId = "ORIGINAL", stages = { { species = "ORIGINAL", minLevel = 1 } },
+    groups = { "COMMON" }, powerBand = 2, rarity = 0,
+    classTags = {}, roles = { "balanced" }, genericEligible = true },
+  FAST = { lineId = "FAST", stages = { { species = "FAST", minLevel = 1 } },
+    groups = { "COMMON" }, powerBand = 2, rarity = 2,
+    classTags = {}, roles = { "fast" }, genericEligible = true },
+  WALL = { lineId = "WALL", stages = { { species = "WALL", minLevel = 1 } },
+    groups = { "COMMON" }, powerBand = 2, rarity = 0,
+    classTags = {}, roles = { "wall" }, genericEligible = true },
+  RARE4 = { lineId = "RARE4", stages = { { species = "RARE4", minLevel = 1 } },
+    groups = { "COMMON" }, powerBand = 2, rarity = 4,
+    classTags = {}, roles = { "fast" }, genericEligible = true },
+}
+local scoringMeta = { lines = scoringLines, bySpecies = {} }
+local scoringPokemon = {
+  ORIGINAL = { types = { "NORMAL" } }, FAST = { types = { "FIRE" } },
+  WALL = { types = { "WATER" } }, RARE4 = { types = { "FIRE" } },
+}
+for _, line in pairs(scoringLines) do
+  scoringMeta.bySpecies[line.stages[1].species] = line
+end
+local function score_rows(profileOverrides, team)
+  local configured = { rarityAllowance = 4, classTags = {},
+    rolePreferences = profileOverrides and profileOverrides.rolePreferences,
+    allowDuplicateLines = false }
+  local rows = selector.rank({ vanillaSpecies = "ORIGINAL", targetLevel = 10,
+    profile = configured, evidence = {
+      { species = "FAST", weight = 1 }, { species = "WALL", weight = 1 },
+      { species = "RARE4", weight = 1 },
+    }, meta = scoringMeta, pokemon = scoringPokemon, team = team or {} })
+  local out = {}
+  for _, row in ipairs(rows) do out[row.line.lineId] = row.score end
+  return out
+end
+local roleScores = score_rows({ rolePreferences = { "fast" } })
+check(roleScores.FAST > roleScores.WALL,
+  "configured line roles influence the normative role-fit score")
+eq(roleScores.RARE4, nil,
+  "rarity-four lines remain forbidden even with class allowance four")
+local teamScores = score_rows(nil, { { species = "FAST", lineId = "FAST" } })
+check(teamScores.WALL > teamScores.FAST,
+  "the current partial team influences later-slot team fit")
+local neutralScores = score_rows(nil)
+check(neutralScores.WALL > neutralScores.FAST,
+  "rarity penalty reduces ecology score for rarer otherwise-equal lines")
+
 local vanillaTeam = { { species = "PIDGEY", level = 8 } }
 local legalTeam = { { species = "SPEAROW", level = 8, lineId = "SPEAROW_LINE" } }
 local valid, report = validator.validate_initial(legalTeam, vanillaTeam, {
@@ -196,6 +243,50 @@ local invalid = validator.validate_initial({
   { species = "RHYHORN", level = 8, lineId = "RHYHORN_LINE" },
 }, vanillaTeam, { meta = meta, pokemon = pokemon, profile = profile })
 eq(invalid, false, "an overpowered initial replacement is rejected")
+
+local invariantLines = {
+  COMMON_A = { lineId = "COMMON_A", rarity = 0 },
+  COMMON_B = { lineId = "COMMON_B", rarity = 0 },
+  COMMON_C = { lineId = "COMMON_C", rarity = 0 },
+  RARE_A = { lineId = "RARE_A", rarity = 3 },
+  RARE_B = { lineId = "RARE_B", rarity = 3 },
+  RARE_C = { lineId = "RARE_C", rarity = 3 },
+  FORBIDDEN = { lineId = "FORBIDDEN", rarity = 4 },
+}
+local invariantMeta = { lines = invariantLines, bySpecies = {
+  TYPE_A = invariantLines.COMMON_A, TYPE_B = invariantLines.COMMON_B,
+  TYPE_C = invariantLines.COMMON_C, RARE_A = invariantLines.RARE_A,
+  RARE_B = invariantLines.RARE_B, RARE_C = invariantLines.RARE_C,
+  FORBIDDEN = invariantLines.FORBIDDEN,
+} }
+local invariantPokemon = {
+  TYPE_A = { types = { "FIRE" } }, TYPE_B = { types = { "FIRE" } },
+  TYPE_C = { types = { "FIRE" } }, RARE_A = { types = { "WATER" } },
+  RARE_B = { types = { "GRASS" } }, RARE_C = { types = { "ROCK" } },
+  FORBIDDEN = { types = { "ICE" } },
+}
+local invariantContext = { meta = invariantMeta, pokemon = invariantPokemon,
+  profile = { allowDuplicateLines = false, maxRarity3 = 1 } }
+local threeSameType = { { species = "TYPE_A" }, { species = "TYPE_B" },
+  { species = "TYPE_C" }, { species = "RARE_A" } }
+eq(validator.validate_structure(threeSameType, {}, invariantContext), false,
+  "ordinary two-to-four member parties cannot stack three primary types")
+invariantContext.profile.specialistType = true
+eq(validator.validate_structure(threeSameType, {}, invariantContext), true,
+  "explicit type specialists may stack their primary type")
+invariantContext.profile.specialistType = nil
+eq(validator.validate_structure({ { species = "RARE_A" },
+  { species = "RARE_B" } }, {}, invariantContext), false,
+  "ordinary profiles allow at most one rarity-three line")
+invariantContext.profile.maxRarity3 = 2
+eq(validator.validate_structure({ { species = "RARE_A" },
+  { species = "RARE_B" } }, {}, invariantContext), true,
+  "collector and expert profiles may allow two rarity-three lines")
+eq(validator.validate_structure({ { species = "RARE_A" },
+  { species = "RARE_B" }, { species = "RARE_C" } }, {}, invariantContext), false,
+  "the expanded allowance still rejects a third rarity-three line")
+eq(validator.validate_structure({ { species = "FORBIDDEN" } }, {},
+  invariantContext), false, "rarity-four lines are never generic")
 
 local data = {
   pokemon = pokemon,
@@ -303,6 +394,77 @@ eq(repairParty[2].species, "C",
   "bounded repair replaces only the conflicting duplicate slot")
 check(repairParty[1].species ~= "A" or repairParty[2].species ~= "A",
   "a local conflict does not revert the whole generated team")
+local _, hashState = repairStandard.build({
+  version = "red", mapId = "HASH_MAP", oppClass = "OPP_YOUNGSTER",
+  partyIndex = 1, identityKey = "hash-trainer", playTime = 0,
+  playerParty = {},
+}, { { species = "A", level = 5 } }, {
+  seedHi = 2, seedLo = 4, trainers = {},
+}, { data = { pokemon = repairPokemon, maps = {}, encounters = {} },
+  meta = { lines = repairLines, bySpecies = repairBySpecies },
+  profile = { initialCatchupFactor = 0, initialCap = 0 } })
+check(type(hashState.vanillaPartyHash) == "string",
+  "persistent trainer state records a stable vanilla-party hash")
+
+local observedOverride
+local overrideStandard = standard_factory({
+  rng = rng, player_power = player_power,
+  ecology = { resolve = function(_, _, _, context)
+    observedOverride = context and context.override
+    return {}
+  end },
+  selector = repairSelector, validator = validator,
+  stage_resolver = stage_resolver,
+})
+overrideStandard.build({
+  version = "red", mapId = "INDOOR_LAB", oppClass = "OPP_ROCKET",
+  partyIndex = 1, identityKey = "issued-trainer", playTime = 0,
+  playerParty = {},
+}, { { species = "A", level = 5 } }, {
+  seedHi = 4, seedLo = 8, trainers = {},
+}, { data = { pokemon = repairPokemon, maps = {}, encounters = {} },
+  meta = { lines = repairLines, bySpecies = repairBySpecies },
+  profile = { initialCatchupFactor = 0, initialCap = 0 },
+  ecologyOverrides = { byMap = {}, byClass = {
+    OPP_ROCKET = { organizationIssued = true },
+  } },
+})
+check(observedOverride and observedOverride.organizationIssued,
+  "standard generation forwards organization ecology overrides")
+
+local jumpLine = { lineId = "JUMP_LINE", rarity = 0,
+  stages = { { species = "JUMP_BASE" }, { species = "JUMP_FINAL" } } }
+local jumpPokemon = {
+  JUMP_BASE = { types = { "NORMAL" }, baseStats = { hp = 20, attack = 20,
+    defense = 20, speed = 20, special = 20 }, evolutions = {
+      { method = "LEVEL", level = 6, species = "JUMP_FINAL" },
+    } },
+  JUMP_FINAL = { types = { "NORMAL" }, baseStats = { hp = 100, attack = 100,
+    defense = 100, speed = 100, special = 100 }, evolutions = {} },
+}
+local jumpSelector = {
+  rank = function() return { { line = jumpLine, species = "JUMP_FINAL",
+    score = 1 } } end,
+  choose = function(rows) return rows[1] end,
+}
+local jumpStandard = standard_factory({
+  rng = rng, player_power = player_power,
+  ecology = { resolve = function() return {} end },
+  selector = jumpSelector, validator = validator,
+  stage_resolver = stage_resolver,
+})
+local jumpParty = jumpStandard.build({
+  version = "red", mapId = "JUMP_MAP", oppClass = "OPP_YOUNGSTER",
+  partyIndex = 1, identityKey = "jump-trainer", playTime = 0,
+  playerParty = {},
+}, { { species = "JUMP_BASE", level = 10 } }, {
+  seedHi = 5, seedLo = 9, trainers = {},
+}, { data = { pokemon = jumpPokemon, maps = {}, encounters = {} },
+  meta = { lines = { JUMP_LINE = jumpLine }, bySpecies = {
+    JUMP_BASE = jumpLine, JUMP_FINAL = jumpLine,
+  } }, profile = { initialCatchupFactor = 0, initialCap = 0 } })
+eq(jumpParty[1].species, "JUMP_BASE",
+  "power validation compares against the exact runtime blueprint species")
 
 if failures > 0 then
   io.stderr:write(string.format("%d/%d generation checks failed\n",
