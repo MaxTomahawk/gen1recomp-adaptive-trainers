@@ -277,8 +277,7 @@ return function(deps)
   function M.refresh(instance, reason, speciesDef, moveDefs, tier, package,
       teamContext)
     tier = math.max(0, math.min(4, math.floor(tonumber(tier) or 0)))
-    instance.moves = instance.moves or {}
-    instance.moveSources = instance.moveSources or {}
+    M.hydrate_legacy(instance, speciesDef, moveDefs)
     if #instance.moves == 0 then
       M.generate(instance, speciesDef, moveDefs, tier, package, teamContext)
       instance.lastMovesetRefreshReason = reason
@@ -293,7 +292,18 @@ return function(deps)
       if not known[row.id] then incoming = row; break end
     end
     if not incoming then return false end
+    local rules = packages.tiers[tier] or packages.tiers[0]
+    local currentTmCount = 0
+    for _, id in ipairs(instance.moves) do
+      local source = instance.moveSources[id]
+      if source == "tm" or source == "inherited" then
+        currentTmCount = currentTmCount + 1
+      end
+    end
     if #instance.moves < 4 then
+      if incoming.source == "tm" and currentTmCount >= rules.maxTm then
+        return false
+      end
       instance.moves[#instance.moves + 1] = incoming.id
       instance.moveSources[incoming.id] = incoming.source
       instance.lastMovesetRefreshReason = reason
@@ -301,13 +311,11 @@ return function(deps)
     end
 
     local existing, counts = {}, {}
-    local currentTmCount = 0
     for index, id in ipairs(instance.moves) do
       local row = existing_row(instance, speciesDef, moveDefs, pool, tier,
         package, teamContext, id)
       row.index = index
       existing[#existing + 1] = row
-      if row.source == "tm" then currentTmCount = currentTmCount + 1 end
       local key = refresh_redundancy_key(row)
       counts[key] = (counts[key] or 0) + 1
     end
@@ -318,13 +326,13 @@ return function(deps)
       if left.score ~= right.score then return left.score < right.score end
       return left.id > right.id
     end)
-    local rules = packages.tiers[tier] or packages.tiers[0]
     local outgoing
     for _, row in ipairs(existing) do
       local redundant = (counts[refresh_redundancy_key(row)] or 0) > 1
       local replaceable = reason == "evolution" or redundant
       local tmAllowed = incoming.source ~= "tm"
-        or currentTmCount < rules.maxTm or row.source == "tm"
+        or currentTmCount < rules.maxTm
+        or row.source == "tm" or row.source == "inherited"
       if replaceable and tmAllowed then
         outgoing = row
         break

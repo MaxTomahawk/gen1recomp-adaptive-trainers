@@ -44,6 +44,10 @@ local function fixture_data()
     id = "OPP_COOLTRAINER_M", name = "COOLTRAINER", baseMoney = 35,
     parties = { { { species = "PIDGEY", level = 20 } } },
   }
+  data.trainers.OPP_HIKER = { id = "OPP_HIKER", name = "HIKER",
+    baseMoney = 10, parties = { { { species = "PIDGEY", level = 15 } } } }
+  data.trainers.OPP_SCIENTIST = { id = "OPP_SCIENTIST", name = "SCIENTIST",
+    baseMoney = 20, parties = { { { species = "PIDGEY", level = 20 } } } }
   data.maps.FIX_ROUTE.objects = {
     { index = 1, name = "FIX_BUG", trainerClass = "OPP_BUG_CATCHER",
       trainerParty = 1 },
@@ -51,9 +55,10 @@ local function fixture_data()
   return data
 end
 
-local function save_for(modData)
-  return { version = "red", badgeCount = 1,
-    meta = { playthroughId = "phase-c-red" },
+local function save_for(modData, version)
+  version = version or "red"
+  return { version = version, badgeCount = 1,
+    meta = { playthroughId = "phase-c-" .. version },
     player = { map = "FIX_ROUTE", id = 3, name = "RED", rival = "BLUE" },
     party = { { species = "PIDGEY", level = 20 },
       { species = "PIDGEY", level = 18 },
@@ -121,6 +126,37 @@ T.eq(item and item.special, "aiItem",
 T.eq(item and item.item, "X_ATTACK",
   "expert item behavior comes from the runtime class registry")
 
+local function tier_battle(classId, hp, roll)
+  return { kind = "trainer", data = run.data,
+    trainer = run.data.trainers[classId], enemyIndex = 1,
+    enemy = { mon = { hp = hp, stats = { hp = 100 } } },
+    enemyParty = { { hp = hp }, { hp = 100 } },
+    rng = function() return roll end }
+end
+local function fallback() return { id = "FIX_TACKLE" } end
+T.eq(Runtime.call("battle.enemy_action", function()
+    return { special = "bide" }
+  end, tier_battle("OPP_SCIENTIST", 20, 0)).special, "bide",
+  "public adaptive switching preserves forced vanilla battle actions")
+local lockedMove = { id = "FIX_EMBERISH" }
+local lockedBattle = tier_battle("OPP_SCIENTIST", 20, 0)
+lockedBattle.enemy.charging = lockedMove
+T.eq(Runtime.call("battle.enemy_action", function() return lockedMove end,
+    lockedBattle), lockedMove,
+  "public adaptive switching preserves ordinary-shaped charge continuations")
+T.eq(Runtime.call("battle.enemy_action", fallback,
+    tier_battle("OPP_HIKER", 100, 0)).special, "aiSwitch",
+  "merged T1 behavior permits a rare tactical switch")
+T.eq(Runtime.call("battle.enemy_action", fallback,
+    tier_battle("OPP_HIKER", 100, 255)).id, "FIX_TACKLE",
+  "merged T1 behavior normally delegates to vanilla AI")
+T.eq(Runtime.call("battle.enemy_action", fallback,
+    tier_battle("OPP_SCIENTIST", 20, 0)).special, "aiSwitch",
+  "merged class-appropriate T2 behavior switches under clear pressure")
+T.eq(Runtime.call("battle.enemy_action", fallback,
+    tier_battle("OPP_SCIENTIST", 80, 0)).id, "FIX_TACKLE",
+  "merged T2 behavior preserves vanilla AI outside clear pressure")
+
 local choiceBattle = {
   data = run.data,
   enemyAIMods = run.data.trainers.OPP_COOLTRAINER_M.aiMods,
@@ -143,6 +179,17 @@ T.eq(SaveSerializer.encode(initial[1].moves),
   SaveSerializer.encode(state.owned[1].moves),
   "partyDef and PokemonInstance use the same remembered moves")
 local initialMoves = SaveSerializer.encode(state.owned[1].moves)
+state.owned[1].moveSources = nil
+state.owned[1].movesetVersion = nil
+local migrated = engage(game)
+T.eq(SaveSerializer.encode(migrated[1].moves), initialMoves,
+  "Phase B move memory is preserved exactly during source backfill")
+for _, id in ipairs(state.owned[1].moves) do
+  T.check(state.owned[1].moveSources[id] ~= nil,
+    "Phase B source backfill persists every existing move classification")
+end
+T.check(state.owned[1].movesetVersion ~= nil,
+  "Phase B source backfill persists the active moveset schema version")
 finish("lose")
 
 save.playTime = save.playTime + 72 * 3600
@@ -178,5 +225,43 @@ local repeatedState = reloadSave.modData.adaptive_trainers.state.trainers[key]
 T.eq(SaveSerializer.encode({ party = repeated, state = repeatedState }),
   stableBytes, "save/reload cannot reroll or churn persistent move memory")
 reload.release()
+
+for _, version in ipairs({ "blue", "yellow" }) do
+  local versionRun = T.sdk.loadMod(modPath, { data = fixture_data() })
+  local versionSave = save_for(nil, version)
+  local versionGame = game_for(versionRun, versionSave)
+  versionRun.loader.game, versionRun.loader.modSave = versionGame,
+    versionSave.modData
+  Runtime.emit("game.ready", { game = versionGame })
+  local versionParty = engage(versionGame)
+  local versionKey = version .. "|FIX_ROUTE|OPP_BUG_CATCHER|1"
+  local versionState = versionSave.modData.adaptive_trainers.state
+    .trainers[versionKey]
+  T.check(versionParty[1].moves and #versionParty[1].moves > 0,
+    version .. " generates non-empty persistent move memory")
+  for _, id in ipairs(versionState.owned[1].moves) do
+    T.check(versionState.owned[1].moveSources[id] ~= nil,
+      version .. " persists a source for every remembered move")
+  end
+  local versionBytes = SaveSerializer.encode({ party = versionParty,
+    state = versionState })
+  local savedVersion = SaveSerializer.encode(versionSave.modData)
+  versionRun.release()
+
+  local versionReload = T.sdk.loadMod(modPath, { data = fixture_data() })
+  local versionReloadSave = save_for(
+    assert(SaveSerializer.decode(savedVersion)), version)
+  local versionReloadGame = game_for(versionReload, versionReloadSave)
+  versionReload.loader.game, versionReload.loader.modSave = versionReloadGame,
+    versionReloadSave.modData
+  Runtime.emit("game.ready", { game = versionReloadGame })
+  local versionRepeated = engage(versionReloadGame)
+  local versionRepeatedState = versionReloadSave.modData.adaptive_trainers
+    .state.trainers[versionKey]
+  T.eq(SaveSerializer.encode({ party = versionRepeated,
+      state = versionRepeatedState }), versionBytes,
+    version .. " reload cannot reroll move/source memory")
+  versionReload.release()
+end
 
 T.finish("adaptive trainers phase C moves and AI")

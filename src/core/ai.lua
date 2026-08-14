@@ -3,6 +3,7 @@ local M = {}
 config = config or {}
 local expertTuning = config.expert or {}
 local bossTuning = config.boss or {}
+local switchingTuning = config.switching or {}
 
 local TIER_MODS = {
   [0] = { "LAYER_1" },
@@ -49,19 +50,47 @@ local function strategy_score(view, moveDef, score)
   return score
 end
 
-local function tactical_switch(battle)
-  if not battle or (tonumber(battle.aiUses) or 0) <= 0 then return nil end
-  local rng = battle.rng
-  if type(rng) ~= "function"
-      or rng(0, 255) >= expertTuning.switchChance then
-    return nil
-  end
-  for index, mon in ipairs(battle.enemyParty or {}) do
+local function first_backup(battle)
+  for index, mon in ipairs(battle and battle.enemyParty or {}) do
     if index ~= battle.enemyIndex and (tonumber(mon.hp) or 0) > 0 then
-      return { special = "aiSwitch", index = index }
+      return index
     end
   end
-  return nil
+end
+
+local function tactical_switch(battle, profile, tuning)
+  if not battle or not profile or not tuning then return nil end
+  local backup = first_backup(battle)
+  if not backup then return nil end
+  local used = tonumber(battle.adaptiveTrainerSwitches) or 0
+  if used >= (tonumber(tuning.maxPerBattle) or 0) then return nil end
+  if tuning.rosterBehaviors
+      and not tuning.rosterBehaviors[profile.rosterBehavior] then
+    return nil
+  end
+  if tuning.hpAtMost then
+    local mon = battle.enemy and battle.enemy.mon
+    local maximum = mon and mon.stats and tonumber(mon.stats.hp) or 0
+    local current = mon and tonumber(mon.hp) or 0
+    if maximum <= 0 or current / maximum > tuning.hpAtMost then
+      return nil
+    end
+  end
+  local random = battle.rng
+  if type(random) ~= "function"
+      or random(0, 255) >= (tonumber(tuning.chance) or 0) then
+    return nil
+  end
+  battle.adaptiveTrainerSwitches = used + 1
+  return { special = "aiSwitch", index = backup }
+end
+
+local function is_forced_action(battle, action)
+  if not action then return false end
+  if action.special then return true end
+  local battler = battle and battle.enemy
+  return battler ~= nil and (action == battler.charging
+    or action == battler.thrashMove or action == battler.rageMove)
 end
 
 function M.register(mod, profiles)
@@ -74,14 +103,13 @@ function M.register(mod, profiles)
 
   mod.hooks:wrap("battle.enemy_action", function(next, battle)
     local action = next(battle)
-    if action and action.special then return action end
+    if is_forced_action(battle, action) then return action end
     local id = battle and (battle.oppClass
       or (battle.trainer and battle.trainer.id))
     local profile = profiles and profiles.byClass and profiles.byClass[id]
-    if profile and tonumber(profile.aiTier) == 3 then
-      return tactical_switch(battle) or action
-    end
-    return action
+    local tier = profile and math.max(0, math.min(4,
+      math.floor(tonumber(profile.aiTier) or 0)))
+    return tactical_switch(battle, profile, switchingTuning[tier]) or action
   end)
 
   local ids = {}

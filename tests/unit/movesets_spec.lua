@@ -202,6 +202,25 @@ check(movesets.refresh(diverse, "evolution", diverseSpecies, moveDefs, 3),
 check(contains(diverse.moves, "FIRE_BLAST"),
   "the evolution-only extra refresh admits the stronger legal candidate")
 
+local cappedSpecies = { types = { "NORMAL" }, level1Moves = { "TACKLE" },
+  tmhm = { "PSYCHIC", "FIRE_BLAST" } }
+local underfilledAtCap = { id = "underfilled-cap", species = "TEST",
+  level = 20, moves = { "TACKLE", "PSYCHIC" } }
+eq(movesets.refresh(underfilledAtCap, "evolution", cappedSpecies,
+    moveDefs, 0), false,
+  "underfilled refresh cannot bypass the tier TM ceiling")
+eq(table.concat(underfilledAtCap.moves, ","), "TACKLE,PSYCHIC",
+  "a rejected underfilled refresh preserves legacy move memory")
+eq(underfilledAtCap.moveSources.PSYCHIC, "tm",
+  "refresh hydrates missing Phase B move-source memory before cap checks")
+
+local inheritedAtCap = { id = "inherited-cap", species = "TEST", level = 20,
+  moves = { "TACKLE", "FIRE_BLAST" },
+  moveSources = { TACKLE = "level", FIRE_BLAST = "inherited" } }
+eq(movesets.refresh(inheritedAtCap, "evolution", cappedSpecies,
+    moveDefs, 0), false,
+  "unknown inherited techniques conservatively consume the TM budget")
+
 if failures > 0 then
   io.stderr:write(string.format("%d/%d moveset checks failed\n",
     failures, checks))
