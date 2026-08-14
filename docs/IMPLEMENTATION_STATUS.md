@@ -32,8 +32,10 @@ Phase A implementation is complete locally on `agent/phase-a` and published in
 PR #1. An independent review found missing runtime encounter-bucket weighting,
 placeholder role/team scoring, incomplete rarity/type repair invariants, unused
 indoor ecology overrides, and a non-cooperative trainer hook. The branch now
-contains tested remediations; fresh CI and independent re-review are the active
-gates. Phase B begins as soon as the Phase A branch is integrated green.
+contains tested remediations. A first re-review then caught the live Psychic
+class-id mismatch and an incomplete exhausted-repair fallback; both now have
+focused regression coverage. Fresh CI and final independent re-review are the
+active gates. Phase B begins as soon as the Phase A branch is integrated green.
 
 Current evidence:
 
@@ -41,13 +43,13 @@ Current evidence:
 - Phase A public runtime: 327/327 checks passed across Red, Blue, and Yellow,
   including 100 byte-equivalent reruns per version and serialized reloads.
 - Deterministic/property/unit suites: 17,000/17,000 property assertions plus
-  4,482 focused data/ecology/generation/identity/power/RNG/schema assertions.
+  4,517 focused data/ecology/generation/identity/power/RNG/schema assertions.
 - `modkit validate --base fixture`: green.
 - `modkit lint`: green, no ROM-derived content detected.
 - Reproducible double-pack check: green; 19 distributable files plus
   `.modkit/pack.json`, with no recursive `dist/`, tests, scripts, docs, or DOCX.
 - Source-date-zero package SHA-256:
-  `8814bc9bef7d77f4a836f11f7a6112f31d050992d74d745067505908b7be7089`.
+  `28c2c4644c2a5f947b2d033546f80410ecd549eb6c4bc92865d2804d018b1316`.
 
 ## Baseline clarifications
 

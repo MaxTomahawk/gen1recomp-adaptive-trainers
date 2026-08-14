@@ -5,6 +5,7 @@ return function(deps)
   local selector = deps.selector
   local validator = deps.validator
   local stage_resolver = deps.stage_resolver
+  local on_repair_attempt = deps.onRepairAttempt or function() end
   local M = {}
   local MAX_REPAIR_ATTEMPTS = 24
 
@@ -74,54 +75,59 @@ return function(deps)
     return out
   end
 
-  local function power_distance(team, comparison, context)
-    local denominator = validator.power_index(comparison, context.pokemon)
-    if denominator <= 0 then return 0 end
-    local ratio = validator.power_index(team, context.pokemon) / denominator
-    return math.abs(ratio - 1)
+  local function team_key(team)
+    local parts = {}
+    for index, slot in ipairs(team) do
+      parts[index] = tostring(slot.lineId or "") .. ":"
+        .. tostring(slot.species or "")
+    end
+    return table.concat(parts, "|")
+  end
+
+  local function best_score_fallback(comparison, options, context)
+    local beams = { { team = {}, score = 0, key = "" } }
+    for index = 1, #comparison do
+      local expanded = {}
+      for _, beam in ipairs(beams) do
+        for _, option in ipairs(options[index]) do
+          local team = copy_team(beam.team)
+          team[index] = option
+          local structural = validator.validate_structure(team, comparison,
+            context)
+          if structural then
+            expanded[#expanded + 1] = {
+              team = team,
+              score = beam.score + (tonumber(option.score) or -1),
+              key = team_key(team),
+            }
+          end
+        end
+      end
+      table.sort(expanded, function(left, right)
+        if left.score ~= right.score then return left.score > right.score end
+        return left.key < right.key
+      end)
+      beams = {}
+      for beamIndex = 1, math.min(MAX_REPAIR_ATTEMPTS, #expanded) do
+        beams[beamIndex] = expanded[beamIndex]
+      end
+    end
+    for attempt, beam in ipairs(beams) do
+      if attempt > MAX_REPAIR_ATTEMPTS then break end
+      on_repair_attempt(attempt, beam.team)
+      local valid = validator.validate_initial(beam.team, comparison, context)
+      if valid then return beam.team end
+    end
+    local baseline = copy_team(comparison)
+    local valid = validator.validate_initial(baseline, comparison, context)
+    assert(valid, "no valid deterministic initial trainer fallback")
+    return baseline
   end
 
   local function repair_power(selected, comparison, options, context)
     local valid = validator.validate_initial(selected, comparison, context)
     if valid then return selected end
-    local current = copy_team(selected)
-    local distance = power_distance(current, comparison, context)
-    local attempts = 0
-    local candidateBudget = math.max(0, MAX_REPAIR_ATTEMPTS - #current)
-    for _ = 1, #current do
-      local best, bestDistance
-      for index = 1, #current do
-        for optionIndex = 1, #options[index] do
-          if attempts >= candidateBudget then break end
-          attempts = attempts + 1
-          local trial = copy_team(current)
-          trial[index] = options[index][optionIndex]
-          local structural = validator.validate_structure(trial, comparison, context)
-          if structural then
-            local candidateDistance = power_distance(trial, comparison, context)
-            if candidateDistance + 1e-12 < distance
-                and (not bestDistance or candidateDistance < bestDistance) then
-              best, bestDistance = trial, candidateDistance
-            end
-          end
-        end
-        if attempts >= candidateBudget then break end
-      end
-      if not best then break end
-      current, distance = best, bestDistance
-      valid = validator.validate_initial(current, comparison, context)
-      if valid then return current end
-    end
-    -- Exhaustion falls back slot by slot, retaining every generated individual
-    -- that is compatible with the hard invariants. The exact blueprint is
-    -- guaranteed to restore the reference power without rerolling the event.
-    for index = #current, 1, -1 do
-      attempts = attempts + 1
-      current[index] = comparison[index]
-      valid = validator.validate_initial(current, comparison, context)
-      if valid then return current end
-    end
-    return current
+    return best_score_fallback(comparison, options, context)
   end
 
   local function vanilla_party_hash(vanillaParty)
@@ -201,6 +207,9 @@ return function(deps)
     end
 
     selected = repair_power(selected, comparison, options, validationContext)
+    local finalValid = validator.validate_initial(selected, comparison,
+      validationContext)
+    assert(finalValid, "initial trainer party failed hard invariants")
 
     local state = {
       identityKey = ctx.identityKey,

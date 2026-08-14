@@ -271,6 +271,9 @@ local threeSameType = { { species = "TYPE_A" }, { species = "TYPE_B" },
   { species = "TYPE_C" }, { species = "RARE_A" } }
 eq(validator.validate_structure(threeSameType, {}, invariantContext), false,
   "ordinary two-to-four member parties cannot stack three primary types")
+eq(validator.validate_structure(threeSameType, threeSameType,
+  invariantContext), true,
+  "a vanilla-themed primary-type stack remains a valid blueprint")
 invariantContext.profile.specialistType = true
 eq(validator.validate_structure(threeSameType, {}, invariantContext), true,
   "explicit type specialists may stack their primary type")
@@ -465,6 +468,91 @@ local jumpParty = jumpStandard.build({
   } }, profile = { initialCatchupFactor = 0, initialCap = 0 } })
 eq(jumpParty[1].species, "JUMP_BASE",
   "power validation compares against the exact runtime blueprint species")
+
+local scoredLines = {
+  BASE = { lineId = "BASE", rarity = 0,
+    stages = { { species = "SCORE_BASE" } } },
+  BEST = { lineId = "BEST", rarity = 0,
+    stages = { { species = "SCORE_BEST" } } },
+  SECOND = { lineId = "SECOND", rarity = 0,
+    stages = { { species = "SCORE_SECOND" } } },
+  TOO_HIGH = { lineId = "TOO_HIGH", rarity = 0,
+    stages = { { species = "SCORE_HIGH" } } },
+}
+local scoredPokemon = {
+  SCORE_BASE = { types = { "NORMAL" }, baseStats = { hp = 50, attack = 50,
+    defense = 50, speed = 50, special = 50 } },
+  SCORE_BEST = { types = { "FIRE" }, baseStats = { hp = 51, attack = 51,
+    defense = 51, speed = 51, special = 51 } },
+  SCORE_SECOND = { types = { "WATER" }, baseStats = { hp = 49, attack = 49,
+    defense = 49, speed = 49, special = 49 } },
+  SCORE_HIGH = { types = { "ROCK" }, baseStats = { hp = 100, attack = 100,
+    defense = 100, speed = 100, special = 100 } },
+}
+local scoredRows = {
+  { line = scoredLines.TOO_HIGH, species = "SCORE_HIGH", score = 1.0 },
+  { line = scoredLines.BEST, species = "SCORE_BEST", score = 0.9 },
+  { line = scoredLines.SECOND, species = "SCORE_SECOND", score = 0.8 },
+}
+local scoredStandard = standard_factory({
+  rng = rng, player_power = player_power,
+  ecology = { resolve = function() return {} end },
+  selector = { rank = function() return scoredRows end,
+    choose = function(rows) return rows[1] end },
+  validator = validator, stage_resolver = stage_resolver,
+})
+local scoredParty = scoredStandard.build({
+  version = "red", mapId = "SCORE_MAP", oppClass = "OPP_YOUNGSTER",
+  partyIndex = 1, identityKey = "score-trainer", playTime = 0,
+  playerParty = {},
+}, { { species = "SCORE_BASE", level = 10 } }, {
+  seedHi = 6, seedLo = 10, trainers = {},
+}, { data = { pokemon = scoredPokemon, maps = {}, encounters = {} },
+  meta = { lines = scoredLines, bySpecies = {
+    SCORE_BASE = scoredLines.BASE, SCORE_BEST = scoredLines.BEST,
+    SCORE_SECOND = scoredLines.SECOND, SCORE_HIGH = scoredLines.TOO_HIGH,
+  } }, profile = { initialCatchupFactor = 0, initialCap = 0 } })
+eq(scoredParty[1].species, "SCORE_BEST",
+  "deterministic fallback chooses the highest-scored valid candidate")
+
+local repairAttempts = 0
+local boundedLines = { BASE = scoredLines.BASE }
+local boundedPokemon = { SCORE_BASE = scoredPokemon.SCORE_BASE }
+local boundedRows = {}
+for index = 1, 30 do
+  local speciesId = "INVALID_" .. index
+  local line = { lineId = speciesId, rarity = 0,
+    stages = { { species = speciesId } } }
+  boundedLines[speciesId] = line
+  boundedPokemon[speciesId] = scoredPokemon.SCORE_HIGH
+  boundedRows[index] = { line = line, species = speciesId,
+    score = 2 - index / 100 }
+end
+local boundedStandard = standard_factory({
+  rng = rng, player_power = player_power,
+  ecology = { resolve = function() return {} end },
+  selector = { rank = function() return boundedRows end,
+    choose = function(rows) return rows[1] end },
+  validator = validator, stage_resolver = stage_resolver,
+  onRepairAttempt = function() repairAttempts = repairAttempts + 1 end,
+})
+local boundedBySpecies = { SCORE_BASE = scoredLines.BASE }
+for id, line in pairs(boundedLines) do
+  if id ~= "BASE" then boundedBySpecies[id] = line end
+end
+local boundedParty = boundedStandard.build({
+  version = "red", mapId = "BOUND_MAP", oppClass = "OPP_YOUNGSTER",
+  partyIndex = 1, identityKey = "bounded-trainer", playTime = 0,
+  playerParty = {},
+}, { { species = "SCORE_BASE", level = 10 } }, {
+  seedHi = 7, seedLo = 11, trainers = {},
+}, { data = { pokemon = boundedPokemon, maps = {}, encounters = {} },
+  meta = { lines = boundedLines, bySpecies = boundedBySpecies },
+  profile = { initialCatchupFactor = 0, initialCap = 0 } })
+eq(repairAttempts, 24,
+  "fallback stops after twenty-four scored repair candidates")
+eq(boundedParty[1].species, "SCORE_BASE",
+  "repair exhaustion falls back to a proven-valid exact blueprint")
 
 if failures > 0 then
   io.stderr:write(string.format("%d/%d generation checks failed\n",

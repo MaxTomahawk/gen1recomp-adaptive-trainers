@@ -172,8 +172,26 @@ eq(profiles.for_class("OPP_YOUNGSTER"), profiles.byName.YOUNGSTER,
   "Gen 1 public trainer class ids resolve to profiles")
 eq(profiles.for_class("OPP_JR_TRAINER_F"), profiles.byName.JR_TRAINER,
   "combined class profiles expose both gender ids")
+eq(profiles.for_class("OPP_PSYCHIC_TR"), profiles.byName.PSYCHIC,
+  "the live public Psychic trainer class id resolves")
+eq(profiles.for_class("OPP_PSYCHIC"), nil,
+  "a non-existent Psychic alias cannot hide registry drift")
 eq(profiles.for_class("UNKNOWN_CLASS"), nil,
   "unknown or canon-only classes do not get generic policy")
+
+for _, classId in ipairs({
+  "OPP_YOUNGSTER", "OPP_BUG_CATCHER", "OPP_LASS", "OPP_SAILOR",
+  "OPP_JR_TRAINER_M", "OPP_JR_TRAINER_F", "OPP_POKEMANIAC",
+  "OPP_SUPER_NERD", "OPP_HIKER", "OPP_BIKER", "OPP_BURGLAR",
+  "OPP_ENGINEER", "OPP_FISHER", "OPP_SWIMMER", "OPP_CUE_BALL",
+  "OPP_GAMBLER", "OPP_BEAUTY", "OPP_PSYCHIC_TR", "OPP_ROCKER",
+  "OPP_JUGGLER", "OPP_TAMER", "OPP_BIRD_KEEPER", "OPP_BLACKBELT",
+  "OPP_SCIENTIST", "OPP_ROCKET", "OPP_COOLTRAINER_M",
+  "OPP_COOLTRAINER_F", "OPP_GENTLEMAN", "OPP_CHANNELER",
+}) do
+  check(profiles.for_class(classId) ~= nil,
+    "current public trainer registry id is supported: " .. classId)
+end
 
 local groupIndex = groups.build(meta)
 for groupId, lineIds in pairs(groupIndex.byGroup) do

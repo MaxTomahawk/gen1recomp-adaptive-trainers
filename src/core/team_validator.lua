@@ -57,13 +57,19 @@ local function structure_violations(team, vanilla, context)
   end
 
   if #team >= 2 and #team <= 4 and not profile.specialistType then
-    local primary = {}
+    local primary, vanillaPrimary = {}, {}
     for _, slot in ipairs(team) do
       local types = pokemon[slot.species] and pokemon[slot.species].types
       if types and types[1] then primary[types[1]] = (primary[types[1]] or 0) + 1 end
     end
-    for _, count in pairs(primary) do
-      if count > 2 then
+    for _, slot in ipairs(vanilla) do
+      local types = pokemon[slot.species] and pokemon[slot.species].types
+      if types and types[1] then
+        vanillaPrimary[types[1]] = (vanillaPrimary[types[1]] or 0) + 1
+      end
+    end
+    for typeId, count in pairs(primary) do
+      if count > math.max(2, vanillaPrimary[typeId] or 0) then
         violations[#violations + 1] = "primary-type"
         break
       end

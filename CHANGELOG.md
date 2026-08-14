@@ -20,6 +20,8 @@ The format follows Keep a Changelog, and this project uses Semantic Versioning.
   slot-local invariant repair.
 - Cooperative trainer-party hook chaining, forward-schema rejection, stable
   vanilla-party fingerprints, and version-distinct integration fixtures.
+- Live trainer-class registry alignment and a score-ranked, twenty-four-attempt
+  repair fallback that never persists a party failing hard invariants.
 
 ## [0.1.0] - 2026-08-14
 
