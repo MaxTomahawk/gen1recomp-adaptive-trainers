@@ -1,6 +1,5 @@
 return function(deps)
   local rng = deps.rng
-  local stage_resolver = deps.stage_resolver
   local M = {}
 
   local CENTER_FALLBACK = {
@@ -246,8 +245,7 @@ return function(deps)
     local trainedLevel = wildLevel + stream:integer(0, 2)
     local medianLimit = math.max(1, (tonumber(ctx.trainerMedian) or high + 1) - 1)
     local level = math.max(1, math.min(trainedLevel, high + 2, medianLimit))
-    local species = stage_resolver.resolve(selected.line, level, ctx.pokemon,
-      selected.evidence.species) or selected.evidence.species
+    local species = selected.evidence.species
     state.nextOwnedSerial = math.max(tonumber(state.nextOwnedSerial) or 0,
       #(state.owned or {})) + 1
     local id = (state.identityKey or "trainer") .. "#catch-"
@@ -268,11 +266,11 @@ return function(deps)
     return instance, report
   end
 
-  local function add_edge(adjacency, left, right)
+  local function add_directed_edge(adjacency, left, right)
     if type(left) ~= "string" or type(right) ~= "string" then return end
     adjacency[left] = adjacency[left] or {}
     adjacency[right] = adjacency[right] or {}
-    adjacency[left][right], adjacency[right][left] = true, true
+    adjacency[left][right] = true
   end
 
   function M.center_index(data)
@@ -287,11 +285,11 @@ return function(deps)
       end
       if center then index.centers[mapId] = true end
       for _, connection in pairs(map.connections or {}) do
-        add_edge(index.adjacency, mapId,
+        add_directed_edge(index.adjacency, mapId,
           connection and (connection.map or connection.destMap))
       end
       for _, warp in ipairs(map.warps or {}) do
-        add_edge(index.adjacency, mapId, warp.destMap)
+        add_directed_edge(index.adjacency, mapId, warp.destMap)
       end
     end
     return index

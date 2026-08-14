@@ -43,9 +43,10 @@ local function fixture_data()
   return data
 end
 
-local function save_for(modData)
-  return { version = "red", badgeCount = 1,
-    meta = { playthroughId = "phase-b-red" },
+local function save_for(modData, version)
+  version = version or "red"
+  return { version = version, badgeCount = 1,
+    meta = { playthroughId = "phase-b-" .. version },
     player = { map = "FIX_ROUTE", id = 99, name = "RED", rival = "BLUE" },
     party = { { species = "PIDGEY", level = 20 },
       { species = "PIDGEY", level = 18 },
@@ -153,5 +154,68 @@ T.eq(SaveSerializer.encode({ owned = reloadState.owned,
 T.eq(#afterWin, #reloadState.activeIds,
   "a synthetic post-win hook cannot create a rematch roster transition")
 reloaded.release()
+
+local function collision_fixture_data()
+  local data = fixture_data()
+  data.maps.FIX_ROUTE.objects[2] = {
+    index = 2, name = "FIX_BUG_CATCHER_TWO",
+    trainerClass = "OPP_BUG_CATCHER", trainerParty = 1,
+  }
+  return data
+end
+
+local collisionRun = T.sdk.loadMod(modPath, { data = collision_fixture_data() })
+local collisionSave = save_for(nil, "blue")
+local collisionGame = game_for(collisionRun, collisionSave)
+collisionRun.loader.game, collisionRun.loader.modSave = collisionGame,
+  collisionSave.modData
+Runtime.emit("game.ready", { game = collisionGame })
+local collisionParty = engage(collisionGame)
+local collisionKey = "blue|FIX_ROUTE|OPP_BUG_CATCHER|1|npc:FIX_BUG_CATCHER"
+local collisionRoot = collisionSave.modData.adaptive_trainers.state
+T.check(collisionRoot.trainers[collisionKey] ~= nil,
+  "a colliding concrete NPC receives its suffixed persistent identity")
+T.eq(collisionRoot.activeTrainer and collisionRoot.activeTrainer.identityKey,
+  collisionKey, "the checkpoint payload persists the exact active identity")
+local collisionBytes = SaveSerializer.encode(collisionSave.modData)
+collisionRun.release()
+
+local restoredRun = T.sdk.loadMod(modPath, { data = collision_fixture_data() })
+local restoredSave = save_for(assert(SaveSerializer.decode(collisionBytes)), "blue")
+local restoredGame = game_for(restoredRun, restoredSave)
+restoredRun.loader.game, restoredRun.loader.modSave = restoredGame,
+  restoredSave.modData
+Runtime.emit("game.ready", { game = restoredGame })
+local vanillaCollision = restoredGame.data.trainers.OPP_BUG_CATCHER.parties[1]
+local reconstructed = Runtime.call("trainer.party",
+  function(_, _, party) return party end,
+  "OPP_BUG_CATCHER", 1, vanillaCollision)
+local restoredRoot = restoredSave.modData.adaptive_trainers.state
+T.eq(SaveSerializer.encode(reconstructed), SaveSerializer.encode(collisionParty),
+  "checkpoint reconstruction reuses the collision trainer's exact party")
+T.eq(restoredRoot.trainers["blue|FIX_ROUTE|OPP_BUG_CATCHER|1"], nil,
+  "checkpoint reconstruction cannot create an unsuffixed shadow trainer")
+finish("lose")
+T.eq(restoredRoot.trainers[collisionKey].battleCount, 1,
+  "the restored battle result updates the suffixed trainer state")
+T.eq(restoredRoot.activeTrainer, nil,
+  "the persisted active identity is cleared when the battle ends")
+restoredRun.release()
+
+for _, version in ipairs({ "blue", "yellow" }) do
+  local versionRun = T.sdk.loadMod(modPath, { data = fixture_data() })
+  local versionSave = save_for(nil, version)
+  local versionGame = game_for(versionRun, versionSave)
+  versionRun.loader.game, versionRun.loader.modSave = versionGame,
+    versionSave.modData
+  Runtime.emit("game.ready", { game = versionGame })
+  local first = engage(versionGame)
+  finish("lose")
+  versionSave.playTime = versionSave.playTime + 900
+  local retry = engage(versionGame)
+  T.eq(SaveSerializer.encode(retry), SaveSerializer.encode(first),
+    version .. " preserves the exact grace-boundary party")
+  versionRun.release()
+end
 
 T.finish("adaptive trainers phase B persistence")

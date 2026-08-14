@@ -3,6 +3,7 @@ local ROOT = assert(os.getenv("ADAPTIVE_TRAINERS_ROOT"),
 
 local rng = assert(loadfile(ROOT .. "/src/core/rng.lua"))()
 local stage_resolver = assert(loadfile(ROOT .. "/src/core/stage_resolver.lua"))()
+local ecology = assert(loadfile(ROOT .. "/src/core/ecology.lua"))()
 local roster = assert(loadfile(ROOT .. "/src/core/roster.lua"))()({
   rng = rng, stage_resolver = stage_resolver,
 })
@@ -22,7 +23,8 @@ local lines = {
   BUG = { lineId = "BUG", groups = { "BUG_LARVA_COMMON" }, classTags = {
     "bugcatcher" }, roles = { "swarm" }, rarity = 0, powerBand = 1,
     genericEligible = true, populationModel = "COMMON_SPECIES",
-    stages = { { species = "CATERPIE" } } },
+    stages = { { species = "CATERPIE" }, { species = "METAPOD" },
+      { species = "BUTTERFREE" } } },
   BIRD = { lineId = "BIRD", groups = { "EARLY_BIRD" }, classTags = {
     "birdkeeper" }, roles = { "fast_physical" }, rarity = 0, powerBand = 1,
     genericEligible = true, populationModel = "COMMON_SPECIES",
@@ -33,9 +35,14 @@ local lines = {
     stages = { { species = "ARTICUNO" } } },
 }
 local meta = { lines = lines, bySpecies = {
-  CATERPIE = lines.BUG, PIDGEY = lines.BIRD, ARTICUNO = lines.LEGEND,
+  CATERPIE = lines.BUG, METAPOD = lines.BUG, BUTTERFREE = lines.BUG,
+  PIDGEY = lines.BIRD, ARTICUNO = lines.LEGEND,
 } }
-local pokemon = { CATERPIE = { evolutions = {} }, PIDGEY = { evolutions = {} },
+local pokemon = { CATERPIE = { evolutions = {
+    { method = "LEVEL", level = 7, species = "METAPOD" },
+  } }, METAPOD = { evolutions = {
+    { method = "LEVEL", level = 10, species = "BUTTERFREE" },
+  } }, BUTTERFREE = { evolutions = {} }, PIDGEY = { evolutions = {} },
   ARTICUNO = { evolutions = {} } }
 local evidence = {
   { species = "ARTICUNO", weight = 10, sources = {
@@ -134,6 +141,65 @@ local nonduplicate = roster.maybe_catch(ordinary, ctx(100 + 72 * 3600),
   })
 eq(nonduplicate and nonduplicate.lineId, "BIRD",
   "ordinary catches avoid duplicate active lines when the pool has an alternative")
+
+local exactEncounter = fresh()
+exactEncounter.identityKey = "high-level-encounter"
+local exact = roster.maybe_catch(exactEncounter,
+  { playTime = 100 + 72 * 3600, trainerMedian = 20, mapId = "FOREST",
+    pokemon = pokemon, meta = meta, rootSeed = { hi = 12, lo = 34 },
+    stream = { float = function() return 0 end,
+      integer = function(_, low) return low end } },
+  profiles.byName.BUG_CATCHER, {
+    { species = "CATERPIE", weight = 1, sources = {
+      { species = "CATERPIE", level = 10, mapId = "FOREST" },
+    } },
+  })
+eq(exact and exact.species, "CATERPIE",
+  "a catch preserves the exact locally evidenced species at acquisition")
+
+local issuedEvidence = ecology.resolve({
+  trainers = { OPP_ROCKET = { parties = {
+    { { species = "CATERPIE", level = 10 } },
+    { { species = "PIDGEY", level = 20 } },
+  } } },
+}, "HIDEOUT", {}, {
+  mapId = "HIDEOUT", oppClass = "OPP_ROCKET", partyIndex = 1,
+  override = { organizationIssued = true },
+})
+local issuedState = fresh()
+issuedState.identityKey = "early-rocket"
+local issuedCatch, issuedReport = roster.maybe_catch(issuedState,
+  ctx(100 + 72 * 3600), {
+    catchMax = 1, catchTauHours = 0.001, targetOwned = 6,
+    rarityAllowance = 2, classTags = {}, catchSelectivity = -1,
+    allowDuplicateLines = true, maxRarity3 = 1,
+  }, issuedEvidence)
+eq(issuedReport.candidateCount, 1,
+  "an early organization catch sees only story-bounded issued candidates")
+eq(issuedCatch and issuedCatch.species, "CATERPIE",
+  "an early organization catch cannot acquire a later party's species")
+
+local full = fresh()
+full.identityKey, full.owned, full.activeIds = "full-party", {}, {}
+for index = 1, 6 do
+  local id = "full-" .. index
+  full.owned[index] = { id = id, lineId = "BIRD", species = "PIDGEY",
+    level = 12, acquiredAt = 0, originMap = "ROUTE", roleSeed = index }
+  full.activeIds[index] = id
+end
+full.nextOwnedSerial = 6
+local benched = roster.maybe_catch(full, ctx(100 + 72 * 3600), {
+  catchMax = 1, catchTauHours = 0.001, targetOwned = 6,
+  rarityAllowance = 2, classTags = {}, catchSelectivity = -1,
+  allowDuplicateLines = false, maxRarity3 = 1,
+}, { evidence[2] })
+check(benched ~= nil and #full.owned == 7,
+  "a successful full-party catch remains persistently owned")
+eq(#full.activeIds, 6,
+  "a successful full-party catch is benched while the active party stays full")
+eq(roster.rotate(full, { rosterBehavior = "collector", targetOwned = 6 },
+    nil, { meta = meta, pokemon = pokemon }), false,
+  "the complete catch transition cannot rotate the bench without Center access")
 
 if failures > 0 then
   io.stderr:write(string.format("%d/%d catch checks failed\n", failures, checks))

@@ -111,7 +111,7 @@ eq(weightedBySpecies.UNCOMMON.weight, 0.25,
 eq(weightedBySpecies.RARE.weight, 0.25,
   "real cumulative encounter buckets derive the tail slot probability")
 
-local issued = ecology.resolve({
+local issuedData = {
   constants = { encounterBuckets = { 128, 256 } },
   maps = {
     INDOOR = { connections = {}, warps = { { destMap = "OUTSIDE" } } },
@@ -125,17 +125,34 @@ local issued = ecology.resolve({
     { { species = "KOFFING", level = 17 } },
     { { species = "GRIMER", level = 17 } },
   } } },
-}, "INDOOR", { mobilityRadius = 2, encounterMethods = { grass = true } }, {
+}
+local issued = ecology.resolve(issuedData, "INDOOR",
+  { mobilityRadius = 2, encounterMethods = { grass = true } }, {
   oppClass = "OPP_ROCKET",
+  partyIndex = 1,
   override = { organizationIssued = true },
 })
 local issuedBySpecies = ecology.by_species(issued)
-check(issuedBySpecies.KOFFING ~= nil and issuedBySpecies.GRIMER ~= nil,
-  "organization ecology derives its issued pool from the runtime trainer registry")
+check(issuedBySpecies.KOFFING ~= nil,
+  "organization ecology derives its current issued pool from the runtime registry")
+eq(issuedBySpecies.GRIMER, nil,
+  "an early organization encounter cannot use a later party's issued species")
 eq(issuedBySpecies.RATTATA, nil,
   "organization ecology does not walk through walls to outdoor encounters")
 eq(issuedBySpecies.KOFFING.sources[1].method, "issued",
   "organization candidates retain explicit issued provenance")
+eq(issuedBySpecies.KOFFING.sources[1].partyIndex, 1,
+  "issued provenance records its story-progression party index")
+
+local laterIssued = ecology.resolve(issuedData, "INDOOR",
+  { mobilityRadius = 2, encounterMethods = { grass = true } }, {
+  oppClass = "OPP_ROCKET",
+  partyIndex = 2,
+  override = { organizationIssued = true },
+})
+local laterIssuedBySpecies = ecology.by_species(laterIssued)
+check(laterIssuedBySpecies.KOFFING ~= nil and laterIssuedBySpecies.GRIMER ~= nil,
+  "a later organization encounter can use current and earlier issued species")
 
 if failures > 0 then
   io.stderr:write(string.format("%d/%d ecology checks failed\n",

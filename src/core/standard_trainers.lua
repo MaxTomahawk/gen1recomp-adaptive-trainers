@@ -171,6 +171,7 @@ return function(deps)
     local evidence = ecology.resolve(data, ctx.mapId, profile, {
       mapId = ctx.mapId,
       oppClass = ctx.oppClass,
+      partyIndex = ctx.partyIndex,
       override = override,
     })
     if existing then

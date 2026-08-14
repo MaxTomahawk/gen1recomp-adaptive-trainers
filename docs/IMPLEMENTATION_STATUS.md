@@ -18,7 +18,7 @@ Implement the complete approved Adaptive Trainer Ecology & Challenge System v1 a
 ## Phase status
 
 - [x] Phase A — identity, save schema, deterministic RNG, Kanto-only initial standard-trainer generation and persistence (PR #1 merged green at `928de80`)
-- [ ] Phase B — elapsed growth, local catches, Center-aware owned/active roster behavior (local gates green; review/PR pending)
+- [ ] Phase B — elapsed growth, local catches, Center-aware owned/active roster behavior (review fixes green; PR #2 re-review pending)
 - [ ] Phase C — legal persistent movesets, AI sophistication tiers, property tests
 - [ ] Phase D — Gym registration and eligibility, eight Leader identities, challenge scaling
 - [ ] Phase E — Elite Four run snapshot and exactly-one-Bird mechanic
@@ -31,24 +31,28 @@ Implement the complete approved Adaptive Trainer Ecology & Challenge System v1 a
 Phase A merged through PR #1 after green CI and a final independent review with
 no findings. Phase B is implemented locally on `agent/phase-b`: loss-gated
 elapsed growth, permanent stage changes, bounded local/context catches,
-Center-aware bench rotation, and battle-result persistence are green. The next
-gates are independent Phase B review, repository PR CI, and merge; Phase C then
-begins immediately.
+Center-aware bench rotation, and battle-result persistence are green. The first
+independent review found three correctness gaps; exact caught-species
+preservation, party-index-bounded organization pools, and checkpoint-safe
+collision identities are now covered and fixed without an engine change. The
+next gates are refreshed PR CI, clean re-review, and merge; Phase C then begins
+immediately.
 
 Current evidence:
 
 - Public SDK loader: 6/6 checks passed.
 - Phase A public runtime: 327/327 checks passed across Red, Blue, and Yellow,
   including 100 byte-equivalent reruns per version and serialized reloads.
-- Phase B public runtime: 211/211 loss/growth/catch/rotation/reload checks.
+- Phase B public runtime: 219/219 loss/growth/catch/rotation/reload checks,
+  including collision-checkpoint reconstruction and Blue/Yellow grace checks.
 - Deterministic/property/unit suites: 23,363/23,363 property assertions plus
-  4,591 focused data/ecology/generation/growth/catch/roster/identity/power/RNG/schema assertions.
+  4,601 focused data/ecology/generation/growth/catch/roster/identity/power/RNG/schema assertions.
 - `modkit validate --base fixture`: green.
 - `modkit lint`: green, no ROM-derived content detected.
-- Reproducible double-pack check: green; 19 distributable files plus
+- Reproducible double-pack check: green; 21 distributable files plus
   `.modkit/pack.json`, with no recursive `dist/`, tests, scripts, docs, or DOCX.
 - Source-date-zero package SHA-256:
-  `0bdee8c4d75d9d82d8544ace1da5295ef4c85934301267570f9859ba747073b0`.
+  `eb2ec2206f067d178bcdfe5b09d33b10b9f7622f11ac06de973eda4764dd74a0`.
 
 ## Baseline clarifications
 
@@ -78,3 +82,8 @@ The detailed implementation plan is `docs/superpowers/plans/2026-08-14-adaptive-
 ### Trainer identity context
 
 No engine change is currently justified. `world.trainer_engaged` exposes the concrete NPC id and trainer tuple before ordinary overworld battles; `mod.world:current()` supplies the map. Scripted canon battles can use explicit map/class/party identities.
+
+Battle-checkpoint reconstruction restores `mod.save` before invoking the public
+`trainer.party` hook. The mod therefore persists the active concrete identity
+in its checkpointed save state and reuses it during reconstruction; this closes
+the collision case without private imports or a new engine seam.

@@ -25,6 +25,11 @@ local data = { maps = {
     { name = "TESTPOKECENTER_NURSE", text = "TEXT_TESTPOKECENTER_NURSE" },
   } },
   REMOTE = { connections = {}, warps = {} },
+  DROP_CENTER = { connections = {},
+    warps = { { destMap = "ONE_WAY_ROUTE" } }, objects = {
+      { name = "DROP_NURSE", text = "TEXT_DROP_NURSE" },
+    } },
+  ONE_WAY_ROUTE = { connections = {}, warps = {} },
 } }
 local index = roster.center_index(data)
 eq(roster.center_distance(index, "CENTER", 2), 0,
@@ -37,6 +42,8 @@ eq(roster.center_distance(index, "ROUTE", 1), nil,
   "Center access outside class radius is unavailable")
 eq(roster.center_distance(index, "REMOTE", 2), nil,
   "time cannot teleport a stationary NPC to a disconnected Center")
+eq(roster.center_distance(index, "ONE_WAY_ROUTE", 1), nil,
+  "a one-way warp cannot be traversed backward to invent Center access")
 
 local function full_state()
   local state = { owned = {}, activeIds = {} }
