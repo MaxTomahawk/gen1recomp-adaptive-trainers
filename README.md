@@ -21,9 +21,12 @@ integration suites, then runs `modkit validate` and `modkit lint`. `package.sh`
 repeats those gates, stages only distributable files, and writes a reproducible
 `.modpkg` under `dist/`.
 
-Phase A is implemented: ordinary supported trainer classes receive a
+Phases A and B are implemented: ordinary supported trainer classes receive a
 context/ecology-aware roster once, and that exact set of individuals then lives
-in `mod.save`. Growth, catches, movesets, bosses, the League, Rival development,
-and the optional Kanto+ sidecar remain on the tracked implementation path.
+in `mod.save`. After player losses they observe the exact grace period, grow
+toward bounded contextual ceilings, may make one plausible catch per interval,
+and rotate a bench only with plausible Center access. Movesets, bosses, the
+League, Rival development, and the optional Kanto+ sidecar remain on the tracked
+implementation path.
 
 No ROM, extracted cartridge data, or ROM-derived media belongs in this repository or its release artifacts.

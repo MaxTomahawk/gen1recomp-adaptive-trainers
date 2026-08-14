@@ -6,6 +6,8 @@ return function(deps)
   local validator = deps.validator
   local stage_resolver = deps.stage_resolver
   local on_repair_attempt = deps.onRepairAttempt or function() end
+  local growth = deps.growth
+  local roster = deps.roster
   local M = {}
   local MAX_REPAIR_ATTEMPTS = 24
 
@@ -28,6 +30,18 @@ return function(deps)
     local top = 1
     for _, slot in ipairs(vanilla or {}) do top = math.max(top, slot.level or 1) end
     return top
+  end
+
+  local function median_level(instances)
+    local levels = {}
+    for _, mon in ipairs(instances or {}) do
+      levels[#levels + 1] = tonumber(mon.level) or 1
+    end
+    table.sort(levels)
+    if #levels == 0 then return 1 end
+    local middle = math.floor((#levels + 1) / 2)
+    if #levels % 2 == 1 then return levels[middle] end
+    return math.floor((levels[middle] + levels[middle + 1]) / 2)
   end
 
   local function original_row(slot, level, meta, pokemon)
@@ -148,8 +162,6 @@ return function(deps)
   function M.build(ctx, vanillaParty, root, services)
     root.trainers = root.trainers or {}
     local existing = root.trainers[ctx.identityKey]
-    if existing then return party_from_state(existing), existing end
-
     local data = services.data
     local meta = services.meta
     local profile = services.profile
@@ -159,8 +171,41 @@ return function(deps)
     local evidence = ecology.resolve(data, ctx.mapId, profile, {
       mapId = ctx.mapId,
       oppClass = ctx.oppClass,
+      partyIndex = ctx.partyIndex,
       override = override,
     })
+    if existing then
+      existing.vanillaTop = existing.vanillaTop or vanilla_top(vanillaParty)
+      existing.nextOwnedSerial = existing.nextOwnedSerial or #(existing.owned or {})
+      if existing.lastGrowthBattleCount == nil then
+        existing.lastGrowthBattleCount = existing.battleCount or 0
+      end
+      if existing.lastCatchBattleCount == nil then
+        existing.lastCatchBattleCount = existing.battleCount or 0
+      end
+      if existing.lastResult == "lose" and growth and roster then
+        local transitionContext = {
+          playTime = ctx.playTime,
+          playerParty = ctx.playerParty,
+          badgeCount = ctx.badgeCount,
+          pokemon = data.pokemon,
+          meta = meta,
+          rootSeed = { hi = root.seedHi, lo = root.seedLo },
+          mapId = ctx.mapId,
+          trainerMedian = median_level(existing.owned),
+        }
+        growth.materialize(existing, transitionContext, profile)
+        transitionContext.trainerMedian = median_level(existing.owned)
+        roster.maybe_catch(existing, transitionContext, profile, evidence)
+        local centerDistance = roster.center_distance(services.centerIndex,
+          ctx.mapId, profile.pcRadius)
+        roster.rotate(existing, profile, centerDistance, {
+          meta = meta, pokemon = data.pokemon,
+        })
+      end
+      return party_from_state(existing), existing
+    end
+
     local stream = rng.stream({ hi = root.seedHi, lo = root.seedLo },
       "trainer-init", ctx.identityKey)
     local reference = player_power.reference(ctx.playerParty)
@@ -225,6 +270,10 @@ return function(deps)
       lossCount = 0,
       generationVersion = 1,
       vanillaPartyHash = vanilla_party_hash(vanillaParty),
+      vanillaTop = vtop,
+      nextOwnedSerial = #selected,
+      lastGrowthBattleCount = 0,
+      lastCatchBattleCount = 0,
     }
     for index, slot in ipairs(selected) do
       local id = ctx.identityKey .. "#" .. index

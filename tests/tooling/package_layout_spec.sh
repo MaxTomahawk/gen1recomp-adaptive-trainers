@@ -29,7 +29,8 @@ if grep -Eq '^(dist|build|tests|scripts|docs)/|\.docx$' <<<"$CONTENTS"; then
   exit 1
 fi
 for required in manifest.json mod.card main.lua src/core/rng.lua \
-    src/data/line_meta.lua .modkit/pack.json; do
+    src/core/growth.lua src/core/roster.lua src/data/line_meta.lua \
+    .modkit/pack.json; do
   if ! grep -Fxq "$required" <<<"$CONTENTS"; then
     echo "package is missing required file: $required" >&2
     exit 1

@@ -22,6 +22,14 @@ The format follows Keep a Changelog, and this project uses Semantic Versioning.
   vanilla-party fingerprints, and version-distinct integration fixtures.
 - Live trainer-class registry alignment and a score-ranked, twenty-four-attempt
   repair fallback that never persists a party failing hard invariants.
+- Loss-gated saturating trainer growth with exact grace semantics, bounded
+  ceilings, deterministic rounding, and permanent evolution state.
+- One deterministic ecology/context catch per loss interval, hard special-
+  species exclusion, local level bounds, and selective class behavior.
+- Runtime-derived Center indexing plus distinct collector, expert, and casual
+  active/bench rotation policies with save/reload persistence.
+- Checkpoint-safe concrete trainer identities, story-bounded organization
+  catches, exact encountered-species acquisition, and directed world access.
 
 ## [0.1.0] - 2026-08-14
 

@@ -55,14 +55,20 @@ local function issued_rows(data, context)
   local override = context and context.override or {}
   for _, species in ipairs(override.species or {}) do
     rows[#rows + 1] = { species = species, method = "issued",
-      mapId = context.mapId, distance = 0, weight = 1 }
+      mapId = context.mapId, partyIndex = context.partyIndex,
+      distance = 0, weight = 1 }
   end
   local trainer = data.trainers and data.trainers[context and context.oppClass]
-  for _, party in ipairs(trainer and trainer.parties or {}) do
+  local parties = trainer and trainer.parties or {}
+  local limit = math.max(1, math.floor(tonumber(context and context.partyIndex)
+    or 1))
+  for partyIndex = 1, math.min(limit, #parties) do
+    local party = parties[partyIndex]
     for _, slot in ipairs(party) do
       if type(slot.species) == "string" then
         rows[#rows + 1] = { species = slot.species, level = slot.level,
-          method = "issued", mapId = context.mapId, distance = 0, weight = 1 }
+          method = "issued", mapId = context.mapId, partyIndex = partyIndex,
+          distance = 0, weight = 1 }
       end
     end
   end
