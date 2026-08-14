@@ -1,7 +1,11 @@
 local ROOT = assert(os.getenv("ADAPTIVE_TRAINERS_ROOT"),
   "ADAPTIVE_TRAINERS_ROOT must name the standalone mod checkout")
 
-local movesets = assert(loadfile(ROOT .. "/src/core/movesets.lua"))()
+local rng = assert(loadfile(ROOT .. "/src/core/rng.lua"))()
+local packages = assert(loadfile(ROOT .. "/src/data/move_packages.lua"))()
+local movesets = assert(loadfile(ROOT .. "/src/core/movesets.lua"))()({
+  rng = rng, packages = packages,
+})
 
 local checks, failures = 0, 0
 local function check(condition, message)
@@ -18,6 +22,14 @@ end
 local function contains(values, wanted)
   for _, value in ipairs(values or {}) do if value == wanted then return true end end
   return false
+end
+local function overlap_count(left, right)
+  local seen, count = {}, 0
+  for _, value in ipairs(left or {}) do seen[value] = true end
+  for _, value in ipairs(right or {}) do
+    if seen[value] then count = count + 1 end
+  end
+  return count
 end
 
 local species = {
@@ -39,6 +51,8 @@ local moveDefs = {
   MEGA_DRAIN = { type = "GRASS", power = 40, effect = "DRAIN_HP_EFFECT" },
   PSYCHIC = { type = "PSYCHIC", power = 90, effect = "SPECIAL_DOWN_SIDE_EFFECT" },
   CUT = { type = "NORMAL", power = 50, effect = "NO_ADDITIONAL_EFFECT" },
+  FIRE_BLAST = { type = "FIRE", power = 120,
+    effect = "BURN_SIDE_EFFECT2" },
 }
 
 local pool = movesets.legal_pool(species, 10, moveDefs)
@@ -49,6 +63,28 @@ check(not contains(pool.level, "GUST"),
   "legal pool excludes future level-up moves")
 check(contains(pool.tm, "PSYCHIC"),
   "legal pool derives TM/HM candidates from the runtime species registry")
+eq(movesets.role("GUST", moveDefs.GUST, species), "STAB_DAMAGE",
+  "same-type damage receives the STAB role")
+eq(movesets.role("PSYCHIC", moveDefs.PSYCHIC, species), "COVERAGE_DAMAGE",
+  "off-type damage receives the coverage role")
+eq(movesets.role("THUNDER_WAVE", { type = "ELECTRIC", power = 0,
+  effect = "PARALYZE_EFFECT" }, species), "STATUS",
+  "status packages classify control moves")
+eq(movesets.role("SWORDS_DANCE", { type = "NORMAL", power = 0,
+  effect = "ATTACK_UP2_EFFECT" }, species), "SETUP",
+  "setup packages classify win-condition moves")
+eq(movesets.role("RECOVER", { type = "NORMAL", power = 0,
+  effect = "HEAL_EFFECT" }, species), "SUSTAIN",
+  "sustain packages classify recovery moves")
+eq(movesets.role("REFLECT", { type = "PSYCHIC", power = 0,
+  effect = "REFLECT_EFFECT" }, species), "DEFENSE",
+  "defense packages classify screen moves")
+eq(movesets.role("SMOKESCREEN", { type = "NORMAL", power = 0,
+  effect = "ACCURACY_DOWN1_EFFECT" }, species), "UTILITY",
+  "utility packages classify non-damage pressure")
+eq(movesets.role("RAIN_DANCE", { type = "WATER", power = 0,
+  effect = "WEATHER_EFFECT" }, species), "WEATHER",
+  "weather packages retain their strategy role")
 
 local legacySpecies = { level1Moves = {
   "TACKLE", "STRING_SHOT", "TACKLE",
@@ -87,12 +123,13 @@ eq(table.concat(movesets.generate(repeated, species, moveDefs, 0), ","),
 
 local inherited = { id = "evolved", species = "BUTTERFREE", level = 12,
   moves = { "TACKLE", "STRING_SHOT", "HARDEN", "CONFUSION" } }
-local before = table.concat(inherited.moves, ",")
+local beforeMoves = { unpack(inherited.moves) }
+local before = table.concat(beforeMoves, ",")
 local refreshed = movesets.refresh(inherited, "evolution", species,
   moveDefs, 2)
 check(refreshed, "evolution forces one persistent refresh when useful")
-check(contains(inherited.moves, "TACKLE"),
-  "refresh retains a logical inherited move")
+eq(overlap_count(beforeMoves, inherited.moves), 3,
+  "refresh retains three logical inherited moves and replaces at most one")
 check(contains(inherited.moves, "GUST"),
   "refresh admits a newly legal evolved-species move")
 eq(#inherited.moves, 4, "refresh never exceeds four moves")
@@ -108,6 +145,25 @@ eq(movesets.refresh(noUpgrade, "level", species, moveDefs, 3), false,
   "ordinary level refresh does not churn a stronger nonredundant set")
 eq(table.concat(noUpgrade.moves, ","), stableBefore,
   "rejected refresh leaves persistent move memory byte-stable")
+
+local diverseSpecies = {
+  types = species.types, level1Moves = species.level1Moves,
+  learnset = species.learnset,
+  tmhm = { "MEGA_DRAIN", "PSYCHIC", "CUT", "FIRE_BLAST" },
+}
+local diverse = { id = "diverse", species = "BUTTERFREE", level = 12,
+  roleSeed = 77, moves = { "GUST", "PSYCHIC", "MEGA_DRAIN", "CUT" },
+  moveSources = { GUST = "level", PSYCHIC = "level",
+    MEGA_DRAIN = "level", CUT = "level" } }
+local diverseBefore = table.concat(diverse.moves, ",")
+eq(movesets.refresh(diverse, "level-up", diverseSpecies, moveDefs, 3), false,
+  "level-up refresh cannot evict a nonredundant move for raw power alone")
+eq(table.concat(diverse.moves, ","), diverseBefore,
+  "a diverse full moveset remains byte-stable on rejected level refresh")
+check(movesets.refresh(diverse, "evolution", diverseSpecies, moveDefs, 3),
+  "evolution may spend its one extra refresh on a clearly stronger move")
+check(contains(diverse.moves, "FIRE_BLAST"),
+  "the evolution-only extra refresh admits the stronger legal candidate")
 
 if failures > 0 then
   io.stderr:write(string.format("%d/%d moveset checks failed\n",

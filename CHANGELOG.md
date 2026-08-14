@@ -36,6 +36,10 @@ The format follows Keep a Changelog, and this project uses Semantic Versioning.
   inherited move memory, and an extra evolution refresh.
 - Skipped trainer-loss accounting and grace-safe engine-equivalent move
   hydration for individuals created by earlier mod schemas.
+- Runtime-registry legal movesets with tier TM ceilings, persistent move-source
+  memory, stable one-slot level/evolution refreshes, and usable-STAB guarantees.
+- Class-driven T0-T3 move scoring and bounded expert switching through the
+  public trainer and AI-class registries.
 
 ## [0.1.0] - 2026-08-14
 

@@ -4,7 +4,10 @@ local ROOT = assert(os.getenv("ADAPTIVE_TRAINERS_ROOT"),
 local rng = assert(loadfile(ROOT .. "/src/core/rng.lua"))()
 local player_power = assert(loadfile(ROOT .. "/src/core/player_power.lua"))()
 local stage_resolver = assert(loadfile(ROOT .. "/src/core/stage_resolver.lua"))()
-local movesets = assert(loadfile(ROOT .. "/src/core/movesets.lua"))()
+local packages = assert(loadfile(ROOT .. "/src/data/move_packages.lua"))()
+local movesets = assert(loadfile(ROOT .. "/src/core/movesets.lua"))()({
+  rng = rng, packages = packages,
+})
 local growth = assert(loadfile(ROOT .. "/src/core/growth.lua"))()({
   rng = rng, player_power = player_power, stage_resolver = stage_resolver,
   movesets = movesets,
@@ -32,6 +35,16 @@ local pokemon = {
     }, tmhm = {} },
   STEADY = { baseStats = { hp = 50 }, evolutions = {},
     level1Moves = { "GROWL" }, learnset = {}, tmhm = {} },
+}
+local moveDefs = {
+  TACKLE = { id = "TACKLE", type = "NORMAL", power = 35, accuracy = 95,
+    effect = "NO_ADDITIONAL_EFFECT" },
+  GROWL = { id = "GROWL", type = "NORMAL", power = 0, accuracy = 100,
+    effect = "ATTACK_DOWN1_EFFECT" },
+  CONFUSION = { id = "CONFUSION", type = "PSYCHIC", power = 50,
+    accuracy = 100, effect = "CONFUSION_SIDE_EFFECT" },
+  GUST = { id = "GUST", type = "FLYING", power = 40, accuracy = 100,
+    effect = "NO_ADDITIONAL_EFFECT" },
 }
 local line = { lineId = "BASE_LINE", stages = {
   { species = "BASE" }, { species = "EVOLVED" },
@@ -71,7 +84,7 @@ end
 local function context(playTime)
   return { playTime = playTime, playerParty = {
     { level = 20 }, { level = 18 }, { level = 16 },
-  }, badgeCount = 1, pokemon = pokemon, meta = meta }
+  }, badgeCount = 1, pokemon = pokemon, moves = moveDefs, meta = meta }
 end
 
 for _, elapsed in ipairs({ 0, 1, 899, 900 }) do
@@ -127,6 +140,14 @@ eq(evolved.owned[1].movesetRefreshReason, nil,
   "a completed evolution refresh leaves no unresolved marker")
 eq(evolved.owned[1].lastMovesetRefreshReason, "evolution",
   "the persistent instance records why its moves changed")
+
+local trained = state()
+trained.owned = { trained.owned[2] }
+growth.materialize(trained, context(100 + 72 * 3600), profile)
+check(trained.owned[1].level > 9,
+  "long elapsed training advances a non-evolving individual")
+eq(trained.owned[1].movesetRefreshReason, nil,
+  "ordinary growth leaves no deferred moveset mutation")
 
 local aboveCeiling = state()
 aboveCeiling.vanillaTop = 20

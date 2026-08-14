@@ -105,7 +105,7 @@ return function(deps)
         local species = line and stage_resolver.resolve(line, mon.level,
           ctx.pokemon, mon.species)
         if movesets then
-          movesets.refresh(mon, "level", ctx.pokemon[previousSpecies],
+          movesets.refresh(mon, "level-up", ctx.pokemon[previousSpecies],
             ctx.moves, profile.aiTier)
         end
         if species and species ~= mon.species then

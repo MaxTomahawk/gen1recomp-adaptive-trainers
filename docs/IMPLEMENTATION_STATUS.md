@@ -18,8 +18,8 @@ Implement the complete approved Adaptive Trainer Ecology & Challenge System v1 a
 ## Phase status
 
 - [x] Phase A — identity, save schema, deterministic RNG, Kanto-only initial standard-trainer generation and persistence (PR #1 merged green at `928de80`)
-- [ ] Phase B — elapsed growth, local catches, Center-aware owned/active roster behavior (review fixes green; PR #2 re-review pending)
-- [ ] Phase C — legal persistent movesets, AI sophistication tiers, property tests
+- [x] Phase B — elapsed growth, local catches, Center-aware owned/active roster behavior (PRs #2/#3 merged green at `c84984e`)
+- [ ] Phase C — legal persistent movesets, AI sophistication tiers, property tests (local gates green; review/PR pending)
 - [ ] Phase D — Gym registration and eligibility, eight Leader identities, challenge scaling
 - [ ] Phase E — Elite Four run snapshot and exactly-one-Bird mechanic
 - [ ] Phase F — persistent Rival journey, R/B/Y windows, Yellow Eevee outcomes
@@ -28,19 +28,12 @@ Implement the complete approved Adaptive Trainer Ecology & Challenge System v1 a
 
 ## Current execution
 
-Phase A merged through PR #1 after green CI and a final independent review with
-no findings. Phase B is implemented locally on `agent/phase-b`: loss-gated
-elapsed growth, permanent stage changes, bounded local/context catches,
-Center-aware bench rotation, and battle-result persistence are green. The first
-independent reviews found correctness gaps around grace-wide roster freezing,
-evolution move memory, directed warps, battle-result binding, exact caught
-species, story-bounded organization pools, checkpoint collision identity,
-skipped-loss lifecycle, legacy move hydration, and the contextual-ceiling
-report. Each now has a focused regression and a mod-only fix. The legal
-persistent-moveset foundation was pulled forward from Phase C because chapter
-7.4 evolution depends on it. The next gates are refreshed PR CI, clean
-re-review, and merge; the remaining Phase C AI/tier work then continues
-immediately.
+Phases A and B merged after green CI and clean independent reviews. Phase C is
+implemented locally on `agent/phase-c`: runtime-registry move legality,
+persistent move/source memory, conservative level/evolution refreshes, and
+class-driven T0-T3 AI are green through pure tests and the live public AI
+registries. The next gates are independent Phase C review, repository PR CI,
+and merge; Phase D then begins immediately.
 
 Current evidence:
 
@@ -51,15 +44,23 @@ Current evidence:
   including collision-checkpoint reconstruction, concrete battle binding,
   skipped-loss handling, grace-safe legacy move hydration, full-party grace
   freezing, and Blue/Yellow badge-path coverage.
-- Deterministic/property/unit suites: 23,363/23,363 property assertions plus
-  4,630 focused data/ecology/generation/growth/catch/roster/identity/moveset/
-  power/RNG/schema assertions.
+- Phase C public runtime: 16/16 persistent-move, evolution-refresh, merged-AI,
+  tactical-switch, and serialized-reload checks.
+- Deterministic/property/unit suites: 71,363/71,363 property assertions plus
+  4,655 focused AI/data/ecology/generation/growth/catch/moveset/roster/
+  identity/power/RNG/schema assertions.
 - `modkit validate --base fixture`: green.
 - `modkit lint`: green, no ROM-derived content detected.
-- Reproducible double-pack check: green; 22 distributable files plus
+- Reproducible double-pack check: green; 24 distributable files plus
   `.modkit/pack.json`, with no recursive `dist/`, tests, scripts, docs, or DOCX.
 - Source-date-zero package SHA-256:
-  `7012947d136a40ee21d765beaf9e3f1535e53fd4493707e16d3e6a73737dbe57`.
+  `095e71dd93fa811eb297f1aa5d6cae3b8a1300d4cd8aec9a3bf87c51cd6284c9`.
+
+The ROM-free fixture validator reports MK103 as not checkable for trainer-id
+patch references; it remains green and cannot distinguish real vanilla ids from
+typos without an imported data base. The current upstream trainer registry and
+the mod's 1,990 data assertions independently cover every patched ordinary
+class id without committing imported content.
 
 ## Baseline clarifications
 
