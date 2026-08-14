@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "agent/**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out Adaptive Trainers
+        uses: actions/checkout@v7
+
+      - name: Check out current audited Gen1Recomp dev
+        uses: actions/checkout@v7
+        with:
+          repository: bryanthaboi/gen1recomp
+          ref: f4658b89aedd5b222541074d3dfdbca9136c0b23
+          path: .engine/gen1recomp
+
+      - name: Install LuaJIT
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes luajit
+
+      - name: Verify command diagnostics
+        run: bash tests/tooling/check_script_spec.sh
+
+      - name: Test, validate, and lint
+        env:
+          GEN1RECOMP_ROOT: ${{ github.workspace }}/.engine/gen1recomp
+        run: bash scripts/check.sh
+
+      - name: Build reproducible ROM-free package
+        env:
+          GEN1RECOMP_ROOT: ${{ github.workspace }}/.engine/gen1recomp
+          SOURCE_DATE_EPOCH: "0"
+        run: bash scripts/package.sh
+
+      - name: Verify package layout and reproducibility
+        env:
+          GEN1RECOMP_ROOT: ${{ github.workspace }}/.engine/gen1recomp
+          SOURCE_DATE_EPOCH: "0"
+        run: bash tests/tooling/package_layout_spec.sh
+
+      - name: Upload package
+        uses: actions/upload-artifact@v7
+        with:
+          name: adaptive_trainers-development
+          path: dist/*.modpkg

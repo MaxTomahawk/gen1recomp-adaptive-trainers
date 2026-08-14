@@ -1,0 +1,24 @@
+return {
+  summary = "Persistent trainers and fair adaptive challenges across Red, Blue, and Yellow.",
+  author = "MaxTomahawk",
+  contact = "https://github.com/MaxTomahawk/gen1recomp-adaptive-trainers",
+  tags = { "trainer", "challenge", "deterministic", "hardcore" },
+  differences = {
+    changed = {
+      "trainer parties become deterministic persistent individuals",
+      "bosses and the Rival follow distinct fair adaptation rules",
+    },
+    added = {
+      "trainer ecology, growth, collection, and challenge state in mod.save",
+      "optional Kanto+ content when compatible imported registries are present",
+    },
+    known = {
+      "the 0.1.0 development line is not yet release-complete",
+    },
+  },
+  credits = {
+    { who = "bryanthaboi/gen1recomp contributors", for_ = "native mod platform and engine" },
+    { who = "pret/pokered and pret/pokeyellow contributors", for_ = "documented vanilla behavior research" },
+  },
+  compat = { engine = ">=0.0.0-dev <1.0.0", modApi = 2 },
+}

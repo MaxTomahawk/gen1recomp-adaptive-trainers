@@ -33,11 +33,11 @@
 - Produces: stable `./scripts/check.sh` and `./scripts/package.sh` entrypoints parameterized by `GEN1RECOMP_ROOT`
 - Consumes: upstream `tools/modkit.py`, LuaJIT, and the repository root as the standalone mod directory
 
-- [ ] Write a headless loader test that fails because `main.lua` and the manifest contract do not yet exist.
-- [ ] Add the manifest/card/changelog and a minimal public-API entrypoint, then verify the loader test passes.
-- [ ] Add check and package scripts that run unit tests, modkit validate, lint, and reproducible pack against an explicit engine root.
-- [ ] Add GitHub Actions using a current checkout of `bryanthaboi/gen1recomp@dev` and run the same entrypoints.
-- [ ] Commit as `chore: establish standalone mod toolchain`.
+- [x] Write a headless loader test that fails because `main.lua` and the manifest contract do not yet exist.
+- [x] Add the manifest/card/changelog and a minimal public-API entrypoint, then verify the loader test passes.
+- [x] Add check and package scripts that run unit tests, modkit validate, lint, and reproducible pack against an explicit engine root.
+- [x] Add GitHub Actions using the audited `bryanthaboi/gen1recomp@dev` SHA and run the same entrypoints.
+- [x] Commit as `chore: establish standalone mod toolchain`.
 
 ### Task 2: Phase A — deterministic identity, save, RNG, and initial rosters
 
@@ -57,16 +57,16 @@
 - `ecology.resolve(data, mapId, profile) -> candidate evidence rows`
 - `standard_trainers.build(ctx, vanillaParty, root, services) -> partyDef, TrainerState`
 
-- [ ] Write RNG vector, stream-separation, and 100-rerun repeatability tests; run them and observe the missing-module failure.
-- [ ] Implement the two-word deterministic hash/PRNG without `math.random`; rerun to green.
-- [ ] Write schema initialization, idempotence, migration preservation, and Kanto+ suspended-stage tests; run red, implement, run green.
-- [ ] Write identity tests for version/map/class/party and NPC collision suffixes; run red, implement, run green.
-- [ ] Write player-reference and initial-catch-up boundary tests; run red, implement, run green.
-- [ ] Write ecology BFS, class affinity, version-input, legendary exclusion, duplicate-line, stage, and ±12% power tests; run red.
-- [ ] Implement full Kanto line metadata and data-driven class profiles from the baseline, selector scoring, bounded conflict rerolls, stage resolution, and validator; run green.
-- [ ] Write persistence and byte-equivalent party tests through the public `trainer.party` hook; run red.
-- [ ] Implement the thin runtime adapter using `game.ready`, `world.trainer_engaged`, `mod.world:current()`, registry iteration, and `mod.save`; run green.
-- [ ] Run all unit/integration tests, modkit validate, and modkit lint; update status evidence and commit as `feat: add persistent standard trainer generation`.
+- [x] Write RNG vector, stream-separation, and 100-rerun repeatability tests; run them and observe the missing-module failure.
+- [x] Implement the two-word deterministic hash/PRNG without `math.random`; rerun to green.
+- [x] Write schema initialization, idempotence, migration preservation, and Kanto+ suspended-stage tests; run red, implement, run green.
+- [x] Write identity tests for version/map/class/party and NPC collision suffixes; run red, implement, run green.
+- [x] Write player-reference and initial-catch-up boundary tests; run red, implement, run green.
+- [x] Write ecology BFS, class affinity, version-input, legendary exclusion, duplicate-line, stage, and ±12% power tests; run red.
+- [x] Implement full Kanto line metadata and data-driven class profiles from the baseline, selector scoring, bounded conflict rerolls, stage resolution, and validator; run green.
+- [x] Write persistence and byte-equivalent party tests through the public `trainer.party` hook; run red.
+- [x] Implement the thin runtime adapter using `game.ready`, `world.trainer_engaged`, `mod.world:current()`, registry iteration, and `mod.save`; run green.
+- [x] Run all unit/integration tests, modkit validate, and modkit lint; update status evidence and commit as `feat: add persistent standard trainer generation`.
 
 ### Task 3: Phase B — elapsed growth, catches, and roster rotation
 
