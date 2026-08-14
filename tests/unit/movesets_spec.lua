@@ -101,6 +101,19 @@ movesets.hydrate_legacy(legacy, legacySpecies, moveDefs)
 eq(table.concat(legacy.moves, ","),
   "STRING_SHOT,HARDEN,CONFUSION,GUST",
   "legacy hydration never introduces an otherwise learnable TM")
+local phaseBUpgrade = { species = "BUTTERFREE", level = 6,
+  moves = { "GUST", "PSYCHIC", "FIRE_BLAST" } }
+movesets.hydrate_legacy(phaseBUpgrade, legacySpecies, moveDefs)
+eq(table.concat(phaseBUpgrade.moves, ","), "GUST,PSYCHIC,FIRE_BLAST",
+  "upgrade hydration preserves an existing Phase B moveset byte-for-byte")
+eq(phaseBUpgrade.moveSources.GUST, "level",
+  "upgrade hydration records a legal level-move source")
+eq(phaseBUpgrade.moveSources.PSYCHIC, "tm",
+  "upgrade hydration records a legal TM source")
+eq(phaseBUpgrade.moveSources.FIRE_BLAST, "inherited",
+  "upgrade hydration retains unknown historical moves as inherited")
+eq(phaseBUpgrade.movesetVersion, packages.version,
+  "upgrade hydration stamps the current persistent moveset schema")
 
 local novice = { id = "novice", species = "BUTTERFREE", level = 10 }
 local noviceMoves = movesets.generate(novice, species, moveDefs, 0)
@@ -120,6 +133,30 @@ local repeated = { id = "novice", species = "BUTTERFREE", level = 10 }
 eq(table.concat(movesets.generate(repeated, species, moveDefs, 0), ","),
   table.concat(noviceMoves, ","),
   "moveset generation repeats without global randomness")
+
+local teamMoveDefs = {
+  STAB = { type = "NORMAL", power = 60, accuracy = 100 },
+  FIRE = { type = "FIRE", power = 90, accuracy = 100 },
+  ICE = { type = "ICE", power = 90, accuracy = 100 },
+  WATER = { type = "WATER", power = 90, accuracy = 100 },
+  ELECTRIC = { type = "ELECTRIC", power = 90, accuracy = 100 },
+}
+local teamSpecies = { types = { "NORMAL" }, level1Moves = { "STAB" },
+  tmhm = { "FIRE", "ICE", "WATER", "ELECTRIC" } }
+local priorTeam = { { species = "ALLY", moves = { "FIRE", "FIRE" } } }
+local priorPokemon = { ALLY = { types = { "FIRE" } } }
+local teamContext = movesets.team_context(priorTeam, priorPokemon, teamMoveDefs)
+eq(teamContext.damageTypeCounts.FIRE, 2,
+  "team context counts persisted teammate damage types")
+local teamFit = { id = "team-fit", species = "TEST", level = 50,
+  roleSeed = 9 }
+local teamFitMoves = movesets.generate(teamFit, teamSpecies, teamMoveDefs, 3,
+  nil, teamContext)
+check(not contains(teamFitMoves, "FIRE"),
+  "T3 team fit drops already-redundant coverage when alternatives exist")
+check(contains(teamFitMoves, "ICE") and contains(teamFitMoves, "WATER")
+    and contains(teamFitMoves, "ELECTRIC"),
+  "T3 team fit fills uncovered team damage types")
 
 local inherited = { id = "evolved", species = "BUTTERFREE", level = 12,
   moves = { "TACKLE", "STRING_SHOT", "HARDEN", "CONFUSION" } }

@@ -27,7 +27,7 @@ in `mod.save`. After player losses they observe the exact grace period, grow
 toward bounded contextual ceilings, may make one plausible catch per interval,
 and rotate a bench only with plausible Center access. Their legal moves and
 move-source memory persist across retries and refresh conservatively, while
-class tiers use public AI scoring/switching records. Bosses, the League, Rival
+class tiers use public AI scoring and composable tactical switching. Bosses, the League, Rival
 development, and the optional Kanto+ sidecar remain on the tracked implementation
 path.
 

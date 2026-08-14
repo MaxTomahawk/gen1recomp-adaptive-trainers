@@ -397,6 +397,36 @@ eq(repairParty[2].species, "C",
   "bounded repair replaces only the conflicting duplicate slot")
 check(repairParty[1].species ~= "A" or repairParty[2].species ~= "A",
   "a local conflict does not revert the whole generated team")
+local observedTeamSizes = {}
+local movesetProbe = {
+  team_context = function(instances)
+    return { observedTeamSize = #instances }
+  end,
+  generate = function(instance, _, _, _, _, context)
+    observedTeamSizes[#observedTeamSizes + 1] = context.observedTeamSize
+    instance.moves, instance.moveSources = { "PROBE" }, { PROBE = "level" }
+  end,
+}
+local expertStandard = standard_factory({
+  rng = rng, player_power = player_power,
+  ecology = { resolve = function() return {} end },
+  selector = repairSelector, validator = validator,
+  stage_resolver = stage_resolver, movesets = movesetProbe,
+})
+expertStandard.build({
+  version = "red", mapId = "EXPERT_MAP", oppClass = "OPP_COOLTRAINER_M",
+  partyIndex = 1, identityKey = "expert-team-fit", playTime = 0,
+  playerParty = {},
+}, { { species = "A", level = 5 }, { species = "A", level = 5 } }, {
+  seedHi = 7, seedLo = 11, trainers = {},
+}, { data = { pokemon = repairPokemon, moves = {}, maps = {}, encounters = {} },
+  meta = { lines = repairLines, bySpecies = repairBySpecies },
+  profile = { initialCatchupFactor = 0, initialCap = 0,
+    allowDuplicateLines = false, aiTier = 3 } })
+eq(observedTeamSizes[1], 0,
+  "the first expert moveset sees no previously assembled teammates")
+eq(observedTeamSizes[2], 1,
+  "later expert movesets receive the assembled team context")
 local _, hashState = repairStandard.build({
   version = "red", mapId = "HASH_MAP", oppClass = "OPP_YOUNGSTER",
   partyIndex = 1, identityKey = "hash-trainer", playTime = 0,

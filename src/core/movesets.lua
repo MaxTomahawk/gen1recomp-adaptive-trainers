@@ -54,10 +54,16 @@ return function(deps)
   end
 
   function M.hydrate_legacy(instance, speciesDef, moveDefs)
-    if instance.moves ~= nil then return instance.moves end
-    instance.moves = M.level_moves(speciesDef, instance.level, moveDefs)
+    local generated = instance.moves == nil
+    if instance.moves == nil then
+      instance.moves = M.level_moves(speciesDef, instance.level, moveDefs)
+    end
+    local pool = M.legal_pool(speciesDef, instance.level, moveDefs)
     instance.moveSources = instance.moveSources or {}
-    for _, id in ipairs(instance.moves) do instance.moveSources[id] = "level" end
+    for _, id in ipairs(instance.moves) do
+      instance.moveSources[id] = instance.moveSources[id]
+        or (generated and "level") or pool.byId[id] or "inherited"
+    end
     instance.movesetVersion = packages.version
     return instance.moves
   end
@@ -90,6 +96,26 @@ return function(deps)
     return "UTILITY"
   end
 
+  function M.team_context(instances, pokemon, moveDefs)
+    local context = { roleCounts = {}, damageTypeCounts = {} }
+    for _, instance in ipairs(instances or {}) do
+      local speciesDef = pokemon and pokemon[instance.species] or {}
+      for _, moveId in ipairs(instance.moves or {}) do
+        local moveDef = moveDefs and moveDefs[moveId]
+        if moveDef then
+          local role = M.role(moveId, moveDef, speciesDef)
+          context.roleCounts[role] = (context.roleCounts[role] or 0) + 1
+          if (tonumber(moveDef.power) or 0) > 0 then
+            local moveType = moveDef.type
+            context.damageTypeCounts[moveType]
+              = (context.damageTypeCounts[moveType] or 0) + 1
+          end
+        end
+      end
+    end
+    return context
+  end
+
   local function tie_break(instance, moveId)
     local seed = rng.seed({ "trainer-move-role-v1",
       tonumber(instance and instance.roleSeed) or 0,
@@ -98,33 +124,52 @@ return function(deps)
   end
 
   local function candidate_score(instance, speciesDef, moveId, moveDef,
-      source, tier, package)
+      source, tier, package, teamContext)
     local rules = packages.tiers[tier] or packages.tiers[0]
+    local scoring = packages.scoring
     local role = M.role(moveId, moveDef, speciesDef)
     local power = math.max(0, tonumber(moveDef and moveDef.power) or 0)
     local accuracy = math.max(0, tonumber(moveDef and moveDef.accuracy) or 100)
     local score
     if power > 0 then
-      score = power * 0.65 + accuracy * 0.12
+      score = power * scoring.damagePowerWeight
+        + accuracy * scoring.accuracyWeight
       if role == "STAB_DAMAGE" then
         score = score + rules.stabBonus
       else
         score = score + rules.coverageBonus
       end
     else
-      score = 18 + (rules.roleWeights[role] or 0) + accuracy * 0.05
+      score = scoring.statusBase + (rules.roleWeights[role] or 0)
+        + accuracy * scoring.statusAccuracyWeight
     end
     if source == "tm" then score = score - rules.tmPenalty end
-    if source == "technique" then score = score + 35 end
+    if source == "technique" then
+      score = score + scoring.techniqueBonus
+    end
     if package then
       score = score + ((package.roleWeights or {})[role] or 0)
-      if as_set(package.signatureMoves)[moveId] then score = score + 50 end
+      if as_set(package.signatureMoves)[moveId] then
+        score = score + scoring.signatureBonus
+      end
+    end
+    if tier >= 3 and teamContext then
+      if power > 0 then
+        local overlap = (teamContext.damageTypeCounts or {})[moveDef.type] or 0
+        score = score - overlap * (rules.teamDamageTypePenalty or 0)
+        if role == "COVERAGE_DAMAGE" and overlap == 0 then
+          score = score + (rules.uncoveredCoverageBonus or 0)
+        end
+      else
+        local overlap = (teamContext.roleCounts or {})[role] or 0
+        score = score - overlap * (rules.teamRolePenalty or 0)
+      end
     end
     return score + tie_break(instance, moveId), role
   end
 
   local function ranked_candidates(instance, speciesDef, moveDefs, tier,
-      package)
+      package, teamContext)
     local pool = M.legal_pool(speciesDef, instance.level, moveDefs, package)
     local rows, seen = {}, {}
     local function add_all(values)
@@ -133,7 +178,7 @@ return function(deps)
           seen[id] = true
           local source = pool.byId[id]
           local score, role = candidate_score(instance, speciesDef, id,
-            moveDefs[id], source, tier, package)
+            moveDefs[id], source, tier, package, teamContext)
           rows[#rows + 1] = { id = id, source = source, score = score,
             role = role, type = moveDefs[id].type }
         end
@@ -198,11 +243,12 @@ return function(deps)
     return selected
   end
 
-  function M.generate(instance, speciesDef, moveDefs, tier, package)
+  function M.generate(instance, speciesDef, moveDefs, tier, package,
+      teamContext)
     instance = instance or {}
     tier = math.max(0, math.min(4, math.floor(tonumber(tier) or 0)))
     local rows = ranked_candidates(instance, speciesDef, moveDefs, tier,
-      package)
+      package, teamContext)
     local selected = select_moves(rows, tier)
     local moves = {}
     instance.moveSources = {}
@@ -216,28 +262,30 @@ return function(deps)
   end
 
   local function existing_row(instance, speciesDef, moveDefs, pool, tier,
-      package, id)
+      package, teamContext, id)
     local def = moveDefs[id]
     if not def then return { id = id, score = -math.huge,
       role = "UNKNOWN", type = "", source = "inherited" } end
     local source = (instance.moveSources or {})[id]
       or pool.byId[id] or "inherited"
     local score, role = candidate_score(instance, speciesDef, id, def,
-      source, tier, package)
+      source, tier, package, teamContext)
     return { id = id, score = score, role = role, type = def.type,
       source = source }
   end
 
-  function M.refresh(instance, reason, speciesDef, moveDefs, tier, package)
+  function M.refresh(instance, reason, speciesDef, moveDefs, tier, package,
+      teamContext)
+    tier = math.max(0, math.min(4, math.floor(tonumber(tier) or 0)))
     instance.moves = instance.moves or {}
     instance.moveSources = instance.moveSources or {}
     if #instance.moves == 0 then
-      M.generate(instance, speciesDef, moveDefs, tier, package)
+      M.generate(instance, speciesDef, moveDefs, tier, package, teamContext)
       instance.lastMovesetRefreshReason = reason
       return #instance.moves > 0
     end
     local rows, pool = ranked_candidates(instance, speciesDef, moveDefs,
-      tier, package)
+      tier, package, teamContext)
     local ideal = select_moves(rows, tier)
     local known = as_set(instance.moves)
     local incoming
@@ -256,7 +304,7 @@ return function(deps)
     local currentTmCount = 0
     for index, id in ipairs(instance.moves) do
       local row = existing_row(instance, speciesDef, moveDefs, pool, tier,
-        package, id)
+        package, teamContext, id)
       row.index = index
       existing[#existing + 1] = row
       if row.source == "tm" then currentTmCount = currentTmCount + 1 end

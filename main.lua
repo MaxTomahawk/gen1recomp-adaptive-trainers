@@ -50,7 +50,8 @@ return function(mod)
   local line_meta = module("src/data/line_meta.lua").build()
   local profiles = module("src/data/trainer_profiles.lua")
   local ecology_overrides = module("src/data/ecology_overrides.lua")
-  local ai = module("src/core/ai.lua")
+  local ai_tiers = module("src/data/ai_tiers.lua")
+  local ai = module("src/core/ai.lua")(ai_tiers)
   ai.register(mod, profiles)
 
   local game

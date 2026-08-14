@@ -19,7 +19,7 @@ Implement the complete approved Adaptive Trainer Ecology & Challenge System v1 a
 
 - [x] Phase A — identity, save schema, deterministic RNG, Kanto-only initial standard-trainer generation and persistence (PR #1 merged green at `928de80`)
 - [x] Phase B — elapsed growth, local catches, Center-aware owned/active roster behavior (PRs #2/#3 merged green at `c84984e`)
-- [ ] Phase C — legal persistent movesets, AI sophistication tiers, property tests (local gates green; review/PR pending)
+- [ ] Phase C — legal persistent movesets, AI sophistication tiers, property tests (review hardening green; re-review/merge pending)
 - [ ] Phase D — Gym registration and eligibility, eight Leader identities, challenge scaling
 - [ ] Phase E — Elite Four run snapshot and exactly-one-Bird mechanic
 - [ ] Phase F — persistent Rival journey, R/B/Y windows, Yellow Eevee outcomes
@@ -29,11 +29,13 @@ Implement the complete approved Adaptive Trainer Ecology & Challenge System v1 a
 ## Current execution
 
 Phases A and B merged after green CI and clean independent reviews. Phase C is
-implemented locally on `agent/phase-c`: runtime-registry move legality,
-persistent move/source memory, conservative level/evolution refreshes, and
-class-driven T0-T3 AI are green through pure tests and the live public AI
-registries. The next gates are independent Phase C review, repository PR CI,
-and merge; Phase D then begins immediately.
+implemented on `agent/phase-c`: runtime-registry move legality, upgrade-safe
+persistent move/source memory, T3 team-fit, conservative level/evolution
+refreshes, T0-T4 move-scoring tiers, and T3 switching composed with existing
+class item behavior are green through pure tests and the live public AI
+registries. The first independent review's three Important findings are fixed;
+the next gates are re-review, refreshed PR CI, and merge. Phase D then begins
+immediately.
 
 Current evidence:
 
@@ -44,17 +46,17 @@ Current evidence:
   including collision-checkpoint reconstruction, concrete battle binding,
   skipped-loss handling, grace-safe legacy move hydration, full-party grace
   freezing, and Blue/Yellow badge-path coverage.
-- Phase C public runtime: 16/16 persistent-move, evolution-refresh, merged-AI,
+- Phase C public runtime: 17/17 persistent-move, evolution-refresh, merged-AI,
   tactical-switch, and serialized-reload checks.
-- Deterministic/property/unit suites: 71,363/71,363 property assertions plus
-  4,655 focused AI/data/ecology/generation/growth/catch/moveset/roster/
+- Deterministic/property/unit suites: 85,363/85,363 property assertions plus
+  4,669 focused AI/data/ecology/generation/growth/catch/moveset/roster/
   identity/power/RNG/schema assertions.
 - `modkit validate --base fixture`: green.
 - `modkit lint`: green, no ROM-derived content detected.
-- Reproducible double-pack check: green; 24 distributable files plus
+- Reproducible double-pack check: green; 25 distributable files plus
   `.modkit/pack.json`, with no recursive `dist/`, tests, scripts, docs, or DOCX.
 - Source-date-zero package SHA-256:
-  `095e71dd93fa811eb297f1aa5d6cae3b8a1300d4cd8aec9a3bf87c51cd6284c9`.
+  `087e2b2a0a62b614bcdda6a5e80df21e84d2c3253d2a53bb468e3f4f0122f086`.
 
 The ROM-free fixture validator reports MK103 as not checkable for trainer-id
 patch references; it remains green and cannot distinguish real vanilla ids from

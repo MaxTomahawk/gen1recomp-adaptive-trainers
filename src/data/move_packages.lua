@@ -1,5 +1,13 @@
 return {
   version = 1,
+  scoring = {
+    damagePowerWeight = 0.65,
+    accuracyWeight = 0.12,
+    statusBase = 18,
+    statusAccuracyWeight = 0.05,
+    techniqueBonus = 35,
+    signatureBonus = 50,
+  },
   tiers = {
     [0] = {
       maxTm = 1, tmPenalty = 22, stabBonus = 58, coverageBonus = 2,
@@ -20,11 +28,17 @@ return {
       maxTm = 3, tmPenalty = 0, stabBonus = 64, coverageBonus = 20,
       roleWeights = { STATUS = 18, SETUP = 18, SUSTAIN = 17,
         DEFENSE = 12, UTILITY = 10 },
+      teamDamageTypePenalty = 40,
+      teamRolePenalty = 8,
+      uncoveredCoverageBonus = 12,
     },
     [4] = {
       maxTm = 4, tmPenalty = 0, stabBonus = 66, coverageBonus = 22,
       roleWeights = { STATUS = 20, SETUP = 22, SUSTAIN = 20,
         DEFENSE = 15, UTILITY = 12, WEATHER = 25 },
+      teamDamageTypePenalty = 32,
+      teamRolePenalty = 6,
+      uncoveredCoverageBonus = 14,
     },
   },
   refreshMargin = { ["level-up"] = 12, evolution = 0 },

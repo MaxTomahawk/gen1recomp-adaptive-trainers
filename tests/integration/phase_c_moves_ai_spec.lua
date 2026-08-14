@@ -95,8 +95,8 @@ Runtime.emit("game.ready", { game = game })
 
 T.eq(table.concat(run.data.trainers.OPP_BUG_CATCHER.aiMods, ","), "LAYER_1",
   "T0 class AI is registered through the public trainer registry")
-T.eq(run.data.trainers.OPP_COOLTRAINER_M.aiClass, "ADAPTIVE_T3_CLASS",
-  "expert class points at the mod's public tactical class")
+T.eq(run.data.trainers.OPP_COOLTRAINER_M.aiClass, nil,
+  "expert class retains its runtime class item identity")
 T.check(run.data.ai_classes.ADAPTIVE_T3_ROLE ~= nil,
   "expert scoring layer exists in the merged public AI registry")
 
@@ -108,14 +108,18 @@ local expertBattle = {
   enemyParty = { { hp = 20 }, { hp = 30 } },
   rng = function() return 0 end,
 }
-local switch = TrainerAI.classAction(expertBattle)
+local switch = Runtime.call("battle.enemy_action",
+  function() return { id = "FIX_TACKLE" } end, expertBattle)
 T.eq(switch and switch.special, "aiSwitch",
   "merged T3 class can make a bounded tactical switch")
 T.eq(switch and switch.index, 2,
   "expert switching selects an available backup through vanilla AI semantics")
 expertBattle.rng = function() return 30 end
-T.eq(TrainerAI.classAction(expertBattle), nil,
-  "expert class does not switch on every turn or invent an item")
+local item = TrainerAI.classAction(expertBattle)
+T.eq(item and item.special, "aiItem",
+  "expert class retains its limited vanilla-class item behavior")
+T.eq(item and item.item, "X_ATTACK",
+  "expert item behavior comes from the runtime class registry")
 
 local choiceBattle = {
   data = run.data,

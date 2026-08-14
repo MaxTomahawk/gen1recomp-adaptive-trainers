@@ -35,6 +35,8 @@ local defs = {
     accuracy = 90, effect = "FREEZE_SIDE_EFFECT" },
   TM_SETUP = { id = "TM_SETUP", type = "NORMAL", power = 0,
     accuracy = 100, effect = "ATTACK_UP2_EFFECT" },
+  BOSS_TECH = { id = "BOSS_TECH", type = "DRAGON", power = 100,
+    accuracy = 100, effect = "NO_ADDITIONAL_EFFECT" },
 }
 local species = {
   types = { "NORMAL" },
@@ -52,7 +54,7 @@ for _, id in ipairs(legalPool.level) do levelSet[id] = true end
 for _, id in ipairs(legalPool.tm) do tmSet[id] = true end
 
 for seed = 1, 1000 do
-  for tier = 0, 3 do
+  for tier = 0, 4 do
     local left = { id = "property-" .. seed, species = "TESTMON",
       level = 20, roleSeed = seed }
     local right = { id = left.id, species = left.species,
@@ -77,6 +79,28 @@ for seed = 1, 1000 do
       "TM ceiling holds at seed " .. seed .. " tier " .. tier)
     check(hasStab, "available STAB is retained at seed " .. seed .. " tier " .. tier)
   end
+
+  local boss = { id = "boss-property-" .. seed, species = "TESTMON",
+    level = 20, roleSeed = seed }
+  local bossMoves = movesets.generate(boss, species, defs, 4, {
+    techniques = { "BOSS_TECH" }, signatureMoves = { "BOSS_TECH" },
+  })
+  check((function()
+      for _, id in ipairs(bossMoves) do if id == "BOSS_TECH" then return true end end
+      return false
+    end)(), "T4 retains an explicit legal boss technique at seed " .. seed)
+
+  local teamSpecies = { types = { "NORMAL" }, level1Moves = { "HIT" },
+    tmhm = { "TM_FIRE", "TM_ICE", "WATER_HIT", "TM_NORMAL" } }
+  local context = { roleCounts = {}, damageTypeCounts = { FIRE = 3 } }
+  local expert = { id = "expert-property-" .. seed, species = "TESTMON",
+    level = 20, roleSeed = seed }
+  local expertMoves = movesets.generate(expert, teamSpecies, defs, 3, nil,
+    context)
+  local hasFire = false
+  for _, id in ipairs(expertMoves) do if id == "TM_FIRE" then hasFire = true end end
+  check(not hasFire,
+    "T3 avoids redundant team coverage when alternatives exist at seed " .. seed)
 end
 
 if failures > 0 then

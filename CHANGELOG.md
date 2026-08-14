@@ -38,8 +38,9 @@ The format follows Keep a Changelog, and this project uses Semantic Versioning.
   hydration for individuals created by earlier mod schemas.
 - Runtime-registry legal movesets with tier TM ceilings, persistent move-source
   memory, stable one-slot level/evolution refreshes, and usable-STAB guarantees.
-- Class-driven T0-T3 move scoring and bounded expert switching through the
-  public trainer and AI-class registries.
+- Data-driven T0-T4 move scoring, T3 teammate-fit, upgrade-safe source
+  hydration, and bounded expert switching that preserves class item behavior
+  through public trainer, AI-class, and battle-action seams.
 
 ## [0.1.0] - 2026-08-14
 
