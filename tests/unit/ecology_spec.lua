@@ -1,0 +1,102 @@
+local ROOT = assert(os.getenv("ADAPTIVE_TRAINERS_ROOT"),
+  "ADAPTIVE_TRAINERS_ROOT must name the standalone mod checkout")
+local ecology = assert(loadfile(ROOT .. "/src/core/ecology.lua"))()
+
+local checks, failures = 0, 0
+local function check(condition, message)
+  checks = checks + 1
+  if not condition then
+    failures = failures + 1
+    io.stderr:write("FAIL ", message, "\n")
+  end
+end
+local function eq(actual, expected, message)
+  check(actual == expected,
+    message .. " (expected " .. tostring(expected) .. ", got "
+      .. tostring(actual) .. ")")
+end
+
+local data = {
+  maps = {
+    START = { connections = {}, warps = {} },
+    EMPTY = {
+      connections = { east = { map = "NEAR" } },
+      warps = { { destMap = "WATER" } },
+    },
+    NEAR = {
+      connections = {
+        west = { map = "EMPTY" }, east = { map = "FAR" },
+      },
+    },
+    FAR = {
+      connections = {
+        west = { map = "NEAR" }, east = { map = "TOO_FAR" },
+      },
+    },
+    TOO_FAR = { connections = { west = { map = "FAR" } } },
+    WATER = { warps = { { destMap = "EMPTY" } } },
+  },
+  encounters = {
+    START = { grass = { slots = { { species = "PIDGEY", level = 4 } } } },
+    NEAR = { grass = { slots = { { species = "SPEAROW", level = 5 } } } },
+    FAR = { grass = { slots = { { species = "RATTATA", level = 6 } } } },
+    TOO_FAR = { grass = { slots = { { species = "EKANS", level = 7 } } } },
+    WATER = { water = { slots = { { species = "MAGIKARP", level = 5 } } } },
+  },
+}
+
+local ordinary = ecology.resolve(data, "START", {
+  mobilityRadius = 2,
+  encounterMethods = { grass = true },
+})
+local bySpecies = ecology.by_species(ordinary)
+eq(bySpecies.PIDGEY.distance, 0, "current-map encounters have distance zero")
+eq(bySpecies.PIDGEY.weight, 1.0, "distance zero has weight 1.0")
+eq(bySpecies.SPEAROW, nil,
+  "a map with usable local encounters does not expand outward")
+eq(bySpecies.MAGIKARP, nil,
+  "grass-only profiles exclude water encounter methods")
+
+local fallback = ecology.resolve(data, "EMPTY", {
+  mobilityRadius = 2,
+  encounterMethods = { grass = true },
+})
+local fallbackBySpecies = ecology.by_species(fallback)
+eq(fallbackBySpecies.SPEAROW.distance, 1,
+  "fallback connected-map encounters have distance one")
+eq(fallbackBySpecies.SPEAROW.weight, 0.55,
+  "distance one has weight 0.55")
+eq(fallbackBySpecies.RATTATA.distance, 2,
+  "fallback two-edge encounters have distance two")
+eq(fallbackBySpecies.RATTATA.weight, 0.25,
+  "distance two has weight 0.25")
+eq(fallbackBySpecies.EKANS, nil,
+  "ordinary ecology never expands beyond radius two")
+
+local fisher = ecology.resolve(data, "EMPTY", {
+  mobilityRadius = 1,
+  encounterMethods = { water = true },
+})
+local fisherBySpecies = ecology.by_species(fisher)
+check(fisherBySpecies.MAGIKARP ~= nil,
+  "water-enabled profiles can use water encounters through a warp")
+eq(fisherBySpecies.PIDGEY, nil,
+  "water-only profiles exclude grass encounters")
+
+local repeated = ecology.resolve(data, "START", {
+  mobilityRadius = 2,
+  encounterMethods = { grass = true },
+})
+for index, row in ipairs(ordinary) do
+  eq(repeated[index].species, row.species,
+    "ecology evidence ordering repeats at row " .. index)
+  eq(repeated[index].weight, row.weight,
+    "ecology evidence weight repeats at row " .. index)
+end
+
+if failures > 0 then
+  io.stderr:write(string.format("%d/%d ecology checks failed\n",
+    failures, checks))
+  os.exit(1)
+end
+print(string.format("%d/%d ecology checks passed", checks, checks))

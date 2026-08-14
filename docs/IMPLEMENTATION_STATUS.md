@@ -17,7 +17,7 @@ Implement the complete approved Adaptive Trainer Ecology & Challenge System v1 a
 
 ## Phase status
 
-- [ ] Phase A — identity, save schema, deterministic RNG, Kanto-only initial standard-trainer generation and persistence
+- [x] Phase A — identity, save schema, deterministic RNG, Kanto-only initial standard-trainer generation and persistence (local gates green; PR CI pending)
 - [ ] Phase B — elapsed growth, local catches, Center-aware owned/active roster behavior
 - [ ] Phase C — legal persistent movesets, AI sophistication tiers, property tests
 - [ ] Phase D — Gym registration and eligibility, eight Leader identities, challenge scaling
@@ -28,14 +28,34 @@ Implement the complete approved Adaptive Trainer Ecology & Challenge System v1 a
 
 ## Current execution
 
-Phase A is in progress. The standalone manifest/card/changelog, public loader boundary, test/check/package scripts, and pinned upstream CI workflow are implemented on `agent/phase-a`.
+Phase A implementation is complete locally on `agent/phase-a`. The branch is
+ready for its repository PR and remote CI gate; Phase B begins after the Phase A
+branch is integrated green.
 
 Current evidence:
 
 - Public SDK loader: 6/6 checks passed.
+- Phase A public runtime: 323/323 checks passed across Red, Blue, and Yellow,
+  including 100 byte-equivalent reruns per version and serialized reloads.
+- Deterministic/property/unit suites: 17,000/17,000 property assertions plus
+  4,307 focused data/ecology/generation/identity/power/RNG/schema assertions.
 - `modkit validate --base fixture`: green.
 - `modkit lint`: green, no ROM-derived content detected.
-- Reproducible package smoke test: green; six distributable files plus `.modkit/pack.json`.
+- Reproducible double-pack check: green; 19 distributable files plus
+  `.modkit/pack.json`, with no recursive `dist/`, tests, scripts, docs, or DOCX.
+- Source-date-zero package SHA-256:
+  `41b2424d4ce683008bb9a8b6d4194cb9410018a7909432cbb0b407aea621d5b5`.
+
+## Baseline clarifications
+
+- Appendix A omits Onix while the normative Kanto+ table requires Steelix.
+  `ONIX_LINE` is therefore present with conservative Rock/Ground metadata; no
+  gameplay decision was reopened.
+- The Kanto+ prose says eight added evolutions but explicitly names nine.
+  Metadata preserves all nine named continuations.
+- Item/trade/friendship NPC evolution uses explicit surrogate thresholds in
+  line metadata; ordinary level evolutions derive their exact threshold from
+  the active runtime Pokémon registry.
 
 The detailed implementation plan is `docs/superpowers/plans/2026-08-14-adaptive-trainers.md`.
 

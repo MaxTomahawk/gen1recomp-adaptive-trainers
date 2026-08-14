@@ -16,6 +16,14 @@ GEN1RECOMP_ROOT=../gen1recomp ./scripts/check.sh
 GEN1RECOMP_ROOT=../gen1recomp SOURCE_DATE_EPOCH=0 ./scripts/package.sh
 ```
 
-`check.sh` runs the LuaJIT suites through Gen1Recomp's public SDK harness, then runs `modkit validate` and `modkit lint`. `package.sh` repeats those gates before writing a reproducible `.modpkg` under `dist/`.
+`check.sh` runs deterministic unit/property tests and the LuaJIT public SDK
+integration suites, then runs `modkit validate` and `modkit lint`. `package.sh`
+repeats those gates, stages only distributable files, and writes a reproducible
+`.modpkg` under `dist/`.
+
+Phase A is implemented: ordinary supported trainer classes receive a
+context/ecology-aware roster once, and that exact set of individuals then lives
+in `mod.save`. Growth, catches, movesets, bosses, the League, Rival development,
+and the optional Kanto+ sidecar remain on the tracked implementation path.
 
 No ROM, extracted cartridge data, or ROM-derived media belongs in this repository or its release artifacts.

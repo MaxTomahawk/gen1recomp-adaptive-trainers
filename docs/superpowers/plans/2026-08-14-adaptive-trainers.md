@@ -57,16 +57,16 @@
 - `ecology.resolve(data, mapId, profile) -> candidate evidence rows`
 - `standard_trainers.build(ctx, vanillaParty, root, services) -> partyDef, TrainerState`
 
-- [ ] Write RNG vector, stream-separation, and 100-rerun repeatability tests; run them and observe the missing-module failure.
-- [ ] Implement the two-word deterministic hash/PRNG without `math.random`; rerun to green.
-- [ ] Write schema initialization, idempotence, migration preservation, and Kanto+ suspended-stage tests; run red, implement, run green.
-- [ ] Write identity tests for version/map/class/party and NPC collision suffixes; run red, implement, run green.
-- [ ] Write player-reference and initial-catch-up boundary tests; run red, implement, run green.
-- [ ] Write ecology BFS, class affinity, version-input, legendary exclusion, duplicate-line, stage, and ±12% power tests; run red.
-- [ ] Implement full Kanto line metadata and data-driven class profiles from the baseline, selector scoring, bounded conflict rerolls, stage resolution, and validator; run green.
-- [ ] Write persistence and byte-equivalent party tests through the public `trainer.party` hook; run red.
-- [ ] Implement the thin runtime adapter using `game.ready`, `world.trainer_engaged`, `mod.world:current()`, registry iteration, and `mod.save`; run green.
-- [ ] Run all unit/integration tests, modkit validate, and modkit lint; update status evidence and commit as `feat: add persistent standard trainer generation`.
+- [x] Write RNG vector, stream-separation, and 100-rerun repeatability tests; run them and observe the missing-module failure.
+- [x] Implement the two-word deterministic hash/PRNG without `math.random`; rerun to green.
+- [x] Write schema initialization, idempotence, migration preservation, and Kanto+ suspended-stage tests; run red, implement, run green.
+- [x] Write identity tests for version/map/class/party and NPC collision suffixes; run red, implement, run green.
+- [x] Write player-reference and initial-catch-up boundary tests; run red, implement, run green.
+- [x] Write ecology BFS, class affinity, version-input, legendary exclusion, duplicate-line, stage, and ±12% power tests; run red.
+- [x] Implement full Kanto line metadata and data-driven class profiles from the baseline, selector scoring, bounded conflict rerolls, stage resolution, and validator; run green.
+- [x] Write persistence and byte-equivalent party tests through the public `trainer.party` hook; run red.
+- [x] Implement the thin runtime adapter using `game.ready`, `world.trainer_engaged`, `mod.world:current()`, registry iteration, and `mod.save`; run green.
+- [x] Run all unit/integration tests, modkit validate, and modkit lint; update status evidence and commit as `feat: add persistent standard trainer generation`.
 
 ### Task 3: Phase B — elapsed growth, catches, and roster rotation
 
