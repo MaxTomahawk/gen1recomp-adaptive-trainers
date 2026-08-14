@@ -1,0 +1,8 @@
+.engine/
+.worktrees/
+.tmp/
+dist/
+build/
+*.love
+.DS_Store
+Thumbs.db
