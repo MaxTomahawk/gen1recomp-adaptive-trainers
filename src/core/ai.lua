@@ -38,7 +38,6 @@ local function expert_score(view, moveDef, score)
 end
 
 local function strategy_score(view, moveDef, score)
-  score = expert_score(view, moveDef, score)
   local strategy = view and view.battle and view.battle.adaptiveStrategy
   if not strategy or not moveDef then return score end
   if strategy.preferredMoves and strategy.preferredMoves[moveDef.id] then

@@ -102,11 +102,14 @@ eq(bossLayer.kind, "layer", "boss strategy scoring is a public layer record")
 local strategyView = { user = { curTypes = { "FIRE" } }, battle = {
   adaptiveStrategy = { preferredMoves = { FLAMETHROWER = true } },
 } }
-check(bossLayer.score(strategyView, {
+local preferredScore = bossLayer.score(strategyView, {
     id = "FLAMETHROWER", type = "FIRE", power = 95, accuracy = 100,
-  }, 10) < layer.score(strategyView, {
+  }, 10)
+local unpreferredScore = bossLayer.score({ user = strategyView.user,
+  battle = { adaptiveStrategy = { preferredMoves = {} } } }, {
     id = "FLAMETHROWER", type = "FIRE", power = 95, accuracy = 100,
-  }, 10),
+  }, 10)
+check(preferredScore < unpreferredScore,
   "T4 strategy context can prefer an identity-configured move")
 
 if failures > 0 then
