@@ -35,9 +35,9 @@ local mod = { content = {
 }, hooks = { wrap = function(_, name, callback) wrapped[name] = callback end } }
 local profiles = { byClass = {
   OPP_NOVICE = { aiTier = 0 },
-  OPP_REGULAR = { aiTier = 1 },
-  OPP_TRAINED = { aiTier = 2 },
-  OPP_EXPERT = { aiTier = 3 },
+  OPP_REGULAR = { aiTier = 1, rosterBehavior = "casual" },
+  OPP_TRAINED = { aiTier = 2, rosterBehavior = "specialist" },
+  OPP_EXPERT = { aiTier = 3, rosterBehavior = "expert" },
   OPP_BOSS = { aiTier = 4 },
 } }
 
@@ -63,6 +63,7 @@ eq(baseClasses.OPP_EXPERT.item, "X_ATTACK",
   "expert switching leaves the runtime class item choice untouched")
 local expertBattle = { oppClass = "OPP_EXPERT", aiUses = 1,
   enemyIndex = 1, enemyParty = { { hp = 20 }, { hp = 30 } },
+  enemy = { mon = { hp = 20, stats = { hp = 50 } } },
   rng = function() return 0 end }
 local switched = wrapped["battle.enemy_action"](
   function() return { id = "TACKLE" } end, expertBattle)
@@ -70,11 +71,68 @@ eq(switched.special, "aiSwitch",
   "T3 replaces an ordinary move with a bounded tactical switch")
 eq(switched.index, 2,
   "T3 switch selects an available non-active teammate")
+eq(expertBattle.adaptiveTrainerSwitches, 1,
+  "T3 switching spends the per-battle switch budget")
+local bounded = wrapped["battle.enemy_action"](
+  function() return { id = "TACKLE" } end, expertBattle)
+eq(bounded.id, "TACKLE",
+  "a tactical tier cannot exceed its per-battle switch budget")
 expertBattle.rng = function() return 30 end
 local itemAction = { special = "aiItem", item = "X_ATTACK" }
 eq(wrapped["battle.enemy_action"](function() return itemAction end,
   expertBattle), itemAction,
   "T3 preserves a downstream runtime-class item action")
+
+local regularBattle = { oppClass = "OPP_REGULAR", aiUses = 1,
+  enemyIndex = 1, enemyParty = { { hp = 40 }, { hp = 30 } },
+  enemy = { mon = { hp = 40, stats = { hp = 50 } } },
+  rng = function() return 0 end }
+eq(wrapped["battle.enemy_action"](function() return { id = "TACKLE" } end,
+    regularBattle).special, "aiSwitch",
+  "T1 may switch only through its rare deterministic chance")
+regularBattle.adaptiveTrainerSwitches = nil
+regularBattle.rng = function() return aiConfig.switching[1].chance end
+eq(wrapped["battle.enemy_action"](function() return { id = "TACKLE" } end,
+    regularBattle).id, "TACKLE",
+  "T1 keeps the ordinary action outside its rare chance")
+
+local trainedBattle = { oppClass = "OPP_TRAINED", aiUses = 1,
+  enemyIndex = 1, enemyParty = { { hp = 10 }, { hp = 30 } },
+  enemy = { mon = { hp = 10, stats = { hp = 50 } } },
+  rng = function() return 0 end }
+eq(wrapped["battle.enemy_action"](function() return { id = "TACKLE" } end,
+    trainedBattle).special, "aiSwitch",
+  "T2 class-appropriate trainers may switch at low HP")
+trainedBattle.adaptiveTrainerSwitches = nil
+trainedBattle.enemy.mon.hp = 40
+eq(wrapped["battle.enemy_action"](function() return { id = "TACKLE" } end,
+    trainedBattle).id, "TACKLE",
+  "T2 does not switch a healthy active Pokemon")
+
+local forcedBattle = { oppClass = "OPP_EXPERT", aiUses = 1,
+  enemyIndex = 1, enemyParty = { { hp = 20 }, { hp = 30 } },
+  enemy = { mon = { hp = 20, stats = { hp = 50 } } },
+  rng = function() return 0 end }
+local forcedAction = { special = "bide" }
+eq(wrapped["battle.enemy_action"](function() return forcedAction end,
+    forcedBattle), forcedAction,
+  "adaptive switching never overrides a forced battle action")
+eq(forcedBattle.adaptiveTrainerSwitches, nil,
+  "forced actions do not consume the adaptive switch budget")
+
+for _, field in ipairs({ "charging", "thrashMove", "rageMove" }) do
+  local lockedAction = { id = "LOCKED_MOVE" }
+  local lockedBattle = { oppClass = "OPP_EXPERT", enemyIndex = 1,
+    enemyParty = { { hp = 20 }, { hp = 30 } },
+    enemy = { mon = { hp = 20, stats = { hp = 50 } } },
+    rng = function() return 0 end }
+  lockedBattle.enemy[field] = lockedAction
+  eq(wrapped["battle.enemy_action"](function() return lockedAction end,
+      lockedBattle), lockedAction,
+    field .. " continuation cannot be replaced by an adaptive switch")
+  eq(lockedBattle.adaptiveTrainerSwitches, nil,
+    field .. " continuation does not consume the switch budget")
+end
 
 local layer = registered.ADAPTIVE_T3_ROLE
 eq(layer.kind, "layer", "expert role scoring is a public layer record")
