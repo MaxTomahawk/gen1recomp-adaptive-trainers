@@ -28,7 +28,16 @@ Implement the complete approved Adaptive Trainer Ecology & Challenge System v1 a
 
 ## Current execution
 
-Phase A is next. The detailed implementation plan is `docs/superpowers/plans/2026-08-14-adaptive-trainers.md`.
+Phase A is in progress. The standalone manifest/card/changelog, public loader boundary, test/check/package scripts, and pinned upstream CI workflow are implemented on `agent/phase-a`.
+
+Current evidence:
+
+- Public SDK loader: 6/6 checks passed.
+- `modkit validate --base fixture`: green.
+- `modkit lint`: green, no ROM-derived content detected.
+- Reproducible package smoke test: green; six distributable files plus `.modkit/pack.json`.
+
+The detailed implementation plan is `docs/superpowers/plans/2026-08-14-adaptive-trainers.md`.
 
 ## Engine seam ledger
 

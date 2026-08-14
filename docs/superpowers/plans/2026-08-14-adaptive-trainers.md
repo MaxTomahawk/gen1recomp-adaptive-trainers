@@ -33,11 +33,11 @@
 - Produces: stable `./scripts/check.sh` and `./scripts/package.sh` entrypoints parameterized by `GEN1RECOMP_ROOT`
 - Consumes: upstream `tools/modkit.py`, LuaJIT, and the repository root as the standalone mod directory
 
-- [ ] Write a headless loader test that fails because `main.lua` and the manifest contract do not yet exist.
-- [ ] Add the manifest/card/changelog and a minimal public-API entrypoint, then verify the loader test passes.
-- [ ] Add check and package scripts that run unit tests, modkit validate, lint, and reproducible pack against an explicit engine root.
-- [ ] Add GitHub Actions using a current checkout of `bryanthaboi/gen1recomp@dev` and run the same entrypoints.
-- [ ] Commit as `chore: establish standalone mod toolchain`.
+- [x] Write a headless loader test that fails because `main.lua` and the manifest contract do not yet exist.
+- [x] Add the manifest/card/changelog and a minimal public-API entrypoint, then verify the loader test passes.
+- [x] Add check and package scripts that run unit tests, modkit validate, lint, and reproducible pack against an explicit engine root.
+- [x] Add GitHub Actions using the audited `bryanthaboi/gen1recomp@dev` SHA and run the same entrypoints.
+- [x] Commit as `chore: establish standalone mod toolchain`.
 
 ### Task 2: Phase A — deterministic identity, save, RNG, and initial rosters
 

@@ -1,0 +1,9 @@
+AGENTS.md
+Gen1Recomp_Adaptive_Trainers_Complete_Design_Spec_NL.docx
+docs/CAPABILITY_AUDIT.md
+docs/IMPLEMENTATION_STATUS.md
+docs/superpowers/plans/2026-08-14-adaptive-trainers.md
+scripts/check.sh
+scripts/package.sh
+tests/integration/loader_spec.lua
+tests/tooling/check_script_spec.sh

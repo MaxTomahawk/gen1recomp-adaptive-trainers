@@ -1,0 +1,19 @@
+{
+  "id": "adaptive_trainers",
+  "name": "Adaptive Trainers",
+  "version": "0.1.0",
+  "api": 2,
+  "entry": "main.lua",
+  "profile": "overhaul",
+  "game_version": ">=0.0.0-dev <1.0.0",
+  "category": "MECHANIC",
+  "priority": 100,
+  "dependencies": [],
+  "optional_dependencies": [],
+  "conflicts": [],
+  "incompatible": [],
+  "games": ["red", "blue", "yellow"],
+  "experimental": false,
+  "github": "MaxTomahawk/gen1recomp-adaptive-trainers",
+  "description": "Persistent, ecology-aware trainer development and structured adaptive challenges."
+}
