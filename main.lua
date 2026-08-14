@@ -17,6 +17,7 @@ return function(mod)
   local player_power = module("src/core/player_power.lua")
   local ecology = module("src/core/ecology.lua")
   local stage_resolver = module("src/core/stage_resolver.lua")
+  local movesets = module("src/core/movesets.lua")
   local selector = module("src/core/species_selector.lua")({
     stage_resolver = stage_resolver,
   })
@@ -25,6 +26,7 @@ return function(mod)
     rng = rng,
     player_power = player_power,
     stage_resolver = stage_resolver,
+    movesets = movesets,
   })
   local roster = module("src/core/roster.lua")({
     rng = rng,
@@ -39,6 +41,7 @@ return function(mod)
     stage_resolver = stage_resolver,
     growth = growth,
     roster = roster,
+    movesets = movesets,
   })
   local line_meta = module("src/data/line_meta.lua").build()
   local profiles = module("src/data/trainer_profiles.lua")
@@ -46,7 +49,9 @@ return function(mod)
 
   local game
   local pendingTrainer
-  local activeTrainerKey
+  local preparedBattle
+  local activeBattle
+  local checkpointRestorePending = false
   local collisionKeys = {}
   local centerIndex
 
@@ -119,22 +124,6 @@ return function(mod)
   mod.events:on("save.created", bind_live_game)
   mod.events:on("save.loaded", bind_live_game)
 
-  local function badge_count(save, data)
-    if type(save and save.badgeCount) == "number" then return save.badgeCount end
-    local count = 0
-    local playerBadges = save and save.player and save.player.badges
-    if type(playerBadges) == "table" then
-      for _, held in pairs(playerBadges) do if held then count = count + 1 end end
-      return count
-    end
-    local inventory = save and save.inventory or {}
-    for _, badge in ipairs(data and data.constants
-        and data.constants.badges or {}) do
-      if inventory[badge.item or badge.id] then count = count + 1 end
-    end
-    return count
-  end
-
   local function active_identity_matches(active, save, mapId, oppClass,
       partyIndex)
     return type(active) == "table"
@@ -143,6 +132,12 @@ return function(mod)
       and active.mapId == mapId
       and active.oppClass == oppClass
       and (active.partyIndex or 1) == (partyIndex or 1)
+  end
+
+  local function battle_matches(active, battle)
+    return type(active) == "table" and type(battle) == "table"
+      and active.oppClass == battle.oppClass
+      and (active.partyIndex or 1) == (battle.partyIndex or 1)
   end
 
   mod.events:on("world.trainer_engaged", function(ev)
@@ -197,7 +192,7 @@ return function(mod)
       identityKey = key,
       playTime = save.playTime or 0,
       playerParty = save.party or {},
-      badgeCount = badge_count(save, data),
+      badgeCount = player_power.badge_count(save, data),
     }, partyDef, root, {
       data = data,
       meta = line_meta,
@@ -212,38 +207,67 @@ return function(mod)
       oppClass = oppClass,
       partyIndex = partyIndex,
     }
+    preparedBattle = root.activeTrainer
+    activeBattle = nil
+    checkpointRestorePending = false
     mod.save:set("state", root)
-    activeTrainerKey = key
     return next(oppClass, partyIndex, generated)
   end, 0)
 
   mod.events:on("battle.started", function(ev)
-    if not ev or ev.kind ~= "trainer" then
-      activeTrainerKey = nil
-      local live = game or mod.game
-      local save = live and live.save
-      if save then
-        local root = ensure_root(save)
-        root.activeTrainer = nil
-        mod.save:set("state", root)
-      end
-    end
-  end)
-
-  mod.events:on("battle.ended", function(ev)
-    local processKey = activeTrainerKey
-    activeTrainerKey = nil
     local live = game or mod.game
     local save = live and live.save
     if not save then return end
     local root = ensure_root(save)
-    local key = processKey
-      or (root.activeTrainer and root.activeTrainer.identityKey)
-    root.activeTrainer = nil
-    if not key then
+    local candidate = preparedBattle or root.activeTrainer
+    if ev and ev.kind == "trainer"
+        and battle_matches(candidate, ev.battle) then
+      activeBattle = {
+        identityKey = candidate.identityKey,
+        oppClass = candidate.oppClass,
+        partyIndex = candidate.partyIndex,
+        battle = ev.battle,
+      }
+      preparedBattle = nil
+      checkpointRestorePending = false
+    else
+      preparedBattle = nil
+      activeBattle = nil
+      checkpointRestorePending = false
+      root.activeTrainer = nil
       mod.save:set("state", root)
-      return
     end
+  end)
+
+  mod.events:on("checkpoint.restored", function(ev)
+    local live = ev and ev.game or game or mod.game
+    local save = live and live.save
+    if not save then return end
+    local root = ensure_root(save)
+    checkpointRestorePending = ev and ev.kind == "battle"
+      and type(root.activeTrainer) == "table"
+    if checkpointRestorePending then preparedBattle = root.activeTrainer end
+  end)
+
+  mod.events:on("battle.ended", function(ev)
+    local live = game or mod.game
+    local save = live and live.save
+    if not save then return end
+    local root = ensure_root(save)
+    local matched
+    if activeBattle and ev and ev.battle == activeBattle.battle
+        and battle_matches(activeBattle, ev.battle) then
+      matched = activeBattle
+    elseif checkpointRestorePending and ev
+        and battle_matches(root.activeTrainer, ev.battle) then
+      matched = root.activeTrainer
+    end
+    if not matched then return end
+    local key = matched.identityKey
+    activeBattle = nil
+    preparedBattle = nil
+    checkpointRestorePending = false
+    root.activeTrainer = nil
     local state = root.trainers and root.trainers[key]
     if not state then
       mod.save:set("state", root)

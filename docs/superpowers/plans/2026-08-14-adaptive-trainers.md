@@ -88,6 +88,7 @@
 - [x] Implement Center graph indexing and active/bench rotation, rerun all tests, validate/lint, update status, and commit as `feat: add trainer growth and catches`.
 - [x] Address independent review with regressions for exact evidenced catch species, party-index-bounded issued pools, checkpoint-safe collision identity, directed warps, complete full-party catch behavior, and Red/Blue/Yellow persistence.
 - [x] Keep the exact chapter 7.2 contextual ceiling separate from the no-level-down guard, including an already-above-cap regression.
+- [x] Freeze all roster transitions through the exact grace boundary, bind results to the concrete battle, and pull forward persistent legal move generation/evolution refresh required by chapter 7.4.
 
 ### Task 4: Phase C — persistent legal movesets and AI tiers
 
@@ -101,8 +102,8 @@
 - `movesets.refresh(instance, reason, ...) -> persisted moveIds`
 - `ai.register(mod) -> nil`
 
-- [ ] Test level/TM legality, tier limits, STAB availability, redundancy, four-slot limits, refresh memory, and persisted reruns before implementation.
-- [ ] Implement role scoring and refresh semantics; run green.
+- [x] Test the foundational level/TM legal pool, tier TM limits, four-slot limit, refresh memory, and persisted R/B/Y reruns; implement it early for Phase B evolution correctness.
+- [ ] Complete role scoring, STAB/redundancy properties, and the remaining refresh semantics; run green.
 - [ ] Test tactical tier behavior independently from roster construction and prove Rival/team builders receive no player-species data.
 - [ ] Register class-driven AI records through `mod.content.ai_classes`, run property tests and all prior suites, validate/lint, update status, and commit as `feat: add trainer movesets and ai tiers`.
 

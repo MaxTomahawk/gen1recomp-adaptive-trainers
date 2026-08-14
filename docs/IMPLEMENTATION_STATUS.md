@@ -32,29 +32,32 @@ Phase A merged through PR #1 after green CI and a final independent review with
 no findings. Phase B is implemented locally on `agent/phase-b`: loss-gated
 elapsed growth, permanent stage changes, bounded local/context catches,
 Center-aware bench rotation, and battle-result persistence are green. The first
-independent review found three correctness gaps; exact caught-species
-preservation, party-index-bounded organization pools, and checkpoint-safe
-collision identities are now covered and fixed without an engine change. A
-re-review also caught a contextual-ceiling report that incorrectly folded in
-the current level; the exact chapter 7.2 formula is now separate from the
-non-negative-growth guard. The next gates are refreshed PR CI, clean re-review,
-and merge; Phase C then begins immediately.
+independent reviews found correctness gaps around grace-wide roster freezing,
+evolution move memory, directed warps, battle-result binding, exact caught
+species, story-bounded organization pools, checkpoint collision identity, and
+the contextual-ceiling report. Each now has a focused regression and a mod-only
+fix. The legal persistent-moveset foundation was pulled forward from Phase C
+because chapter 7.4 evolution depends on it. The next gates are refreshed PR
+CI, clean re-review, and merge; the remaining Phase C AI/tier work then
+continues immediately.
 
 Current evidence:
 
 - Public SDK loader: 6/6 checks passed.
 - Phase A public runtime: 327/327 checks passed across Red, Blue, and Yellow,
   including 100 byte-equivalent reruns per version and serialized reloads.
-- Phase B public runtime: 219/219 loss/growth/catch/rotation/reload checks,
-  including collision-checkpoint reconstruction and Blue/Yellow grace checks.
+- Phase B public runtime: 230/230 loss/growth/catch/rotation/reload checks,
+  including collision-checkpoint reconstruction, concrete battle binding,
+  full-party grace freezing, and Blue/Yellow badge-path coverage.
 - Deterministic/property/unit suites: 23,363/23,363 property assertions plus
-  4,604 focused data/ecology/generation/growth/catch/roster/identity/power/RNG/schema assertions.
+  4,628 focused data/ecology/generation/growth/catch/roster/identity/moveset/
+  power/RNG/schema assertions.
 - `modkit validate --base fixture`: green.
 - `modkit lint`: green, no ROM-derived content detected.
-- Reproducible double-pack check: green; 21 distributable files plus
+- Reproducible double-pack check: green; 22 distributable files plus
   `.modkit/pack.json`, with no recursive `dist/`, tests, scripts, docs, or DOCX.
 - Source-date-zero package SHA-256:
-  `1dbdb4900b3da459741c01490f8ce406190b76895a2bc83ceafb8294bf3bc887`.
+  `01ad333f4e6118e83b01d921ae64736e21e6fe10460b324debf78f14c5a9c57d`.
 
 ## Baseline clarifications
 

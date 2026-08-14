@@ -4,8 +4,10 @@ local ROOT = assert(os.getenv("ADAPTIVE_TRAINERS_ROOT"),
 local rng = assert(loadfile(ROOT .. "/src/core/rng.lua"))()
 local player_power = assert(loadfile(ROOT .. "/src/core/player_power.lua"))()
 local stage_resolver = assert(loadfile(ROOT .. "/src/core/stage_resolver.lua"))()
+local movesets = assert(loadfile(ROOT .. "/src/core/movesets.lua"))()
 local growth = assert(loadfile(ROOT .. "/src/core/growth.lua"))()({
   rng = rng, player_power = player_power, stage_resolver = stage_resolver,
+  movesets = movesets,
 })
 
 local checks, failures = 0, 0
@@ -21,9 +23,15 @@ end
 local pokemon = {
   BASE = { baseStats = { hp = 40 }, evolutions = {
     { method = "LEVEL", level = 11, species = "EVOLVED" },
-  } },
-  EVOLVED = { baseStats = { hp = 80 }, evolutions = {} },
-  STEADY = { baseStats = { hp = 50 }, evolutions = {} },
+  }, level1Moves = { "TACKLE" }, learnset = {
+    { level = 9, move = "GROWL" },
+  }, tmhm = {} },
+  EVOLVED = { baseStats = { hp = 80 }, evolutions = {},
+    level1Moves = { "CONFUSION" }, learnset = {
+      { level = 11, move = "GUST" },
+    }, tmhm = {} },
+  STEADY = { baseStats = { hp = 50 }, evolutions = {},
+    level1Moves = { "GROWL" }, learnset = {}, tmhm = {} },
 }
 local line = { lineId = "BASE_LINE", stages = {
   { species = "BASE" }, { species = "EVOLVED" },
@@ -42,8 +50,10 @@ eq(growth.ceiling(10, 10, 20, 1, profile), 20,
   "badge progression raises the contextual ceiling within lifetime cap")
 eq(growth.ceiling(10, 10, 50, 8, profile), 20,
   "lifetime gain cap prevents an early trainer becoming an endgame ace")
+eq(growth.contextual_ceiling(20, 10, 0, profile), 12,
+  "the reported contextual ceiling follows the normative P plus overtake cap")
 eq(growth.ceiling(20, 20, 10, 0, profile), 12,
-  "current trainer level does not redefine the normative contextual ceiling")
+  "current trainer level is not smuggled into the contextual ceiling formula")
 
 local function state()
   return {
@@ -106,9 +116,17 @@ eq(evolved.owned[1].species, "EVOLVED",
 eq(evolved.owned[1].lineId, "BASE_LINE",
   "evolution preserves persistent line identity")
 eq(evolved.owned[1].moves[1], "TACKLE",
-  "Phase B preserves logical old moves until Phase C refreshes them")
-eq(evolved.owned[1].movesetRefreshReason, "evolution",
-  "evolution records the pending legal moveset refresh reason")
+  "evolution retains a logical inherited move")
+check(#evolved.owned[1].moves >= 2,
+  "evolution performs its forced persistent moveset refresh")
+local evolvedMoves = {}
+for _, move in ipairs(evolved.owned[1].moves) do evolvedMoves[move] = true end
+check(evolvedMoves.GUST or evolvedMoves.CONFUSION,
+  "evolution refresh adds a move exposed by the evolved species")
+eq(evolved.owned[1].movesetRefreshReason, nil,
+  "a completed evolution refresh leaves no unresolved marker")
+eq(evolved.owned[1].lastMovesetRefreshReason, "evolution",
+  "the persistent instance records why its moves changed")
 
 local aboveCeiling = state()
 aboveCeiling.vanillaTop = 20
@@ -120,6 +138,8 @@ local aboveChanged, aboveReport = growth.materialize(aboveCeiling, {
 }, profile)
 eq(aboveReport.ceilingTop, 12,
   "growth reports the exact formula even when the roster is already above it")
+eq(aboveReport.effectiveCeilingTop, 20,
+  "growth exposes the separate no-delevel effective bound")
 eq(aboveChanged, false,
   "an already-above-ceiling roster receives no additional growth")
 eq(aboveCeiling.owned[1].level, 20,

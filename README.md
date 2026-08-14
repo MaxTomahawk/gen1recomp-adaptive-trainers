@@ -25,8 +25,10 @@ Phases A and B are implemented: ordinary supported trainer classes receive a
 context/ecology-aware roster once, and that exact set of individuals then lives
 in `mod.save`. After player losses they observe the exact grace period, grow
 toward bounded contextual ceilings, may make one plausible catch per interval,
-and rotate a bench only with plausible Center access. Movesets, bosses, the
-League, Rival development, and the optional Kanto+ sidecar remain on the tracked
-implementation path.
+and rotate a bench only with plausible Center access. Bosses, the League, Rival
+development, and the optional Kanto+ sidecar remain on the tracked implementation
+path. The persistent legal-moveset foundation and evolution refresh are present
+because Phase B depends on them; full sophistication-tier scoring and AI
+registration remain Phase C work.
 
 No ROM, extracted cartridge data, or ROM-derived media belongs in this repository or its release artifacts.

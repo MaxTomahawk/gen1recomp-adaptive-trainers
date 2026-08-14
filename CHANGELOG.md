@@ -30,6 +30,10 @@ The format follows Keep a Changelog, and this project uses Semantic Versioning.
   active/bench rotation policies with save/reload persistence.
 - Checkpoint-safe concrete trainer identities, story-bounded organization
   catches, exact encountered-species acquisition, and directed world access.
+- Grace-wide party freezing, concrete battle/result association, exact
+  contextual-ceiling diagnostics, and real Gen1 badge inventory fallback.
+- Persistent legal ordinary-trainer moves with bounded TM use, level refresh,
+  inherited move memory, and an extra evolution refresh.
 
 ## [0.1.0] - 2026-08-14
 

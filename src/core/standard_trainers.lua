@@ -8,6 +8,7 @@ return function(deps)
   local on_repair_attempt = deps.onRepairAttempt or function() end
   local growth = deps.growth
   local roster = deps.roster
+  local movesets = deps.movesets
   local M = {}
   local MAX_REPAIR_ATTEMPTS = 24
 
@@ -177,6 +178,14 @@ return function(deps)
     if existing then
       existing.vanillaTop = existing.vanillaTop or vanilla_top(vanillaParty)
       existing.nextOwnedSerial = existing.nextOwnedSerial or #(existing.owned or {})
+      if movesets then
+        for _, instance in ipairs(existing.owned or {}) do
+          if instance.moves == nil then
+            movesets.generate(instance, data.pokemon[instance.species],
+              data.moves, profile.aiTier)
+          end
+        end
+      end
       if existing.lastGrowthBattleCount == nil then
         existing.lastGrowthBattleCount = existing.battleCount or 0
       end
@@ -189,19 +198,29 @@ return function(deps)
           playerParty = ctx.playerParty,
           badgeCount = ctx.badgeCount,
           pokemon = data.pokemon,
+          moves = data.moves,
           meta = meta,
           rootSeed = { hi = root.seedHi, lo = root.seedLo },
           mapId = ctx.mapId,
           trainerMedian = median_level(existing.owned),
         }
-        growth.materialize(existing, transitionContext, profile)
-        transitionContext.trainerMedian = median_level(existing.owned)
-        roster.maybe_catch(existing, transitionContext, profile, evidence)
-        local centerDistance = roster.center_distance(services.centerIndex,
-          ctx.mapId, profile.pcRadius)
-        roster.rotate(existing, profile, centerDistance, {
-          meta = meta, pokemon = data.pokemon,
-        })
+        local elapsed = math.max(0, (tonumber(ctx.playTime) or 0)
+          - (tonumber(existing.lastBattleAt) or tonumber(ctx.playTime) or 0))
+        if elapsed > 900 then
+          growth.materialize(existing, transitionContext, profile)
+          transitionContext.trainerMedian = median_level(existing.owned)
+          local caught = roster.maybe_catch(existing, transitionContext,
+            profile, evidence)
+          if caught and movesets then
+            movesets.generate(caught, data.pokemon[caught.species],
+              data.moves, profile.aiTier)
+          end
+          local centerDistance = roster.center_distance(services.centerIndex,
+            ctx.mapId, profile.pcRadius)
+          roster.rotate(existing, profile, centerDistance, {
+            meta = meta, pokemon = data.pokemon,
+          })
+        end
       end
       return party_from_state(existing), existing
     end
@@ -289,6 +308,10 @@ return function(deps)
         roleSeed = rng.seed({ root.seedHi, root.seedLo,
           "trainer-role", ctx.identityKey, index }).lo,
       }
+      if movesets then
+        movesets.generate(instance, data.pokemon[instance.species],
+          data.moves, profile.aiTier)
+      end
       state.owned[index] = instance
       state.activeIds[index] = id
     end
