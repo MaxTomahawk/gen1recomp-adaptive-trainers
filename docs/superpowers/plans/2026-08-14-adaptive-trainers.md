@@ -103,10 +103,11 @@
 - `movesets.refresh(instance, reason, ...) -> persisted moveIds`
 - `ai.register(mod) -> nil`
 
-- [x] Test the foundational level/TM legal pool, tier TM limits, four-slot limit, refresh memory, and persisted R/B/Y reruns; implement it early for Phase B evolution correctness.
-- [ ] Complete role scoring, STAB/redundancy properties, and the remaining refresh semantics; run green.
-- [ ] Test tactical tier behavior independently from roster construction and prove Rival/team builders receive no player-species data.
-- [ ] Register class-driven AI records through `mod.content.ai_classes`, run property tests and all prior suites, validate/lint, update status, and commit as `feat: add trainer movesets and ai tiers`.
+- [x] Test level/TM legality, tier limits, STAB availability, redundancy, four-slot limits, refresh memory, and persisted reruns before implementation.
+- [x] Implement role scoring and refresh semantics; run green.
+- [x] Test tactical tier behavior independently from roster construction and prove scoring receives no full player-roster data.
+- [x] Register class-driven AI records through `mod.content.ai_classes`, run property tests and all prior suites, validate/lint, and update status.
+- [ ] Commit as `feat: add trainer movesets and ai tiers`, push PR, pass CI and independent review, then merge.
 
 ### Task 5: Phase D — Gym challenge framework
 

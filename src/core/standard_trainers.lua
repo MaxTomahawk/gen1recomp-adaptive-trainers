@@ -160,6 +160,15 @@ return function(deps)
     return string.format("%08x%08x", hash.hi, hash.lo)
   end
 
+  local function active_instances(state)
+    local byId, out = {}, {}
+    for _, instance in ipairs(state.owned or {}) do byId[instance.id] = instance end
+    for _, id in ipairs(state.activeIds or {}) do
+      if byId[id] then out[#out + 1] = byId[id] end
+    end
+    return out
+  end
+
   function M.build(ctx, vanillaParty, root, services)
     root.trainers = root.trainers or {}
     local existing = root.trainers[ctx.identityKey]
@@ -180,10 +189,8 @@ return function(deps)
       existing.nextOwnedSerial = existing.nextOwnedSerial or #(existing.owned or {})
       if movesets then
         for _, instance in ipairs(existing.owned or {}) do
-          if instance.moves == nil then
-            movesets.hydrate_legacy(instance,
-              data.pokemon[instance.species], data.moves)
-          end
+          movesets.hydrate_legacy(instance,
+            data.pokemon[instance.species], data.moves)
         end
       end
       if existing.lastGrowthBattleCount == nil then
@@ -212,8 +219,10 @@ return function(deps)
           local caught = roster.maybe_catch(existing, transitionContext,
             profile, evidence)
           if caught and movesets then
+            local teamContext = movesets.team_context(active_instances(existing),
+              data.pokemon, data.moves)
             movesets.generate(caught, data.pokemon[caught.species],
-              data.moves, profile.aiTier)
+              data.moves, profile.aiTier, nil, teamContext)
           end
           local centerDistance = roster.center_distance(services.centerIndex,
             ctx.mapId, profile.pcRadius)
@@ -309,8 +318,10 @@ return function(deps)
           "trainer-role", ctx.identityKey, index }).lo,
       }
       if movesets then
+        local teamContext = movesets.team_context(state.owned,
+          data.pokemon, data.moves)
         movesets.generate(instance, data.pokemon[instance.species],
-          data.moves, profile.aiTier)
+          data.moves, profile.aiTier, nil, teamContext)
       end
       state.owned[index] = instance
       state.activeIds[index] = id

@@ -22,6 +22,14 @@ return function(deps)
     return top
   end
 
+  local function teammates(instances, excluded)
+    local out = {}
+    for _, instance in ipairs(instances or {}) do
+      if instance ~= excluded then out[#out + 1] = instance end
+    end
+    return out
+  end
+
   function M.contextual_ceiling(vanillaTop, playerReference, badgeCount, profile)
     vanillaTop = tonumber(vanillaTop) or 1
     playerReference = tonumber(playerReference) or vanillaTop
@@ -104,15 +112,17 @@ return function(deps)
           or (ctx.meta.bySpecies or {})[mon.species])
         local species = line and stage_resolver.resolve(line, mon.level,
           ctx.pokemon, mon.species)
+        local teamContext = movesets and movesets.team_context(
+          teammates(state.owned, mon), ctx.pokemon, ctx.moves) or nil
         if movesets then
-          movesets.refresh(mon, "level", ctx.pokemon[previousSpecies],
-            ctx.moves, profile.aiTier)
+          movesets.refresh(mon, "level-up", ctx.pokemon[previousSpecies],
+            ctx.moves, profile.aiTier, nil, teamContext)
         end
         if species and species ~= mon.species then
           mon.species = species
           if movesets then
             movesets.refresh(mon, "evolution", ctx.pokemon[species],
-              ctx.moves, profile.aiTier)
+              ctx.moves, profile.aiTier, nil, teamContext)
           end
           mon.movesetRefreshReason = nil
           mon.evolvedFrom = previousSpecies

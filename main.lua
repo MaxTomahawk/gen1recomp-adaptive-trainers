@@ -17,7 +17,11 @@ return function(mod)
   local player_power = module("src/core/player_power.lua")
   local ecology = module("src/core/ecology.lua")
   local stage_resolver = module("src/core/stage_resolver.lua")
-  local movesets = module("src/core/movesets.lua")
+  local move_packages = module("src/data/move_packages.lua")
+  local movesets = module("src/core/movesets.lua")({
+    rng = rng,
+    packages = move_packages,
+  })
   local selector = module("src/core/species_selector.lua")({
     stage_resolver = stage_resolver,
   })
@@ -46,6 +50,9 @@ return function(mod)
   local line_meta = module("src/data/line_meta.lua").build()
   local profiles = module("src/data/trainer_profiles.lua")
   local ecology_overrides = module("src/data/ecology_overrides.lua")
+  local ai_tiers = module("src/data/ai_tiers.lua")
+  local ai = module("src/core/ai.lua")(ai_tiers)
+  ai.register(mod, profiles)
 
   local game
   local pendingTrainer
@@ -286,6 +293,6 @@ return function(mod)
   end)
 
   mod.exports.status = function()
-    return { phase = "B", schema = schema.VERSION }
+    return { phase = "C", schema = schema.VERSION }
   end
 end

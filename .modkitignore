@@ -22,3 +22,6 @@ tests/unit/growth_spec.lua
 tests/unit/catch_spec.lua
 tests/unit/roster_spec.lua
 tests/unit/movesets_spec.lua
+tests/unit/ai_spec.lua
+tests/property/phase_c_properties_spec.lua
+tests/integration/phase_c_moves_ai_spec.lua
