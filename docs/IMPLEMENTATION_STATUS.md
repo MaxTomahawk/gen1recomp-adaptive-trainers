@@ -34,9 +34,11 @@ elapsed growth, permanent stage changes, bounded local/context catches,
 Center-aware bench rotation, and battle-result persistence are green. The first
 independent review found three correctness gaps; exact caught-species
 preservation, party-index-bounded organization pools, and checkpoint-safe
-collision identities are now covered and fixed without an engine change. The
-next gates are refreshed PR CI, clean re-review, and merge; Phase C then begins
-immediately.
+collision identities are now covered and fixed without an engine change. A
+re-review also caught a contextual-ceiling report that incorrectly folded in
+the current level; the exact chapter 7.2 formula is now separate from the
+non-negative-growth guard. The next gates are refreshed PR CI, clean re-review,
+and merge; Phase C then begins immediately.
 
 Current evidence:
 
@@ -46,13 +48,13 @@ Current evidence:
 - Phase B public runtime: 219/219 loss/growth/catch/rotation/reload checks,
   including collision-checkpoint reconstruction and Blue/Yellow grace checks.
 - Deterministic/property/unit suites: 23,363/23,363 property assertions plus
-  4,601 focused data/ecology/generation/growth/catch/roster/identity/power/RNG/schema assertions.
+  4,604 focused data/ecology/generation/growth/catch/roster/identity/power/RNG/schema assertions.
 - `modkit validate --base fixture`: green.
 - `modkit lint`: green, no ROM-derived content detected.
 - Reproducible double-pack check: green; 21 distributable files plus
   `.modkit/pack.json`, with no recursive `dist/`, tests, scripts, docs, or DOCX.
 - Source-date-zero package SHA-256:
-  `eb2ec2206f067d178bcdfe5b09d33b10b9f7622f11ac06de973eda4764dd74a0`.
+  `1dbdb4900b3da459741c01490f8ce406190b76895a2bc83ceafb8294bf3bc887`.
 
 ## Baseline clarifications
 

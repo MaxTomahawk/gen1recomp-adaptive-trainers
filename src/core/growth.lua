@@ -22,8 +22,7 @@ return function(deps)
   end
 
   function M.ceiling(vanillaTop, currentTop, playerReference, badgeCount, profile)
-    vanillaTop = tonumber(vanillaTop) or currentTop or 1
-    currentTop = tonumber(currentTop) or vanillaTop
+    vanillaTop = tonumber(vanillaTop) or tonumber(currentTop) or 1
     playerReference = tonumber(playerReference) or vanillaTop
     badgeCount = clamp(math.floor(tonumber(badgeCount) or 0), 0, 8)
     profile = profile or {}
@@ -35,7 +34,7 @@ return function(deps)
     local capped = math.min(raw,
       vanillaTop + (profile.lifetimeGainCap or 0),
       playerReference + (profile.overtakeCap or 0))
-    return math.floor(math.max(vanillaTop, currentTop, capped))
+    return math.floor(capped)
   end
 
   local function deterministic_round(value, stream)

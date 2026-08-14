@@ -87,6 +87,7 @@
 - [x] Test full-party behavior with and without reachable Centers plus collector/expert rotation differences before implementation.
 - [x] Implement Center graph indexing and active/bench rotation, rerun all tests, validate/lint, update status, and commit as `feat: add trainer growth and catches`.
 - [x] Address independent review with regressions for exact evidenced catch species, party-index-bounded issued pools, checkpoint-safe collision identity, directed warps, complete full-party catch behavior, and Red/Blue/Yellow persistence.
+- [x] Keep the exact chapter 7.2 contextual ceiling separate from the no-level-down guard, including an already-above-cap regression.
 
 ### Task 4: Phase C — persistent legal movesets and AI tiers
 

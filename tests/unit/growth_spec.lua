@@ -42,8 +42,8 @@ eq(growth.ceiling(10, 10, 20, 1, profile), 20,
   "badge progression raises the contextual ceiling within lifetime cap")
 eq(growth.ceiling(10, 10, 50, 8, profile), 20,
   "lifetime gain cap prevents an early trainer becoming an endgame ace")
-eq(growth.ceiling(20, 20, 10, 0, profile), 20,
-  "a low player reference never levels a trainer down")
+eq(growth.ceiling(20, 20, 10, 0, profile), 12,
+  "current trainer level does not redefine the normative contextual ceiling")
 
 local function state()
   return {
@@ -109,6 +109,21 @@ eq(evolved.owned[1].moves[1], "TACKLE",
   "Phase B preserves logical old moves until Phase C refreshes them")
 eq(evolved.owned[1].movesetRefreshReason, "evolution",
   "evolution records the pending legal moveset refresh reason")
+
+local aboveCeiling = state()
+aboveCeiling.vanillaTop = 20
+aboveCeiling.owned[1].level = 20
+aboveCeiling.owned[2].level = 19
+local aboveChanged, aboveReport = growth.materialize(aboveCeiling, {
+  playTime = 3700, playerParty = { { level = 10 } }, badgeCount = 0,
+  pokemon = pokemon, meta = meta,
+}, profile)
+eq(aboveReport.ceilingTop, 12,
+  "growth reports the exact formula even when the roster is already above it")
+eq(aboveChanged, false,
+  "an already-above-ceiling roster receives no additional growth")
+eq(aboveCeiling.owned[1].level, 20,
+  "non-negative growth keeps an already-above-ceiling level unchanged")
 
 if failures > 0 then
   io.stderr:write(string.format("%d/%d growth checks failed\n", failures, checks))
