@@ -21,6 +21,15 @@ return function(mod)
     stage_resolver = stage_resolver,
   })
   local validator = module("src/core/team_validator.lua")
+  local growth = module("src/core/growth.lua")({
+    rng = rng,
+    player_power = player_power,
+    stage_resolver = stage_resolver,
+  })
+  local roster = module("src/core/roster.lua")({
+    rng = rng,
+    stage_resolver = stage_resolver,
+  })
   local standard = module("src/core/standard_trainers.lua")({
     rng = rng,
     player_power = player_power,
@@ -28,6 +37,8 @@ return function(mod)
     selector = selector,
     validator = validator,
     stage_resolver = stage_resolver,
+    growth = growth,
+    roster = roster,
   })
   local line_meta = module("src/data/line_meta.lua").build()
   local profiles = module("src/data/trainer_profiles.lua")
@@ -35,7 +46,9 @@ return function(mod)
 
   local game
   local pendingTrainer
+  local activeTrainerKey
   local collisionKeys = {}
+  local centerIndex
 
   local function save_identity(save)
     local player = save and save.player or {}
@@ -96,6 +109,7 @@ return function(mod)
     if ev and ev.game then
       game = ev.game
       audit_identities(game)
+      centerIndex = roster.center_index(game.data)
     end
     local save = ev and ev.save or (game and game.save)
     if save then ensure_root(save) end
@@ -104,6 +118,22 @@ return function(mod)
   mod.events:on("game.ready", bind_live_game)
   mod.events:on("save.created", bind_live_game)
   mod.events:on("save.loaded", bind_live_game)
+
+  local function badge_count(save, data)
+    if type(save and save.badgeCount) == "number" then return save.badgeCount end
+    local count = 0
+    local playerBadges = save and save.player and save.player.badges
+    if type(playerBadges) == "table" then
+      for _, held in pairs(playerBadges) do if held then count = count + 1 end end
+      return count
+    end
+    local inventory = save and save.inventory or {}
+    for _, badge in ipairs(data and data.constants
+        and data.constants.badges or {}) do
+      if inventory[badge.item or badge.id] then count = count + 1 end
+    end
+    return count
+  end
 
   mod.events:on("world.trainer_engaged", function(ev)
     local live = game or mod.game
@@ -151,17 +181,43 @@ return function(mod)
       identityKey = key,
       playTime = save.playTime or 0,
       playerParty = save.party or {},
+      badgeCount = badge_count(save, data),
     }, partyDef, root, {
       data = data,
       meta = line_meta,
       profile = profile,
       ecologyOverrides = ecology_overrides,
+      centerIndex = centerIndex,
     })
     mod.save:set("state", root)
+    activeTrainerKey = key
     return next(oppClass, partyIndex, generated)
   end, 0)
 
+  mod.events:on("battle.started", function(ev)
+    if not ev or ev.kind ~= "trainer" then activeTrainerKey = nil end
+  end)
+
+  mod.events:on("battle.ended", function(ev)
+    local key = activeTrainerKey
+    activeTrainerKey = nil
+    if not key then return end
+    local live = game or mod.game
+    local save = live and live.save
+    if not save then return end
+    local root = ensure_root(save)
+    local state = root.trainers and root.trainers[key]
+    if not state then return end
+    state.battleCount = (state.battleCount or 0) + 1
+    state.lastBattleAt = save.playTime or state.lastBattleAt or 0
+    state.lastResult = ev and ev.result or "run"
+    if state.lastResult == "lose" then
+      state.lossCount = (state.lossCount or 0) + 1
+    end
+    mod.save:set("state", root)
+  end)
+
   mod.exports.status = function()
-    return { phase = "A", schema = schema.VERSION }
+    return { phase = "B", schema = schema.VERSION }
   end
 end

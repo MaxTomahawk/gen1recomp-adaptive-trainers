@@ -53,6 +53,8 @@ local function profile(id, values, behavior)
     rarityAllowance = behavior.rarityAllowance or 1,
     maxRarity3 = behavior.maxRarity3 or 1,
     specialistType = behavior.specialistType == true,
+    catchGroups = behavior.catchGroups or {},
+    catchSelectivity = behavior.catchSelectivity or 0,
     allowDuplicateLines = behavior.allowDuplicateLines == true,
     rosterBehavior = behavior.rosterBehavior or "casual",
   }
@@ -67,7 +69,7 @@ local BUG_CATCHER = profile("BUG_CATCHER",
   { .15, 2, 6.5, .20, 12, 0, .55, 2.0, 6, 0 },
   { classTags = { "bugcatcher" }, rarityAllowance = 1,
     allowDuplicateLines = true, rosterBehavior = "collector",
-    specialistType = true })
+    specialistType = true, catchGroups = { "BUG" } })
 local LASS = profile("LASS",
   { .20, 2, 7.0, .25, 10, 0, .18, 5.0, 3, 0 },
   { classTags = { "lass" }, rarityAllowance = 2 })
@@ -140,7 +142,7 @@ local BIRD_KEEPER = profile("BIRD_KEEPER",
   { .25, 3, 5.0, .30, 15, 1, .40, 2.5, 5, 1 },
   { classTags = { "birdkeeper" }, mobilityRadius = 2, rarityAllowance = 2,
     allowDuplicateLines = true, rosterBehavior = "collector",
-    specialistType = true })
+    specialistType = true, catchGroups = { "BIRD", "FLYING" } })
 local BLACKBELT = profile("BLACKBELT",
   { .40, 5, 3.8, .50, 20, 2, .12, 5.5, 4, 2 },
   { classTags = { "blackbelt" }, mobilityRadius = 2, rarityAllowance = 3,
@@ -156,7 +158,8 @@ local ROCKET = profile("ROCKET",
 local COOLTRAINER = profile("COOLTRAINER",
   { .50, 6, 3.5, .60, 22, 2, .15, 5.0, 5, 3 },
   { classTags = { "cooltrainer" }, mobilityRadius = 2, pcRadius = 2,
-    rarityAllowance = 4, maxRarity3 = 2, rosterBehavior = "expert" })
+    rarityAllowance = 4, maxRarity3 = 2, rosterBehavior = "expert",
+    catchSelectivity = 0.35 })
 local GENTLEMAN = profile("GENTLEMAN",
   { .30, 4, 5.0, .35, 16, 1, .10, 6.0, 3, 2 },
   { classTags = { "gentleman" }, mobilityRadius = 2, pcRadius = 2,

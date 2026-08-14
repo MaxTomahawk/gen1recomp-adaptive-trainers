@@ -1,0 +1,157 @@
+package.path = "./?.lua;./?/init.lua;" .. package.path
+
+local T = require("tests.modkit")
+local Runtime = require("src.mods.Runtime")
+local SaveSerializer = require("src.core.SaveSerializer")
+
+local modPath = assert(os.getenv("ADAPTIVE_TRAINERS_PATH"),
+  "ADAPTIVE_TRAINERS_PATH must name the mod relative to Gen1Recomp")
+
+local function species(id, stats, evolutions)
+  return { id = id, types = { id == "PIDGEY" and "FLYING" or "BUG" },
+    baseStats = stats, evolutions = evolutions or {}, learnset = {}, tmhm = {},
+    level1Moves = {} }
+end
+
+local function fixture_data()
+  local data = T.fixtures.fresh()
+  data.pokemon.CATERPIE = species("CATERPIE",
+    { hp = 45, attack = 30, defense = 35, speed = 45, special = 20 }, {
+      { method = "LEVEL", level = 7, species = "METAPOD" },
+    })
+  data.pokemon.METAPOD = species("METAPOD",
+    { hp = 50, attack = 20, defense = 55, speed = 30, special = 25 }, {
+      { method = "LEVEL", level = 10, species = "BUTTERFREE" },
+    })
+  data.pokemon.BUTTERFREE = species("BUTTERFREE",
+    { hp = 60, attack = 45, defense = 50, speed = 70, special = 80 })
+  data.pokemon.PIDGEY = species("PIDGEY",
+    { hp = 40, attack = 45, defense = 40, speed = 56, special = 35 })
+  data.encounters.FIX_ROUTE = { grass = { rate = 25, slots = {
+    { level = 4, species = "CATERPIE" },
+    { level = 6, species = "CATERPIE" },
+    { level = 5, species = "PIDGEY" },
+  } } }
+  data.trainers.OPP_BUG_CATCHER = {
+    id = "OPP_BUG_CATCHER", index = 3, name = "BUG CATCHER", baseMoney = 10,
+    parties = { { { species = "CATERPIE", level = 8 } } },
+  }
+  data.maps.FIX_ROUTE.objects = {
+    { index = 1, name = "FIX_BUG_CATCHER", trainerClass = "OPP_BUG_CATCHER",
+      trainerParty = 1 },
+  }
+  return data
+end
+
+local function save_for(modData)
+  return { version = "red", badgeCount = 1,
+    meta = { playthroughId = "phase-b-red" },
+    player = { map = "FIX_ROUTE", id = 99, name = "RED", rival = "BLUE" },
+    party = { { species = "PIDGEY", level = 20 },
+      { species = "PIDGEY", level = 18 },
+      { species = "PIDGEY", level = 16 } },
+    playTime = 1000,
+    modData = modData or { adaptive_trainers = {} },
+  }
+end
+
+local function game_for(run, save)
+  return { data = run.data, save = save, overworld = {
+    isOverworld = true, map = { id = "FIX_ROUTE" },
+    player = { cellX = 3, cellY = 4, facing = "up" },
+  } }
+end
+
+local function engage(game)
+  Runtime.emit("world.trainer_engaged", {
+    npc = { id = "FIX_BUG_CATCHER", def = { index = 1 } },
+    trainerClass = "OPP_BUG_CATCHER", partyIndex = 1,
+  })
+  local vanilla = game.data.trainers.OPP_BUG_CATCHER.parties[1]
+  return Runtime.call("trainer.party", function(_, _, party) return party end,
+    "OPP_BUG_CATCHER", 1, vanilla)
+end
+
+local function finish(result)
+  Runtime.emit("battle.started", { kind = "trainer", battle = {} })
+  Runtime.emit("battle.ended", { result = result, battle = {} })
+end
+
+local run = T.sdk.loadMod(modPath, { data = fixture_data() })
+local save = save_for()
+local game = game_for(run, save)
+run.loader.game, run.loader.modSave = game, save.modData
+Runtime.emit("game.ready", { game = game })
+
+local initial = engage(game)
+local initialBytes = SaveSerializer.encode(initial)
+local key = "red|FIX_ROUTE|OPP_BUG_CATCHER|1"
+local root = save.modData.adaptive_trainers.state
+local state = root.trainers[key]
+T.check(state ~= nil, "Phase B fixture persists its standard trainer")
+finish("lose")
+T.eq(state.lossCount, 1, "a real trainer loss increments persistent loss count")
+T.eq(state.battleCount, 1, "a completed trainer battle increments battle count")
+T.eq(state.lastBattleAt, 1000, "loss time uses active save playTime")
+
+save.playTime = 1900
+local grace = engage(game)
+T.eq(SaveSerializer.encode(grace), initialBytes,
+  "the exact 900-second retry preserves species, levels, moves and size")
+T.eq(#state.owned, 1, "the exact grace boundary cannot catch")
+finish("lose")
+
+local priorOwned = #state.owned
+local priorLevels = {}
+for index, mon in ipairs(state.owned) do priorLevels[index] = mon.level end
+for interval = 1, 30 do
+  save.playTime = save.playTime + 72 * 3600
+  local party = engage(game)
+  T.check(#state.owned <= priorOwned + 1,
+    "loss interval " .. interval .. " adds at most one owned catch")
+  for index = 1, math.min(#priorLevels, #state.owned) do
+    T.check(state.owned[index].level >= priorLevels[index],
+      "loss interval " .. interval .. " never lowers owned slot " .. index)
+  end
+  priorOwned = #state.owned
+  priorLevels = {}
+  for index, mon in ipairs(state.owned) do priorLevels[index] = mon.level end
+  T.check(#party == #state.activeIds,
+    "materialized party uses exactly the persistent active ids")
+  finish("lose")
+end
+T.check(#state.owned > 1,
+  "repeated long losses allow a high-catch Bug Catcher to expand")
+T.check(#state.activeIds >= 2 and #state.activeIds <= 6,
+  "free active slots let the Bug Catcher grow toward six without a Center")
+
+save.playTime = save.playTime + 72 * 3600
+local beforeReload = engage(game)
+local stableBytes = SaveSerializer.encode({ party = beforeReload, state = state })
+local savedBytes = SaveSerializer.encode(save.modData)
+run.release()
+
+local reloaded = T.sdk.loadMod(modPath, { data = fixture_data() })
+local decoded = assert(SaveSerializer.decode(savedBytes))
+local reloadSave = save_for(decoded)
+reloadSave.playTime = save.playTime
+local reloadGame = game_for(reloaded, reloadSave)
+reloaded.loader.game, reloaded.loader.modSave = reloadGame, reloadSave.modData
+Runtime.emit("game.ready", { game = reloadGame })
+local afterReload = engage(reloadGame)
+local reloadState = reloadSave.modData.adaptive_trainers.state.trainers[key]
+T.eq(SaveSerializer.encode({ party = afterReload, state = reloadState }), stableBytes,
+  "save/reload cannot repeat growth, reroll a catch, or rotate differently")
+finish("win")
+local wonRoster = SaveSerializer.encode({ owned = reloadState.owned,
+  activeIds = reloadState.activeIds })
+reloadSave.playTime = reloadSave.playTime + 365 * 24 * 3600
+local afterWin = engage(reloadGame)
+T.eq(SaveSerializer.encode({ owned = reloadState.owned,
+  activeIds = reloadState.activeIds }), wonRoster,
+  "a defeated vanilla trainer never grows, catches, or rotates again")
+T.eq(#afterWin, #reloadState.activeIds,
+  "a synthetic post-win hook cannot create a rematch roster transition")
+reloaded.release()
+
+T.finish("adaptive trainers phase B persistence")

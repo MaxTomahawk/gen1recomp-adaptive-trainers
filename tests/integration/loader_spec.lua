@@ -23,7 +23,7 @@ local exports = run.loader.exports.adaptive_trainers
 T.check(type(exports) == "table" and type(exports.status) == "function",
   "the entrypoint publishes a runtime status boundary")
 if exports and exports.status then
-  T.same(exports.status(), { phase = "A", schema = 1 },
+  T.same(exports.status(), { phase = "B", schema = 1 },
     "the status boundary reports the implemented save contract")
 end
 

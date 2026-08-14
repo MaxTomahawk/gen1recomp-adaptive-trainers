@@ -16,3 +16,8 @@ tests/unit/ecology_spec.lua
 tests/unit/generation_spec.lua
 tests/unit/data_spec.lua
 tests/property/phase_a_properties_spec.lua
+tests/integration/phase_b_persistence_spec.lua
+tests/property/phase_b_properties_spec.lua
+tests/unit/growth_spec.lua
+tests/unit/catch_spec.lua
+tests/unit/roster_spec.lua
