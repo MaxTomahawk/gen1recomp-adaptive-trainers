@@ -181,8 +181,8 @@ return function(deps)
       if movesets then
         for _, instance in ipairs(existing.owned or {}) do
           if instance.moves == nil then
-            movesets.generate(instance, data.pokemon[instance.species],
-              data.moves, profile.aiTier)
+            movesets.hydrate_legacy(instance,
+              data.pokemon[instance.species], data.moves)
           end
         end
       end

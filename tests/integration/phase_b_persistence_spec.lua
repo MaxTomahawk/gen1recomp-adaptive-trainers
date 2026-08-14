@@ -19,6 +19,7 @@ local function fixture_data()
     { hp = 45, attack = 30, defense = 35, speed = 45, special = 20 }, {
       { method = "LEVEL", level = 7, species = "METAPOD" },
     })
+  data.pokemon.CATERPIE.tmhm = { "FIX_CUT" }
   data.pokemon.METAPOD = species("METAPOD",
     { hp = 50, attack = 20, defense = 55, speed = 30, special = 25 }, {
       { method = "LEVEL", level = 10, species = "BUTTERFREE" },
@@ -306,6 +307,26 @@ T.eq(mismatchState.battleCount, 1,
   "a newly prepared matching battle still records exactly one result")
 mismatchRun.release()
 
+local skippedRun = T.sdk.loadMod(modPath, { data = fixture_data() })
+local skippedSave = save_for()
+local skippedGame = game_for(skippedRun, skippedSave)
+skippedRun.loader.game, skippedRun.loader.modSave = skippedGame,
+  skippedSave.modData
+Runtime.emit("game.ready", { game = skippedGame })
+engage(skippedGame)
+local skippedKey = "red|FIX_ROUTE|OPP_BUG_CATCHER|1"
+local skippedState = skippedSave.modData.adaptive_trainers.state
+  .trainers[skippedKey]
+Runtime.emit("battle.ended", { result = "lose", skipped = true,
+  battle = battle_for() })
+T.eq(skippedState.battleCount, 1,
+  "a matching skipped trainer battle records its concrete result without started")
+T.eq(skippedState.lossCount, 1,
+  "a no-healthy-party skipped loss increments the persistent loss count")
+T.eq(skippedState.lastBattleAt, skippedSave.playTime,
+  "a skipped loss starts the same active-play-time grace interval")
+skippedRun.release()
+
 local upgradeRun = T.sdk.loadMod(modPath, { data = fixture_data() })
 local upgradeSave = save_for(nil, "blue")
 local upgradeGame = game_for(upgradeRun, upgradeSave)
@@ -316,10 +337,16 @@ engage(upgradeGame)
 local upgradeKey = "blue|FIX_ROUTE|OPP_BUG_CATCHER|1"
 local upgradeState = upgradeSave.modData.adaptive_trainers.state
   .trainers[upgradeKey]
+finish("lose")
 upgradeState.owned[1].moves = nil
+upgradeSave.playTime = upgradeSave.playTime + 100
 local upgradedParty = engage(upgradeGame)
 T.check(upgradeState.owned[1].moves and #upgradeState.owned[1].moves > 0,
   "an existing generated individual receives only its missing derived moves")
+T.eq(table.concat(upgradeState.owned[1].moves, ","), "FIX_TACKLE",
+  "grace-window legacy hydration exactly matches the prior engine level moves")
+T.eq(table.concat(upgradedParty[1].moves, ","), "FIX_TACKLE",
+  "legacy hydration cannot introduce a legal TM during exact grace")
 local upgradedBytes = SaveSerializer.encode(upgradedParty)
 T.eq(SaveSerializer.encode(engage(upgradeGame)), upgradedBytes,
   "derived move hydration is deterministic and cannot reroll the individual")

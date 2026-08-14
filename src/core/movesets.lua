@@ -35,6 +35,20 @@ function M.legal_pool(speciesDef, level, moveDefs)
   return pool
 end
 
+function M.level_moves(speciesDef, level, moveDefs)
+  local pool = M.legal_pool(speciesDef, level, moveDefs)
+  local moves = {}
+  for _, id in ipairs(pool.level) do moves[#moves + 1] = id end
+  while #moves > 4 do table.remove(moves, 1) end
+  return moves
+end
+
+function M.hydrate_legacy(instance, speciesDef, moveDefs)
+  if instance.moves ~= nil then return instance.moves end
+  instance.moves = M.level_moves(speciesDef, instance.level, moveDefs)
+  return instance.moves
+end
+
 local function has_type(speciesDef, moveType)
   for _, typeId in ipairs(speciesDef and speciesDef.types or {}) do
     if typeId == moveType then return true end

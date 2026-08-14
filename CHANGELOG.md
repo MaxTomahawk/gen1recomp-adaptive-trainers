@@ -34,6 +34,8 @@ The format follows Keep a Changelog, and this project uses Semantic Versioning.
   contextual-ceiling diagnostics, and real Gen1 badge inventory fallback.
 - Persistent legal ordinary-trainer moves with bounded TM use, level refresh,
   inherited move memory, and an extra evolution refresh.
+- Skipped trainer-loss accounting and grace-safe engine-equivalent move
+  hydration for individuals created by earlier mod schemas.
 
 ## [0.1.0] - 2026-08-14
 

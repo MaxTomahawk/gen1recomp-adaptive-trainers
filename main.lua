@@ -261,6 +261,9 @@ return function(mod)
     elseif checkpointRestorePending and ev
         and battle_matches(root.activeTrainer, ev.battle) then
       matched = root.activeTrainer
+    elseif ev and ev.skipped == true
+        and battle_matches(preparedBattle, ev.battle) then
+      matched = preparedBattle
     end
     if not matched then return end
     local key = matched.identityKey

@@ -89,6 +89,7 @@
 - [x] Address independent review with regressions for exact evidenced catch species, party-index-bounded issued pools, checkpoint-safe collision identity, directed warps, complete full-party catch behavior, and Red/Blue/Yellow persistence.
 - [x] Keep the exact chapter 7.2 contextual ceiling separate from the no-level-down guard, including an already-above-cap regression.
 - [x] Freeze all roster transitions through the exact grace boundary, bind results to the concrete battle, and pull forward persistent legal move generation/evolution refresh required by chapter 7.4.
+- [x] Record upstream skipped trainer-loss events without requiring `battle.started`, and hydrate Phase-A move-less individuals with engine-equivalent level moves so upgrades cannot violate grace.
 
 ### Task 4: Phase C — persistent legal movesets and AI tiers
 

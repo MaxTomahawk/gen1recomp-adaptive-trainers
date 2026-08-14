@@ -50,6 +50,22 @@ check(not contains(pool.level, "GUST"),
 check(contains(pool.tm, "PSYCHIC"),
   "legal pool derives TM/HM candidates from the runtime species registry")
 
+local legacySpecies = { level1Moves = {
+  "TACKLE", "STRING_SHOT", "TACKLE",
+}, learnset = {
+  { level = 4, move = "HARDEN" },
+  { level = 5, move = "CONFUSION" },
+  { level = 6, move = "GUST" },
+}, tmhm = { "PSYCHIC" } }
+eq(table.concat(movesets.level_moves(legacySpecies, 6, moveDefs), ","),
+  "STRING_SHOT,HARDEN,CONFUSION,GUST",
+  "legacy hydration matches engine de-duplication and last-four level moves")
+local legacy = { species = "BUTTERFREE", level = 6 }
+movesets.hydrate_legacy(legacy, legacySpecies, moveDefs)
+eq(table.concat(legacy.moves, ","),
+  "STRING_SHOT,HARDEN,CONFUSION,GUST",
+  "legacy hydration never introduces an otherwise learnable TM")
+
 local novice = { id = "novice", species = "BUTTERFREE", level = 10 }
 local noviceMoves = movesets.generate(novice, species, moveDefs, 0)
 eq(novice.moves, noviceMoves,
