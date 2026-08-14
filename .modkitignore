@@ -21,3 +21,4 @@ tests/property/phase_b_properties_spec.lua
 tests/unit/growth_spec.lua
 tests/unit/catch_spec.lua
 tests/unit/roster_spec.lua
+tests/unit/movesets_spec.lua

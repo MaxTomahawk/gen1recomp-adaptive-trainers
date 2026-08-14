@@ -2,6 +2,7 @@ return function(deps)
   local rng = deps.rng
   local player_power = deps.player_power
   local stage_resolver = deps.stage_resolver
+  local movesets = deps.movesets
   local M = {}
 
   local BADGE_ANCHOR = {
@@ -21,8 +22,8 @@ return function(deps)
     return top
   end
 
-  function M.ceiling(vanillaTop, currentTop, playerReference, badgeCount, profile)
-    vanillaTop = tonumber(vanillaTop) or tonumber(currentTop) or 1
+  function M.contextual_ceiling(vanillaTop, playerReference, badgeCount, profile)
+    vanillaTop = tonumber(vanillaTop) or 1
     playerReference = tonumber(playerReference) or vanillaTop
     badgeCount = clamp(math.floor(tonumber(badgeCount) or 0), 0, 8)
     profile = profile or {}
@@ -35,6 +36,10 @@ return function(deps)
       vanillaTop + (profile.lifetimeGainCap or 0),
       playerReference + (profile.overtakeCap or 0))
     return math.floor(capped)
+  end
+
+  function M.ceiling(vanillaTop, _, playerReference, badgeCount, profile)
+    return M.contextual_ceiling(vanillaTop, playerReference, badgeCount, profile)
   end
 
   local function deterministic_round(value, stream)
@@ -64,11 +69,13 @@ return function(deps)
     local currentTop = top_level(state.owned)
     local vanillaTop = tonumber(state.vanillaTop) or currentTop
     local playerReference = player_power.reference(ctx.playerParty or {})
-    local ceilingTop = M.ceiling(vanillaTop, currentTop, playerReference,
-      ctx.badgeCount, profile)
-    report.ceilingTop = ceilingTop
+    local contextualCeiling = M.contextual_ceiling(vanillaTop,
+      playerReference, ctx.badgeCount, profile)
+    local effectiveCeiling = math.max(currentTop, contextualCeiling)
+    report.ceilingTop = contextualCeiling
+    report.effectiveCeilingTop = effectiveCeiling
     report.playerReference = playerReference
-    if ceilingTop <= currentTop then
+    if contextualCeiling <= currentTop then
       report.reason = "ceiling"
       return false, report
     end
@@ -85,10 +92,11 @@ return function(deps)
         state.identityKey or "", state.battleCount or 0, mon.id or "")
       local focus = stream:integer(-1, 1)
       local desired = math.max(0,
-        (ceilingTop - currentTop) * factor + focus * factor)
-      local gain = math.min(ceilingTop - (tonumber(mon.level) or 1),
+        (effectiveCeiling - currentTop) * factor + focus * factor)
+      local gain = math.min(effectiveCeiling - (tonumber(mon.level) or 1),
         deterministic_round(desired, stream))
       if gain > 0 then
+        local previousSpecies = mon.species
         mon.level = mon.level + gain
         changed = true
         report.changedIds[#report.changedIds + 1] = mon.id
@@ -96,9 +104,18 @@ return function(deps)
           or (ctx.meta.bySpecies or {})[mon.species])
         local species = line and stage_resolver.resolve(line, mon.level,
           ctx.pokemon, mon.species)
+        if movesets then
+          movesets.refresh(mon, "level", ctx.pokemon[previousSpecies],
+            ctx.moves, profile.aiTier)
+        end
         if species and species ~= mon.species then
           mon.species = species
-          mon.movesetRefreshReason = "evolution"
+          if movesets then
+            movesets.refresh(mon, "evolution", ctx.pokemon[species],
+              ctx.moves, profile.aiTier)
+          end
+          mon.movesetRefreshReason = nil
+          mon.evolvedFrom = previousSpecies
         end
       end
     end

@@ -10,7 +10,7 @@ local modPath = assert(os.getenv("ADAPTIVE_TRAINERS_PATH"),
 local function species(id, stats, evolutions)
   return { id = id, types = { id == "PIDGEY" and "FLYING" or "BUG" },
     baseStats = stats, evolutions = evolutions or {}, learnset = {}, tmhm = {},
-    level1Moves = {} }
+    level1Moves = { "FIX_TACKLE" } }
 end
 
 local function fixture_data()
@@ -19,12 +19,17 @@ local function fixture_data()
     { hp = 45, attack = 30, defense = 35, speed = 45, special = 20 }, {
       { method = "LEVEL", level = 7, species = "METAPOD" },
     })
+  data.pokemon.CATERPIE.tmhm = { "FIX_CUT" }
   data.pokemon.METAPOD = species("METAPOD",
     { hp = 50, attack = 20, defense = 55, speed = 30, special = 25 }, {
       { method = "LEVEL", level = 10, species = "BUTTERFREE" },
     })
   data.pokemon.BUTTERFREE = species("BUTTERFREE",
     { hp = 60, attack = 45, defense = 50, speed = 70, special = 80 })
+  data.pokemon.BUTTERFREE.level1Moves = { "FIX_SCRATCH" }
+  data.pokemon.BUTTERFREE.learnset = {
+    { level = 10, move = "FIX_EMBERISH" },
+  }
   data.pokemon.PIDGEY = species("PIDGEY",
     { hp = 40, attack = 45, defense = 40, speed = 56, special = 35 })
   data.encounters.FIX_ROUTE = { grass = { rate = 25, slots = {
@@ -40,6 +45,11 @@ local function fixture_data()
     { index = 1, name = "FIX_BUG_CATCHER", trainerClass = "OPP_BUG_CATCHER",
       trainerParty = 1 },
   }
+  data.maps.FIX_ROUTE.warps = { { destMap = "FIX_CENTER" } }
+  data.maps.FIX_CENTER = { connections = {},
+    warps = { { destMap = "FIX_ROUTE" } }, objects = {
+      { name = "FIX_CENTER_NURSE", text = "TEXT_FIX_CENTER_NURSE" },
+    } }
   return data
 end
 
@@ -73,9 +83,15 @@ local function engage(game)
     "OPP_BUG_CATCHER", 1, vanilla)
 end
 
-local function finish(result)
-  Runtime.emit("battle.started", { kind = "trainer", battle = {} })
-  Runtime.emit("battle.ended", { result = result, battle = {} })
+local function battle_for(oppClass, partyIndex)
+  return { oppClass = oppClass or "OPP_BUG_CATCHER",
+    partyIndex = partyIndex or 1 }
+end
+
+local function finish(result, battle)
+  battle = battle or battle_for()
+  Runtime.emit("battle.started", { kind = "trainer", battle = battle })
+  Runtime.emit("battle.ended", { result = result, battle = battle })
 end
 
 local run = T.sdk.loadMod(modPath, { data = fixture_data() })
@@ -90,6 +106,8 @@ local key = "red|FIX_ROUTE|OPP_BUG_CATCHER|1"
 local root = save.modData.adaptive_trainers.state
 local state = root.trainers[key]
 T.check(state ~= nil, "Phase B fixture persists its standard trainer")
+T.check(initial[1].moves and #initial[1].moves > 0,
+  "initial standard trainer instances expose persistent legal moves")
 finish("lose")
 T.eq(state.lossCount, 1, "a real trainer loss increments persistent loss count")
 T.eq(state.battleCount, 1, "a completed trainer battle increments battle count")
@@ -195,7 +213,8 @@ T.eq(SaveSerializer.encode(reconstructed), SaveSerializer.encode(collisionParty)
   "checkpoint reconstruction reuses the collision trainer's exact party")
 T.eq(restoredRoot.trainers["blue|FIX_ROUTE|OPP_BUG_CATCHER|1"], nil,
   "checkpoint reconstruction cannot create an unsuffixed shadow trainer")
-finish("lose")
+Runtime.emit("checkpoint.restored", { game = restoredGame, kind = "battle" })
+Runtime.emit("battle.ended", { result = "lose", battle = battle_for() })
 T.eq(restoredRoot.trainers[collisionKey].battleCount, 1,
   "the restored battle result updates the suffixed trainer state")
 T.eq(restoredRoot.activeTrainer, nil,
@@ -205,6 +224,12 @@ restoredRun.release()
 for _, version in ipairs({ "blue", "yellow" }) do
   local versionRun = T.sdk.loadMod(modPath, { data = fixture_data() })
   local versionSave = save_for(nil, version)
+  versionSave.badgeCount = nil
+  if version == "blue" then
+    versionSave.inventory = { BOULDERBADGE = 1 }
+  else
+    versionSave.player.badges = { BOULDERBADGE = true }
+  end
   local versionGame = game_for(versionRun, versionSave)
   versionRun.loader.game, versionRun.loader.modSave = versionGame,
     versionSave.modData
@@ -215,7 +240,116 @@ for _, version in ipairs({ "blue", "yellow" }) do
   local retry = engage(versionGame)
   T.eq(SaveSerializer.encode(retry), SaveSerializer.encode(first),
     version .. " preserves the exact grace-boundary party")
+  local versionKey = version .. "|FIX_ROUTE|OPP_BUG_CATCHER|1"
+  local versionState = versionSave.modData.adaptive_trainers.state
+    .trainers[versionKey]
+  T.eq(versionState.battleCount, 1,
+    version .. " associates the result with its persistent trainer")
+  T.check(first[1].moves and #first[1].moves > 0,
+    version .. " persists generated moves using its runtime registry")
   versionRun.release()
 end
+
+local graceRun = T.sdk.loadMod(modPath, { data = fixture_data() })
+local graceSave = save_for(nil, "yellow")
+local graceGame = game_for(graceRun, graceSave)
+graceRun.loader.game, graceRun.loader.modSave = graceGame, graceSave.modData
+Runtime.emit("game.ready", { game = graceGame })
+engage(graceGame)
+local graceRoot = graceSave.modData.adaptive_trainers.state
+local graceKey = "yellow|FIX_ROUTE|OPP_BUG_CATCHER|1"
+local graceState = graceRoot.trainers[graceKey]
+finish("lose")
+for serial = 2, 7 do
+  graceState.owned[serial] = {
+    id = graceKey .. "#" .. serial,
+    lineId = serial % 2 == 0 and "CATERPIE_LINE" or "PIDGEY_LINE",
+    species = serial % 2 == 0 and "CATERPIE" or "PIDGEY",
+    level = 8, moves = { "FIX_TACKLE" }, acquiredAt = 1000 + serial,
+    originMap = "FIX_ROUTE", useCount = 0, attachment = 0,
+    roleSeed = serial,
+  }
+  if serial <= 6 then graceState.activeIds[serial] = graceState.owned[serial].id end
+end
+local graceActiveBefore = SaveSerializer.encode(graceState.activeIds)
+local gracePartyBefore = {}
+for index = 1, 6 do
+  local mon = graceState.owned[index]
+  gracePartyBefore[index] = { species = mon.species, level = mon.level,
+    moves = mon.moves }
+end
+graceSave.playTime = 1900
+local fullGraceParty = engage(graceGame)
+T.eq(SaveSerializer.encode(graceState.activeIds), graceActiveBefore,
+  "exact grace freezes active roster order even with a bench and nearby Center")
+T.eq(SaveSerializer.encode(fullGraceParty), SaveSerializer.encode(gracePartyBefore),
+  "exact grace freezes the complete full-party species, levels, and moves")
+graceRun.release()
+
+local mismatchRun = T.sdk.loadMod(modPath, { data = fixture_data() })
+local mismatchSave = save_for()
+local mismatchGame = game_for(mismatchRun, mismatchSave)
+mismatchRun.loader.game, mismatchRun.loader.modSave = mismatchGame,
+  mismatchSave.modData
+Runtime.emit("game.ready", { game = mismatchGame })
+engage(mismatchGame)
+local mismatchKey = "red|FIX_ROUTE|OPP_BUG_CATCHER|1"
+local mismatchState = mismatchSave.modData.adaptive_trainers.state
+  .trainers[mismatchKey]
+local wrongBattle = battle_for("OPP_HIKER", 2)
+Runtime.emit("battle.started", { kind = "trainer", battle = wrongBattle })
+Runtime.emit("battle.ended", { result = "lose", battle = wrongBattle })
+T.eq(mismatchState.battleCount, 0,
+  "a mismatched concrete battle cannot consume a prepared trainer result")
+engage(mismatchGame)
+finish("lose")
+T.eq(mismatchState.battleCount, 1,
+  "a newly prepared matching battle still records exactly one result")
+mismatchRun.release()
+
+local skippedRun = T.sdk.loadMod(modPath, { data = fixture_data() })
+local skippedSave = save_for()
+local skippedGame = game_for(skippedRun, skippedSave)
+skippedRun.loader.game, skippedRun.loader.modSave = skippedGame,
+  skippedSave.modData
+Runtime.emit("game.ready", { game = skippedGame })
+engage(skippedGame)
+local skippedKey = "red|FIX_ROUTE|OPP_BUG_CATCHER|1"
+local skippedState = skippedSave.modData.adaptive_trainers.state
+  .trainers[skippedKey]
+Runtime.emit("battle.ended", { result = "lose", skipped = true,
+  battle = battle_for() })
+T.eq(skippedState.battleCount, 1,
+  "a matching skipped trainer battle records its concrete result without started")
+T.eq(skippedState.lossCount, 1,
+  "a no-healthy-party skipped loss increments the persistent loss count")
+T.eq(skippedState.lastBattleAt, skippedSave.playTime,
+  "a skipped loss starts the same active-play-time grace interval")
+skippedRun.release()
+
+local upgradeRun = T.sdk.loadMod(modPath, { data = fixture_data() })
+local upgradeSave = save_for(nil, "blue")
+local upgradeGame = game_for(upgradeRun, upgradeSave)
+upgradeRun.loader.game, upgradeRun.loader.modSave = upgradeGame,
+  upgradeSave.modData
+Runtime.emit("game.ready", { game = upgradeGame })
+engage(upgradeGame)
+local upgradeKey = "blue|FIX_ROUTE|OPP_BUG_CATCHER|1"
+local upgradeState = upgradeSave.modData.adaptive_trainers.state
+  .trainers[upgradeKey]
+finish("lose")
+upgradeState.owned[1].moves = nil
+upgradeSave.playTime = upgradeSave.playTime + 100
+local upgradedParty = engage(upgradeGame)
+T.check(upgradeState.owned[1].moves and #upgradeState.owned[1].moves > 0,
+  "an existing generated individual receives only its missing derived moves")
+T.eq(table.concat(upgradeState.owned[1].moves, ","), "FIX_TACKLE",
+  "grace-window legacy hydration exactly matches the prior engine level moves")
+T.eq(table.concat(upgradedParty[1].moves, ","), "FIX_TACKLE",
+  "legacy hydration cannot introduce a legal TM during exact grace")
+local upgradedBytes = SaveSerializer.encode(upgradedParty)
+T.eq(SaveSerializer.encode(engage(upgradeGame)), upgradedBytes,
+  "derived move hydration is deterministic and cannot reroll the individual")
+upgradeRun.release()
 
 T.finish("adaptive trainers phase B persistence")

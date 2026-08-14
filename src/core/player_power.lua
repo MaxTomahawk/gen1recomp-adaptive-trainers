@@ -40,4 +40,30 @@ function M.initial_level(vanillaLevel, vanillaTop, playerReference, profile,
   return math.max(vanillaLevel, vanillaLevel + boost + jitter)
 end
 
+function M.badge_count(save, data)
+  if type(save and save.badgeCount) == "number" then
+    return math.max(0, math.floor(save.badgeCount))
+  end
+  local playerBadges = save and save.player and save.player.badges
+  if type(playerBadges) == "table" then
+    local count = 0
+    for _, held in pairs(playerBadges) do
+      if held == true or (type(held) == "number" and held > 0) then
+        count = count + 1
+      end
+    end
+    return count
+  end
+  local count = 0
+  local inventory = save and save.inventory or {}
+  for _, badge in ipairs(data and data.constants
+      and data.constants.badges or {}) do
+    local held = inventory[badge.item or badge.id]
+    if held == true or (type(held) == "number" and held > 0) then
+      count = count + 1
+    end
+  end
+  return count
+end
+
 return M

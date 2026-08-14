@@ -50,6 +50,23 @@ eq(refs[1], 38, "top-N keeps the strongest level first")
 eq(refs[2], 34, "top-N keeps the available second level")
 eq(refs[3], 34, "top-N repeats the lowest available level when short")
 
+local badgeData = { constants = { badges = {
+  { id = "BOULDERBADGE" }, { id = "CASCADEBADGE" },
+  { id = "THUNDERBADGE" },
+} } }
+eq(power.badge_count({ badgeCount = 2 }, badgeData), 2,
+  "an explicit public badge count is authoritative when available")
+eq(power.badge_count({ inventory = {
+  BOULDERBADGE = 1, CASCADEBADGE = true,
+} }, badgeData), 2,
+  "real Gen1 inventory badge items are counted from runtime constants")
+eq(power.badge_count({ player = { badges = {
+  BOULDERBADGE = true, CASCADEBADGE = false, THUNDERBADGE = true,
+} } }, badgeData), 2,
+  "structured public player badges remain a supported fallback")
+eq(power.badge_count({ inventory = { BOULDERBADGE = 0 } }, badgeData), 0,
+  "a numeric zero inventory value is not counted as an owned badge")
+
 if failures > 0 then
   io.stderr:write(string.format("%d/%d player power checks failed\n",
     failures, checks))
