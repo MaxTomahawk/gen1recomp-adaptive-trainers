@@ -26,7 +26,7 @@ T.check(type(run.data.screens.AdaptiveGymRegistration) == "table"
     and type(run.data.screens.AdaptiveGymRegistration.new) == "function",
   "the Gym registration screen is installed through the public registry")
 if exports and exports.status then
-  T.same(exports.status(), { phase = "D", schema = 1 },
+  T.same(exports.status(), { phase = "E", schema = 1 },
     "the status boundary reports the implemented save contract")
 end
 

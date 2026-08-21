@@ -30,3 +30,6 @@ tests/integration/gym_registration_spec.lua
 tests/integration/gym_runtime_spec.lua
 tests/property/gym_properties_spec.lua
 tests/unit/bosses_spec.lua
+tests/unit/league_run_spec.lua
+tests/property/league_bird_simulation_spec.lua
+tests/integration/league_persistence_spec.lua

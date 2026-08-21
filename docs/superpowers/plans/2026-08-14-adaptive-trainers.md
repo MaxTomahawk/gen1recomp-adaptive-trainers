@@ -139,9 +139,9 @@
 - `league_run.party(root, memberId, services) -> partyDef`
 - `league_run.leave(root, reason) -> nil`
 
-- [ ] Test one-time top-five snapshots, member party persistence, blackout/new-entry counter behavior, signature preservation, and reload stability before implementation.
-- [ ] Test 10,000 generated runs for exactly one visible Bird, only Lorelei/Articuno or Lance/Zapdos/Moltres, and 50/25/25 statistical tolerance.
-- [ ] Implement the four identities and run lifecycle; run all tests, validate/lint, update status, and commit as `feat: add adaptive elite four runs`.
+- [x] Test one-time top-five snapshots, member party persistence, blackout/new-entry counter behavior, signature preservation, and reload stability before implementation.
+- [x] Test 10,000 generated runs for exactly one visible Bird, only Lorelei/Articuno or Lance/Zapdos/Moltres, and 50/25/25 statistical tolerance.
+- [x] Implement the four identities and run lifecycle; run all tests, validate/lint, update status, and commit as `feat: add adaptive elite four runs`.
 
 ### Task 7: Phase F — persistent Rival journey
 

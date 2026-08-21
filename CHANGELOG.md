@@ -41,6 +41,12 @@ The format follows Keep a Changelog, and this project uses Semantic Versioning.
 - Data-driven T0-T4 move scoring, T3 teammate-fit, upgrade-safe source
   hydration, and bounded expert switching that preserves class item behavior
   through public trainer, AI-class, and battle-action seams.
+- Version-correct Gym challenges with pre-battle party registration, full-party
+  top-N fairness snapshots, fixed signatures, deterministic persistent attempts,
+  structural strategy packages, and battle-scoped T4 AI.
+- Persistent Elite Four runs with an immutable top-five entry snapshot, four
+  adaptive member identities and strategies, reload-stable parties, and exactly
+  one run-specific Articuno, Zapdos, or Moltres under the 50/25/25 rule.
 
 ## [0.1.0] - 2026-08-14
 
