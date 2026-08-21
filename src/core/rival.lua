@@ -3,12 +3,52 @@ return function(deps)
   local rng = assert(deps.rng, "Rival RNG dependency is required")
   local player_power = assert(deps.player_power,
     "Rival player-power dependency is required")
-  local windows = assert(deps.windows, "Rival window data dependency is required")
+  local windows = assert(deps.windows,
+    "Rival window data dependency is required")
+  local tuning = assert(deps.tuning or windows.tuning,
+    "Rival tuning data dependency is required")
+  local attachment_tuning = assert(tuning.attachment,
+    "Rival tuning attachment table is required")
+  local scoring_tuning = assert(tuning.scoring,
+    "Rival tuning scoring table is required")
+  local level_tuning = assert(tuning.levels,
+    "Rival tuning levels table is required")
+
+  local function require_number(owner, key, path, positive)
+    local value = owner[key]
+    assert(type(value) == "number",
+      "Rival tuning " .. path .. " must be a number")
+    assert(positive and value > 0 or not positive and value >= 0,
+      "Rival tuning " .. path .. (positive and " must be positive"
+        or " must be non-negative"))
+    return value
+  end
+  local ai_tier = require_number(tuning, "aiTier", "aiTier")
+  assert(ai_tier == math.floor(ai_tier) and ai_tier <= 4,
+    "Rival tuning aiTier must be an integer from 0 through 4")
+  for _, key in ipairs({ "starter", "nonStarterCap", "gainPerUse",
+      "coreThreshold" }) do
+    require_number(attachment_tuning, key, "attachment." .. key)
+  end
+  for _, key in ipairs({ "roleCoverage", "typeDiversity", "attachment",
+      "trainedLevel", "canonicalAffinity", "novelty", "coreBonus" }) do
+    require_number(scoring_tuning, key, "scoring." .. key)
+  end
+  require_number(scoring_tuning, "normalization", "scoring.normalization", true)
+  for _, key in ipairs({ "benchOffset", "timeScale", "pressureCap",
+      "pressureFactor", "pressureDeadZone", "canonGainCap",
+      "playerLeadCap" }) do
+    require_number(level_tuning, key, "levels." .. key)
+  end
+  for _, key in ipairs({ "secondsPerHour", "timeTauHours", "globalCap" }) do
+    require_number(level_tuning, key, "levels." .. key, true)
+  end
   local M = {}
 
   local LEGENDARY_LINES = {
     ARTICUNO = true, ZAPDOS = true, MOLTRES = true, MEWTWO = true, MEW = true,
     ARTICUNO_LINE = true, ZAPDOS_LINE = true, MOLTRES_LINE = true,
+    MEWTWO_LINE = true, MEW_LINE = true,
   }
 
   local function copy_array(values)
@@ -146,26 +186,27 @@ return function(deps)
         acquiredAt = tonumber(context.playTime) or 0,
         originMap = "OAKS_LAB",
         useCount = 0,
-        attachment = 100,
+        attachment = attachment_tuning.starter,
         roleSeed = stream:next_u32(),
         isStarter = true,
       }
       state.owned[1] = starter
-      state.attachmentById[starter.id] = 100
+      state.attachmentById[starter.id] = attachment_tuning.starter
     end
 
     local starter = find_line(state, state.starterLine)
     assert(starter, "persisted Rival state is missing its starter")
     starter.isStarter = true
-    starter.attachment = 100
+    starter.attachment = attachment_tuning.starter
     starter.useCount = math.max(0, math.floor(tonumber(starter.useCount) or 0))
-    state.attachmentById[starter.id] = 100
+    state.attachmentById[starter.id] = attachment_tuning.starter
     for _, mon in ipairs(state.owned) do
       mon.useCount = math.max(0, math.floor(tonumber(mon.useCount) or 0))
       if not mon.isStarter then
         local attachment = tonumber(state.attachmentById[mon.id])
           or tonumber(mon.attachment) or 0
-        mon.attachment = math.max(0, math.min(80, attachment))
+        mon.attachment = math.max(0,
+          math.min(attachment_tuning.nonStarterCap, attachment))
         state.attachmentById[mon.id] = mon.attachment
       end
     end
@@ -176,7 +217,7 @@ return function(deps)
     for _, row in ipairs(anchor.slots) do
       if row.lineId == line_id then return row.floor end
     end
-    return math.max(1, anchor.canonFloor - 3)
+    return math.max(1, anchor.canonFloor - level_tuning.benchOffset)
   end
 
   local function shuffled(values, stream)
@@ -260,13 +301,14 @@ return function(deps)
     local species_def = pokemon and pokemon[mon.species]
     if move_builder and move_defs and species_def then
       if type(mon.moves) ~= "table" then
-        move_builder.generate(mon, species_def, move_defs, 3, nil, nil)
+        move_builder.generate(mon, species_def, move_defs,
+          tuning.aiTier, nil, nil)
       elseif mon.species ~= previous_species then
         move_builder.refresh(mon, "evolution", species_def, move_defs,
-          3, nil, nil)
+          tuning.aiTier, nil, nil)
       elseif mon.level > previous_level then
         move_builder.refresh(mon, "level-up", species_def, move_defs,
-          3, nil, nil)
+          tuning.aiTier, nil, nil)
       else
         move_builder.hydrate_legacy(mon, species_def, move_defs)
       end
@@ -278,7 +320,8 @@ return function(deps)
     for _, row in ipairs(anchor.slots) do by_line[row.lineId] = row end
     for _, mon in ipairs(state.owned) do
       local row = by_line[mon.lineId]
-      local target = row and row.floor or math.max(1, anchor.canonFloor - 3)
+      local target = row and row.floor or math.max(1,
+        anchor.canonFloor - level_tuning.benchOffset)
       prepare_instance(mon, row, target, services)
       if row then
         mon.role = mon.role or row.role
@@ -307,20 +350,23 @@ return function(deps)
       if not roles[role] then roles[role] = true; role_count = role_count + 1 end
       if not types[mon_type] then types[mon_type] = true; type_count = type_count + 1 end
       local attached = tonumber(mon.attachment) or 0
-      attachment = attachment + attached / 100
-      trained = trained + math.min(100, tonumber(mon.level) or 1) / 100
+      attachment = attachment + attached / scoring_tuning.normalization
+      trained = trained + math.min(level_tuning.globalCap,
+        tonumber(mon.level) or 1) / scoring_tuning.normalization
       if canonical[mon.lineId] then affinity = affinity + 1 end
       if (tonumber(mon.useCount) or 0) == 0 then novelty = novelty + 1 end
-      if not mon.isStarter and attached >= 30 then core = core + 1 end
+      if not mon.isStarter and attached >= attachment_tuning.coreThreshold then
+        core = core + 1
+      end
     end
     local count = math.max(1, #team)
-    return 0.28 * role_count / count
-      + 0.22 * type_count / count
-      + 0.18 * attachment / count
-      + 0.14 * trained / count
-      + 0.10 * affinity / count
-      + 0.08 * novelty / count
-      + 0.05 * core
+    return scoring_tuning.roleCoverage * role_count / count
+      + scoring_tuning.typeDiversity * type_count / count
+      + scoring_tuning.attachment * attachment / count
+      + scoring_tuning.trainedLevel * trained / count
+      + scoring_tuning.canonicalAffinity * affinity / count
+      + scoring_tuning.novelty * novelty / count
+      + scoring_tuning.coreBonus * core
   end
 
   function M.team_score(team, anchor)
@@ -386,8 +432,10 @@ return function(deps)
       if row.lineId == starter_line then ordered[index] = take_line(starter_line) end
     end
     table.sort(remaining, function(left, right)
-      local left_core = (tonumber(left.attachment) or 0) >= 30 and 1 or 0
-      local right_core = (tonumber(right.attachment) or 0) >= 30 and 1 or 0
+      local left_core = (tonumber(left.attachment) or 0)
+        >= attachment_tuning.coreThreshold and 1 or 0
+      local right_core = (tonumber(right.attachment) or 0)
+        >= attachment_tuning.coreThreshold and 1 or 0
       if left_core ~= right_core then return left_core > right_core end
       if left.level ~= right.level then return left.level > right.level end
       return tostring(left.id) < tostring(right.id)
@@ -413,12 +461,15 @@ return function(deps)
 
   local function encounter_top(anchor, context, state)
     local elapsed = math.max(0, (tonumber(context.playTime) or 0)
-      - (tonumber(state.lastEncounterAt) or 0)) / 3600
-    local time_momentum = math.floor(3 * (1 - math.exp(-elapsed / 3)))
+      - (tonumber(state.lastEncounterAt) or 0)) / level_tuning.secondsPerHour
+    local time_momentum = math.floor(level_tuning.timeScale
+      * (1 - math.exp(-elapsed / level_tuning.timeTauHours)))
     local reference = player_reference(context)
-    local pressure = math.min(5,
-      math.floor(0.35 * math.max(0, reference - anchor.canonFloor - 3)))
-    local top = math.min(anchor.canonFloor + 8, reference + 2,
+    local pressure = math.min(level_tuning.pressureCap,
+      math.floor(level_tuning.pressureFactor * math.max(0,
+        reference - anchor.canonFloor - level_tuning.pressureDeadZone)))
+    local top = math.min(anchor.canonFloor + level_tuning.canonGainCap,
+      reference + level_tuning.playerLeadCap,
       anchor.canonFloor + time_momentum + pressure)
     return math.max(anchor.canonFloor, math.floor(top)), reference
   end
@@ -428,9 +479,10 @@ return function(deps)
     for index, mon in ipairs(team) do
       local floor = anchor.slots[index].floor
       local target = math.max(floor, top + floor - anchor.canonFloor)
-      prepare_instance(mon, nil,
-        math.max(1, math.min(100, math.floor(target))), services)
-      party[index] = { species = mon.species, level = mon.level }
+      local fielded_level = math.max(1,
+        math.min(level_tuning.globalCap, math.floor(target)))
+      prepare_instance(mon, nil, fielded_level, services)
+      party[index] = { species = mon.species, level = fielded_level }
       if mon.moves and #mon.moves > 0 then
         party[index].moves = copy_array(mon.moves)
       end
@@ -536,10 +588,10 @@ return function(deps)
         if mon then
           mon.useCount = (tonumber(mon.useCount) or 0) + 1
           if mon.isStarter or mon.lineId == state.starterLine then
-            mon.attachment = 100
+            mon.attachment = attachment_tuning.starter
           else
-            mon.attachment = math.min(80,
-              (tonumber(mon.attachment) or 0) + 10)
+            mon.attachment = math.min(attachment_tuning.nonStarterCap,
+              (tonumber(mon.attachment) or 0) + attachment_tuning.gainPerUse)
           end
           state.attachmentById[id] = mon.attachment
         end

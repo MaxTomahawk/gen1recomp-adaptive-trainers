@@ -300,13 +300,28 @@ local staleRun, staleSave, staleGame = load_run("red")
 local staleRow = { id = "OAK_LAB", map = "OAKS_LAB",
   class = "OPP_RIVAL1", party = 1 }
 party_for(staleRun, staleSave, staleGame, staleRow)
-T.check(staleSave.modData.adaptive_trainers.state.activeRival ~= nil,
+local staleRoot = staleSave.modData.adaptive_trainers.state
+T.check(staleRoot.activeRival ~= nil,
   "Rival preparation creates resumable active context")
-Runtime.emit("battle.started", { kind = "trainer", battle = {
-  oppClass = "OPP_YOUNGSTER", partyIndex = 1, enemyAIMods = { "LAYER_1" },
-} })
-T.eq(staleSave.modData.adaptive_trainers.state.activeRival, nil,
-  "an unrelated battle fails closed and clears stale Rival context")
+local pendingBytes = SaveSerializer.encode(staleRoot.rival.pending)
+staleSave.player.map = "ROUTE_22"
+staleGame.overworld.map.id = "ROUTE_22"
+local vanilla = staleRun.data.trainers.OPP_RIVAL1.parties[1]
+local wrongMapParty = Runtime.call("trainer.party",
+  function(_, _, party) return party end, "OPP_RIVAL1", 1, vanilla)
+T.eq(SaveSerializer.encode(wrongMapParty), SaveSerializer.encode(vanilla),
+  "same Rival class/index on the wrong live map fails closed to vanilla")
+local wrongMapBattle = { oppClass = "OPP_RIVAL1", partyIndex = 1,
+  enemyAIMods = { "LAYER_1" } }
+Runtime.emit("battle.started", { kind = "trainer", battle = wrongMapBattle })
+T.eq(staleRoot.activeRival, nil,
+  "wrong-map battle start clears stale Rival context")
+Runtime.emit("battle.ended", { result = "win", battle = wrongMapBattle })
+T.eq(staleRoot.rival.encounterResults.OAK_LAB, nil,
+  "wrong-map battle result cannot be recorded as the stale encounter")
+T.check(staleRoot.rival.pending ~= nil
+    and SaveSerializer.encode(staleRoot.rival.pending) == pendingBytes,
+  "wrong-map failure preserves the legitimate pending journey party")
 staleRun.release()
 
 T.finish("adaptive trainers Rival version paths")

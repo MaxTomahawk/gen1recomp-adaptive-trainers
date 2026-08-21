@@ -1,4 +1,16 @@
 local M = {}
+M.tuning = {
+  aiTier = 3,
+  attachment = { starter = 100, nonStarterCap = 80, gainPerUse = 10,
+    coreThreshold = 30 },
+  scoring = { roleCoverage = 0.28, typeDiversity = 0.22,
+    attachment = 0.18, trainedLevel = 0.14, canonicalAffinity = 0.10,
+    novelty = 0.08, coreBonus = 0.05, normalization = 100 },
+  levels = { benchOffset = 3, secondsPerHour = 3600, timeScale = 3,
+    timeTauHours = 3.0, pressureCap = 5, pressureFactor = 0.35,
+    pressureDeadZone = 3, canonGainCap = 8, playerLeadCap = 2,
+    globalCap = 100 },
+}
 
 M.encounterOrder = {
   "OAK_LAB", "ROUTE_22_EARLY", "CERULEAN", "SS_ANNE",

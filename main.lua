@@ -154,7 +154,8 @@ return function(mod)
   end
 
   local BOSS_PROFILE = { aiTier = 4, rosterBehavior = "boss" }
-  local RIVAL_PROFILE = { aiTier = 3, rosterBehavior = "expert" }
+  local RIVAL_PROFILE = { aiTier = rival_windows.tuning.aiTier,
+    rosterBehavior = "expert" }
   local function active_boss_context(battle)
     local live = game or mod.game
     local save = live and live.save
@@ -309,6 +310,12 @@ return function(mod)
       and (active.partyIndex or 1) == (battle.partyIndex or 1)
   end
 
+  local function rival_matches(active, save, battle)
+    return battle_matches(active, battle)
+      and active.version == save.version
+      and active.mapId == current_map(save)
+  end
+
   local function rival_starter(save, partyDef)
     if save.version == "yellow" then return "EEVEE_LINE", "EEVEE" end
     local signature = partyDef[#partyDef]
@@ -361,7 +368,7 @@ return function(mod)
     local mapId = engagedTrainer and engagedTrainer.mapId or current_map(save)
     local rivalEncounter = rival_windows.for_battle(save.version, mapId,
       oppClass, partyIndex)
-    if not rivalEncounter and battle_matches(root.activeRival, {
+    if not rivalEncounter and rival_matches(root.activeRival, save, {
         oppClass = oppClass, partyIndex = partyIndex,
       }) then
       rivalEncounter = root.activeRival.encounterId
@@ -504,10 +511,12 @@ return function(mod)
     local root = ensure_root(save)
     local rivalCandidate = preparedRival or root.activeRival
     if ev and ev.kind == "trainer"
-        and battle_matches(rivalCandidate, ev.battle)
+        and rival_matches(rivalCandidate, save, ev.battle)
         and rivalCandidate.encounterId then
       activeRival = {
         encounterId = rivalCandidate.encounterId,
+        version = rivalCandidate.version,
+        mapId = rivalCandidate.mapId,
         oppClass = rivalCandidate.oppClass,
         partyIndex = rivalCandidate.partyIndex,
         battle = ev.battle,
@@ -610,10 +619,10 @@ return function(mod)
     local root = ensure_root(save)
     local rivalMatched
     if activeRival and ev and ev.battle == activeRival.battle
-        and battle_matches(activeRival, ev.battle) then
+        and rival_matches(activeRival, save, ev.battle) then
       rivalMatched = activeRival
     elseif checkpointRestorePending and ev
-        and battle_matches(root.activeRival, ev.battle) then
+        and rival_matches(root.activeRival, save, ev.battle) then
       rivalMatched = root.activeRival
     end
     if rivalMatched and rivalMatched.encounterId then

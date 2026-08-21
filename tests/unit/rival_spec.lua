@@ -80,6 +80,25 @@ eq(#windows.encounterOrder, 8,
   "Rival data exposes all eight canonical journey encounters")
 eq(#windows.windowOrder, 7,
   "Rival data exposes one journey window between each encounter")
+eq(windows.tuning.aiTier, 3, "Rival AI tier is data-driven")
+eq(windows.tuning.attachment.coreThreshold, 30,
+  "Rival core threshold is data-driven")
+eq(windows.tuning.levels.pressureFactor, 0.35,
+  "Rival player pressure is data-driven")
+eq(windows.tuning.scoring.roleCoverage, 0.28,
+  "Rival team objective weights are data-driven")
+local invalid_tuning = {
+  attachment = {}, scoring = {}, levels = {}, aiTier = 3,
+}
+local tuning_ok, tuning_error = pcall(function()
+  assert(loadfile(ROOT .. "/src/core/rival.lua"))()({
+    rng = rng, player_power = player_power, windows = windows,
+    tuning = invalid_tuning,
+  })
+end)
+check(not tuning_ok
+    and tostring(tuning_error):find("Rival tuning attachment.starter", 1, true),
+  "Rival tuning rejects missing numeric fields with a precise error")
 local expected_windows = {
   ROUTE_22_EARLY = { 1, 1, 4 }, CERULEAN = { 2, 2, 6 },
   SS_ANNE = { 0, 1, 6 }, POKEMON_TOWER = { 1, 2, 4 },
@@ -291,6 +310,32 @@ for index, mon in ipairs(pressure_party) do
     "no active slot can exceed the canonical +8 cap")
   check(mon.level <= 102,
     "no active slot can exceed the player-reference +2 cap")
+end
+
+local rebound_save = root()
+local high_party, rebound_state = rival.build("ROUTE_22_EARLY",
+  context("red", 12 * 3600, "SQUIRTLE_LINE", "SQUIRTLE",
+    { 100, 100, 100 }), rebound_save)
+eq(high_party[1].level, 16,
+  "a high reference applies the exact bounded time/player pressure formula")
+eq(high_party[2].level, 15,
+  "high-reference relative offsets are preserved during training")
+local trained_levels = {}
+for _, mon in ipairs(rebound_state.owned) do
+  trained_levels[mon.id] = mon.level
+end
+rival.record_result("ROUTE_22_EARLY", "win", rebound_save)
+local low_party, low_state = rival.build("ROUTE_22_EARLY",
+  context("red", 12 * 3600 + 60, nil, nil, { 10 }), rebound_save)
+eq(low_state.pending.encounterTop, 9,
+  "the repeated encounter recomputes its current bounded top")
+eq(low_party[1].level, 9,
+  "a trained owned bird is fielded at the current canonical top")
+eq(low_party[2].level, 8,
+  "battle-local materialization restores the canonical relative offset")
+for _, mon in ipairs(low_state.owned) do
+  check(mon.level >= trained_levels[mon.id],
+    "battle-local bounds never lower persistent owned training authority")
 end
 
 local rotation_save = root()
