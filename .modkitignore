@@ -33,3 +33,7 @@ tests/unit/bosses_spec.lua
 tests/unit/league_run_spec.lua
 tests/property/league_bird_simulation_spec.lua
 tests/integration/league_persistence_spec.lua
+tests/unit/rival_spec.lua
+tests/property/rival_fairness.lua
+tests/property/rival_fairness_spec.lua
+tests/integration/rival_version_paths_spec.lua

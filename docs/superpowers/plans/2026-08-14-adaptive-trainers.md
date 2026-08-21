@@ -153,11 +153,11 @@
 - `rival.build(encounterId, ctx, root, services) -> partyDef`
 - `rival.record_result(encounterId, result, root) -> RivalState`
 
-- [ ] Test window budgets/areas, persistent acquisition origins, starter attachment 100, use/attachment increments, core bonus, bounded level pressure, canonical floors, and team rotation before implementation.
-- [ ] Implement R/B and Yellow encounter anchors and windows; run green.
-- [ ] Prove changing the complete player species/move list cannot change the Rival party when levels/time/owned state match.
-- [ ] Test and implement Yellow outcomes exactly: Oak loss to Vaporeon; both wins to Jolteon; Oak win plus Route 22 loss/skip to Flareon.
-- [ ] Run all suites, validate/lint, update status, and commit as `feat: add persistent rival journey`.
+- [x] Test window budgets/areas, persistent acquisition origins, starter attachment 100, use/attachment increments, core bonus, bounded level pressure, canonical floors, and team rotation before implementation.
+- [x] Implement R/B and Yellow encounter anchors and windows; run green.
+- [x] Prove changing the complete player species/move list cannot change the Rival party when levels/time/owned state match.
+- [x] Test and implement Yellow outcomes exactly: Oak loss to Vaporeon; both wins to Jolteon; Oak win plus Route 22 loss/skip to Flareon.
+- [x] Run all suites, validate/lint, update status, and commit as `feat: add persistent rival journey`.
 
 ### Task 8: Phase G — optional Kanto+ sidecar and weather
 

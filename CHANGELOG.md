@@ -47,6 +47,10 @@ The format follows Keep a Changelog, and this project uses Semantic Versioning.
 - Persistent Elite Four runs with an immutable top-five entry snapshot, four
   adaptive member identities and strategies, reload-stable parties, and exactly
   one run-specific Articuno, Zapdos, or Moltres under the 50/25/25 rule.
+- A persistent Rival journey across every Red, Blue, and Yellow canon encounter,
+  with deterministic route-window acquisitions, owned-roster evolution and T3
+  moves, attachment-driven team rotation, bounded pressure, exact scripted
+  battle mapping, checkpoint-safe results, and the canonical Yellow Eevee paths.
 - Hall-of-Fame autosave completion and post-game load reconciliation now clear
   the completed League run while preserving saves, reloads, and checkpoints
   between Elite Four members.
