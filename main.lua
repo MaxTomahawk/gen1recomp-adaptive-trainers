@@ -66,6 +66,12 @@ return function(mod)
     stage_resolver = stage_resolver,
     rosters = league_rosters,
   })
+  local rival_windows = module("src/data/rival_windows.lua")
+  local rival = module("src/core/rival.lua")({
+    rng = rng,
+    player_power = player_power,
+    windows = rival_windows,
+  })
   local ecology_overrides = module("src/data/ecology_overrides.lua")
   local ai_tiers = module("src/data/ai_tiers.lua")
   local ai = module("src/core/ai.lua")(ai_tiers)
@@ -81,6 +87,8 @@ return function(mod)
   local activeBoss
   local preparedLeague
   local activeLeague
+  local preparedRival
+  local activeRival
   local checkpointRestorePending = false
   local collisionKeys = {}
   local centerIndex
@@ -146,6 +154,7 @@ return function(mod)
   end
 
   local BOSS_PROFILE = { aiTier = 4, rosterBehavior = "boss" }
+  local RIVAL_PROFILE = { aiTier = 3, rosterBehavior = "expert" }
   local function active_boss_context(battle)
     local live = game or mod.game
     local save = live and live.save
@@ -158,6 +167,10 @@ return function(mod)
     if boss_matches(root.activeLeagueMember, battle) then
       return { profile = BOSS_PROFILE,
         strategy = league_strategy(root, root.activeLeagueMember.id) }
+    end
+    if boss_matches(root.activeRival, battle)
+        and root.activeRival.encounterId then
+      return { profile = RIVAL_PROFILE }
     end
     return nil
   end
@@ -296,6 +309,19 @@ return function(mod)
       and (active.partyIndex or 1) == (battle.partyIndex or 1)
   end
 
+  local function rival_starter(save, partyDef)
+    if save.version == "yellow" then return "EEVEE_LINE", "EEVEE" end
+    local signature = partyDef[#partyDef]
+    local line = signature and line_meta.bySpecies[signature.species]
+    if not line or (line.lineId ~= "BULBASAUR_LINE"
+        and line.lineId ~= "CHARMANDER_LINE"
+        and line.lineId ~= "SQUIRTLE_LINE") then
+      return nil
+    end
+    local base = line.stages and line.stages[1]
+    return line.lineId, base and base.species
+  end
+
   mod.events:on("world.trainer_engaged", function(ev)
     local live = game or mod.game
     local save = live and live.save
@@ -332,6 +358,46 @@ return function(mod)
     end
 
     local root = ensure_root(save)
+    local mapId = engagedTrainer and engagedTrainer.mapId or current_map(save)
+    local rivalEncounter = rival_windows.for_battle(save.version, mapId,
+      oppClass, partyIndex)
+    if not rivalEncounter and battle_matches(root.activeRival, {
+        oppClass = oppClass, partyIndex = partyIndex,
+      }) then
+      rivalEncounter = root.activeRival.encounterId
+      mapId = root.activeRival.mapId
+    end
+    if rivalEncounter then
+      local starterLine, starterSpecies = rival_starter(save, partyDef)
+      if save.version == "yellow" or starterLine then
+        local generated = rival.build(rivalEncounter, {
+          version = save.version,
+          playTime = save.playTime or 0,
+          rivalStarterLine = starterLine,
+          rivalStarterSpecies = starterSpecies,
+          playerParty = save.party or {},
+        }, root, {
+          meta = line_meta,
+          pokemon = data.pokemon,
+          moves = data.moves,
+          stage_resolver = stage_resolver,
+          movesets = movesets,
+        })
+        root.activeRival = {
+          encounterId = rivalEncounter,
+          version = save.version,
+          mapId = mapId,
+          oppClass = oppClass,
+          partyIndex = partyIndex or 1,
+        }
+        preparedRival = root.activeRival
+        activeRival = nil
+        checkpointRestorePending = false
+        mod.save:set("state", root)
+        return next(oppClass, partyIndex, generated)
+      end
+    end
+
     local registeredBoss = root.activeBoss
     if boss_matches(registeredBoss, {
         trainerClass = oppClass, partyIndex = partyIndex,
@@ -435,6 +501,23 @@ return function(mod)
     local save = live and live.save
     if not save then return end
     local root = ensure_root(save)
+    local rivalCandidate = preparedRival or root.activeRival
+    if ev and ev.kind == "trainer"
+        and battle_matches(rivalCandidate, ev.battle)
+        and rivalCandidate.encounterId then
+      activeRival = {
+        encounterId = rivalCandidate.encounterId,
+        oppClass = rivalCandidate.oppClass,
+        partyIndex = rivalCandidate.partyIndex,
+        battle = ev.battle,
+      }
+      preparedRival, preparedLeague, preparedBoss, preparedBattle =
+        nil, nil, nil, nil
+      activeLeague, activeBoss, activeBattle = nil, nil, nil
+      checkpointRestorePending = false
+      mod.save:set("state", root)
+      return
+    end
     local leagueCandidate = preparedLeague or root.activeLeagueMember
     if ev and ev.kind == "trainer"
         and battle_matches(leagueCandidate, ev.battle)
@@ -444,7 +527,9 @@ return function(mod)
         partyIndex = leagueCandidate.partyIndex, battle = ev.battle }
       ev.battle.adaptiveStrategy = league_strategy(root, leagueCandidate.id)
       preparedLeague, preparedBoss, preparedBattle = nil, nil, nil
+      preparedRival = nil
       activeBoss, activeBattle = nil, nil
+      activeRival = nil
       checkpointRestorePending = false
       mod.save:set("state", root)
       return
@@ -464,6 +549,8 @@ return function(mod)
       activeBattle = nil
       preparedLeague = nil
       activeLeague = nil
+      preparedRival = nil
+      activeRival = nil
       checkpointRestorePending = false
       mod.save:set("state", root)
       return
@@ -486,6 +573,8 @@ return function(mod)
     else
       preparedBattle = nil
       activeBattle = nil
+      preparedRival = nil
+      activeRival = nil
       checkpointRestorePending = false
       root.activeTrainer = nil
       mod.save:set("state", root)
@@ -500,11 +589,13 @@ return function(mod)
     checkpointRestorePending = ev and ev.kind == "battle"
       and (type(root.activeTrainer) == "table"
         or type(root.activeBoss) == "table"
-        or type(root.activeLeagueMember) == "table")
+        or type(root.activeLeagueMember) == "table"
+        or type(root.activeRival) == "table")
     if checkpointRestorePending then
       preparedBattle = root.activeTrainer
       preparedBoss = root.activeBoss
       preparedLeague = root.activeLeagueMember
+      preparedRival = root.activeRival
     end
   end)
 
@@ -513,6 +604,26 @@ return function(mod)
     local save = live and live.save
     if not save then return end
     local root = ensure_root(save)
+    local rivalMatched
+    if activeRival and ev and ev.battle == activeRival.battle
+        and battle_matches(activeRival, ev.battle) then
+      rivalMatched = activeRival
+    elseif checkpointRestorePending and ev
+        and battle_matches(root.activeRival, ev.battle) then
+      rivalMatched = root.activeRival
+    end
+    if rivalMatched and rivalMatched.encounterId then
+      local result = ev and ev.skipped == true and "skip"
+        or ev and ev.result
+      if result == "win" or result == "lose" or result == "skip" then
+        rival.record_result(rivalMatched.encounterId, result, root)
+      end
+      activeRival, preparedRival = nil, nil
+      checkpointRestorePending = false
+      root.activeRival = nil
+      mod.save:set("state", root)
+      return
+    end
     local leagueMatched
     if activeLeague and ev and ev.battle == activeLeague.battle
         and battle_matches(activeLeague, ev.battle) then
@@ -580,6 +691,6 @@ return function(mod)
   end)
 
   mod.exports.status = function()
-    return { phase = "E", schema = schema.VERSION }
+    return { phase = "F", schema = schema.VERSION }
   end
 end

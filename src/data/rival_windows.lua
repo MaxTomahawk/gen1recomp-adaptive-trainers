@@ -10,6 +10,30 @@ M.windowOrder = {
   "SILPH_CO", "ROUTE_22_LATE", "CHAMPION",
 }
 
+local BATTLE_PATHS = {
+  red = {
+    { "OAK_LAB", "OAKS_LAB", "OPP_RIVAL1", 1, 3 },
+    { "ROUTE_22_EARLY", "ROUTE_22", "OPP_RIVAL1", 4, 6 },
+    { "CERULEAN", "CERULEAN_CITY", "OPP_RIVAL1", 7, 9 },
+    { "SS_ANNE", "SS_ANNE_2F", "OPP_RIVAL2", 1, 3 },
+    { "POKEMON_TOWER", "POKEMON_TOWER_2F", "OPP_RIVAL2", 4, 6 },
+    { "SILPH_CO", "SILPH_CO_7F", "OPP_RIVAL2", 7, 9 },
+    { "ROUTE_22_LATE", "ROUTE_22", "OPP_RIVAL2", 10, 12 },
+    { "CHAMPION", "CHAMPIONS_ROOM", "OPP_RIVAL3", 1, 3 },
+  },
+  yellow = {
+    { "OAK_LAB", "OAKS_LAB", "OPP_RIVAL1", 1, 1 },
+    { "ROUTE_22_EARLY", "ROUTE_22", "OPP_RIVAL1", 2, 2 },
+    { "CERULEAN", "CERULEAN_CITY", "OPP_RIVAL1", 3, 3 },
+    { "SS_ANNE", "SS_ANNE_2F", "OPP_RIVAL2", 1, 1 },
+    { "POKEMON_TOWER", "POKEMON_TOWER_2F", "OPP_RIVAL2", 2, 4 },
+    { "SILPH_CO", "SILPH_CO_7F", "OPP_RIVAL2", 5, 7 },
+    { "ROUTE_22_LATE", "ROUTE_22", "OPP_RIVAL2", 8, 10 },
+    { "CHAMPION", "CHAMPIONS_ROOM", "OPP_RIVAL3", 1, 3 },
+  },
+}
+BATTLE_PATHS.blue = BATTLE_PATHS.red
+
 local WINDOWS = {
   ROUTE_22_EARLY = {
     minAcquisitions = 1, maxAcquisitions = 1,
@@ -359,6 +383,17 @@ function M.traits(line_id)
   return LINE_TRAITS[line_id] or { role = "balanced", type = "NORMAL" }
 end
 
+function M.for_battle(version, map_id, class_id, party_index)
+  party_index = tonumber(party_index) or 1
+  for _, row in ipairs(BATTLE_PATHS[version] or {}) do
+    if row[2] == map_id and row[3] == class_id
+        and party_index >= row[4] and party_index <= row[5] then
+      return row[1]
+    end
+  end
+  return nil
+end
+
 function M.anchor(version, encounter_id, starter_line, yellow_outcome)
   assert(M.index(encounter_id), "unknown Rival encounter " .. tostring(encounter_id))
   local rows
@@ -420,8 +455,6 @@ function M.candidates(version, encounter_id, starter_line, yellow_outcome)
     return { { lineId = "DIGLETT_LINE", species = "DIGLETT",
       canonicalAffinity = 0.25 } }
   end
-  if encounter_id == "SILPH_CO" and version ~= "yellow" then return {} end
-  if encounter_id == "CHAMPION" then return {} end
   local anchor = M.anchor(version, encounter_id, starter_line, yellow_outcome)
   excluded.PIDGEY_LINE = true
   excluded.SPEAROW_LINE = true
@@ -440,7 +473,14 @@ function M.candidates(version, encounter_id, starter_line, yellow_outcome)
       excluded.RHYHORN_LINE = false
     end
   end
-  return lines_from_slots(anchor.slots, excluded)
+  local out = lines_from_slots(anchor.slots, excluded)
+  if encounter_id == "CHAMPION" then
+    out[#out + 1] = { lineId = "MACHOP_LINE", species = "MACHOP",
+      canonicalAffinity = 0.1 }
+    out[#out + 1] = { lineId = "GEODUDE_LINE", species = "GEODUDE",
+      canonicalAffinity = 0.1 }
+  end
+  return out
 end
 
 return M

@@ -107,7 +107,9 @@ local function scoped_action(next, battle, context)
   if not context then return next(battle) end
   local previousMods = battle.enemyAIMods
   local previousStrategy = battle.adaptiveStrategy
-  battle.enemyAIMods = TIER_MODS[4]
+  local tier = context.profile and math.max(0, math.min(4,
+    math.floor(tonumber(context.profile.aiTier) or 0))) or 4
+  battle.enemyAIMods = TIER_MODS[tier]
   battle.adaptiveStrategy = context.strategy
   local ok, action = pcall(next, battle)
   battle.enemyAIMods = previousMods

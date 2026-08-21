@@ -53,6 +53,13 @@ local function party_top(party)
   for _, mon in ipairs(party or {}) do top = math.max(top, mon.level) end
   return top
 end
+local function anchor_signature(anchor)
+  local out = {}
+  for _, row in ipairs(anchor.slots) do
+    out[#out + 1] = row.species .. tostring(row.floor)
+  end
+  return table.concat(out, ",")
+end
 local function root()
   return { seedHi = 0x12345678, seedLo = 0x0fedcba9,
     rival = {}, yellowRival = {} }
@@ -104,6 +111,77 @@ eq(yellow_anchor.slots[4].species, "CLOYSTER",
   "Yellow Jolteon Champion path keeps the exact Cloyster row")
 eq(yellow_anchor.slots[6].species, "JOLTEON",
   "Yellow path resolves the exact Eevee outcome species")
+
+local RB_ROWS = {
+  SQUIRTLE_LINE = {
+    OAK_LAB = "SQUIRTLE5",
+    ROUTE_22_EARLY = "PIDGEY9,SQUIRTLE8",
+    CERULEAN = "PIDGEOTTO18,ABRA15,RATTATA15,WARTORTLE17",
+    SS_ANNE = "PIDGEOTTO19,RATICATE16,KADABRA18,WARTORTLE20",
+    POKEMON_TOWER = "PIDGEOTTO25,GROWLITHE23,EXEGGCUTE22,KADABRA20,WARTORTLE25",
+    SILPH_CO = "PIDGEOT37,GROWLITHE38,EXEGGCUTE35,ALAKAZAM35,BLASTOISE40",
+    ROUTE_22_LATE = "PIDGEOT47,RHYHORN45,GROWLITHE45,EXEGGCUTE47,ALAKAZAM50,BLASTOISE53",
+    CHAMPION = "PIDGEOT61,ALAKAZAM59,RHYDON61,ARCANINE61,EXEGGUTOR63,BLASTOISE65",
+  },
+  BULBASAUR_LINE = {
+    OAK_LAB = "BULBASAUR5",
+    ROUTE_22_EARLY = "PIDGEY9,BULBASAUR8",
+    CERULEAN = "PIDGEOTTO18,ABRA15,RATTATA15,IVYSAUR17",
+    SS_ANNE = "PIDGEOTTO19,RATICATE16,KADABRA18,IVYSAUR20",
+    POKEMON_TOWER = "PIDGEOTTO25,GYARADOS23,GROWLITHE22,KADABRA20,IVYSAUR25",
+    SILPH_CO = "PIDGEOT37,GYARADOS38,GROWLITHE35,ALAKAZAM35,VENUSAUR40",
+    ROUTE_22_LATE = "PIDGEOT47,RHYHORN45,GYARADOS45,GROWLITHE47,ALAKAZAM50,VENUSAUR53",
+    CHAMPION = "PIDGEOT61,ALAKAZAM59,RHYDON61,GYARADOS61,ARCANINE63,VENUSAUR65",
+  },
+  CHARMANDER_LINE = {
+    OAK_LAB = "CHARMANDER5",
+    ROUTE_22_EARLY = "PIDGEY9,CHARMANDER8",
+    CERULEAN = "PIDGEOTTO18,ABRA15,RATTATA15,CHARMELEON17",
+    SS_ANNE = "PIDGEOTTO19,RATICATE16,KADABRA18,CHARMELEON20",
+    POKEMON_TOWER = "PIDGEOTTO25,EXEGGCUTE23,GYARADOS22,KADABRA20,CHARMELEON25",
+    SILPH_CO = "PIDGEOT37,EXEGGCUTE38,GYARADOS35,ALAKAZAM35,CHARIZARD40",
+    ROUTE_22_LATE = "PIDGEOT47,RHYHORN45,EXEGGCUTE45,GYARADOS47,ALAKAZAM50,CHARIZARD53",
+    CHAMPION = "PIDGEOT61,ALAKAZAM59,RHYDON61,EXEGGUTOR61,GYARADOS63,CHARIZARD65",
+  },
+}
+for starter_line, encounters in pairs(RB_ROWS) do
+  for encounter_id, expected in pairs(encounters) do
+    for _, version in ipairs({ "red", "blue" }) do
+      eq(anchor_signature(windows.anchor(version, encounter_id, starter_line)),
+        expected, version .. " " .. starter_line .. " " .. encounter_id
+          .. " preserves the exact canonical row")
+    end
+  end
+end
+
+local YELLOW_ROWS = {
+  JOLTEON = {
+    POKEMON_TOWER = "FEAROW25,SHELLDER23,VULPIX22,SANDSHREW20,EEVEE25",
+    SILPH_CO = "SANDSLASH38,NINETALES35,CLOYSTER37,KADABRA35,JOLTEON40",
+    ROUTE_22_LATE = "SANDSLASH47,EXEGGCUTE45,NINETALES45,CLOYSTER47,KADABRA50,JOLTEON53",
+    CHAMPION = "SANDSLASH61,ALAKAZAM59,EXEGGUTOR61,CLOYSTER61,NINETALES63,JOLTEON65",
+  },
+  FLAREON = {
+    POKEMON_TOWER = "FEAROW25,MAGNEMITE23,SHELLDER22,SANDSHREW20,EEVEE25",
+    SILPH_CO = "SANDSLASH38,CLOYSTER35,MAGNETON37,KADABRA35,FLAREON40",
+    ROUTE_22_LATE = "SANDSLASH47,EXEGGCUTE45,CLOYSTER45,MAGNETON47,KADABRA50,FLAREON53",
+    CHAMPION = "SANDSLASH61,ALAKAZAM59,EXEGGUTOR61,MAGNETON61,CLOYSTER63,FLAREON65",
+  },
+  VAPOREON = {
+    POKEMON_TOWER = "FEAROW25,VULPIX23,MAGNEMITE22,SANDSHREW20,EEVEE25",
+    SILPH_CO = "SANDSLASH38,MAGNETON35,NINETALES37,KADABRA35,VAPOREON40",
+    ROUTE_22_LATE = "SANDSLASH47,EXEGGCUTE45,MAGNETON45,NINETALES47,KADABRA50,VAPOREON53",
+    CHAMPION = "SANDSLASH61,ALAKAZAM59,EXEGGUTOR61,NINETALES61,MAGNETON63,VAPOREON65",
+  },
+}
+for outcome_id, encounters in pairs(YELLOW_ROWS) do
+  for encounter_id, expected in pairs(encounters) do
+    eq(anchor_signature(windows.anchor("yellow", encounter_id,
+      "EEVEE_LINE", outcome_id)), expected,
+      "yellow " .. outcome_id .. " " .. encounter_id
+        .. " preserves the exact canonical row")
+  end
+end
 
 local save = root()
 local oak_party, state = rival.build("OAK_LAB",
@@ -280,6 +358,80 @@ eq(species, "FLAREON",
 species, outcome = yellow_outcome("win", "skip", true)
 eq(species, "FLAREON",
   "Oak win plus skipped Route 22 produces exactly Flareon")
+
+local variable_counts = {
+  SS_ANNE = {}, POKEMON_TOWER = {}, SILPH_CO = {}, CHAMPION = {},
+}
+for sample = 1, 128 do
+  local sampled_root = { seedHi = sample * 7919, seedLo = sample * 104729,
+    rival = {}, yellowRival = {} }
+  rival.build("CHAMPION", context("red", sample * 997,
+    "SQUIRTLE_LINE", "SQUIRTLE", { 70, 60, 50 }), sampled_root)
+  for _, event in ipairs(sampled_root.rival.journeyEvents) do
+    if variable_counts[event.encounterId] then
+      variable_counts[event.encounterId][#event.acquiredIds] = true
+    end
+  end
+end
+check(variable_counts.SS_ANNE[0] and variable_counts.SS_ANNE[1],
+  "the deterministic 0-1 SS Anne window can realize both budget outcomes")
+check(variable_counts.POKEMON_TOWER[1] and variable_counts.POKEMON_TOWER[2],
+  "the deterministic 1-2 Tower window can realize both budget outcomes")
+check(variable_counts.SILPH_CO[0] and variable_counts.SILPH_CO[1],
+  "the deterministic 0-1 Silph window can realize both budget outcomes")
+check(variable_counts.CHAMPION[0] and variable_counts.CHAMPION[1],
+  "the deterministic 0-1 Champion window can realize both budget outcomes")
+
+local meta = assert(loadfile(ROOT .. "/src/data/line_meta.lua"))().build()
+local stage_resolver = assert(loadfile(ROOT .. "/src/core/stage_resolver.lua"))()
+local packages = assert(loadfile(ROOT .. "/src/data/move_packages.lua"))()
+local movesets = assert(loadfile(ROOT .. "/src/core/movesets.lua"))()({
+  rng = rng, packages = packages,
+})
+local rich_rival = assert(loadfile(ROOT .. "/src/core/rival.lua"))()({
+  rng = rng, player_power = player_power, windows = windows,
+})
+local pokemon = {}
+for _, line in pairs(meta.lines) do
+  local previous
+  for _, stage in ipairs(line.stages) do
+    pokemon[stage.species] = { types = { "NORMAL" },
+      level1Moves = { "FIX_TACKLE" },
+      learnset = { { level = 1, move = "FIX_TACKLE" } },
+      tmhm = {}, evolutions = {} }
+    if previous then
+      previous.evolutions[#previous.evolutions + 1] = {
+        method = "LEVEL", level = 20, species = stage.species,
+      }
+    end
+    previous = pokemon[stage.species]
+  end
+end
+local service_root = root()
+service_root.rival = copy(rotation_save.rival)
+service_root.rival.pending = nil
+service_root.rival.owned[#service_root.rival.owned + 1] = {
+  id = "bench", lineId = "DIGLETT_LINE", species = "DIGLETT",
+  level = 1, attachment = 0, useCount = 0,
+}
+service_root.rival.attachmentById.bench = 0
+local service_party, service_state = rich_rival.build("CHAMPION",
+  context("red", 12 * 3600, nil, nil, { 70, 60, 50 }), service_root, {
+    meta = meta, pokemon = pokemon,
+    moves = { FIX_TACKLE = { type = "NORMAL", power = 40, accuracy = 100 } },
+    stage_resolver = stage_resolver, movesets = movesets,
+  })
+local trained_bench = find_line(service_state.owned, "DIGLETT_LINE")
+eq(trained_bench.species, "DUGTRIO",
+  "a non-anchor owned line evolves legally from runtime metadata")
+check(trained_bench.level >= 62,
+  "a non-anchor owned line trains with the persistent Rival collection")
+check(trained_bench.moves and #trained_bench.moves > 0,
+  "a non-anchor owned line persists a legal T3 moveset")
+for _, mon in ipairs(service_party) do
+  check(mon.moves and #mon.moves > 0,
+    "every active Rival instance materializes its persistent legal moves")
+end
 
 if failures > 0 then error(failures .. " rival assertion(s) failed", 0) end
 print(("rival: %d/%d checks passed"):format(checks, checks))

@@ -26,20 +26,22 @@ Implement the complete approved Adaptive Trainer Ecology & Challenge System v1 a
 - [x] Phase C — legal persistent movesets, AI sophistication tiers, property tests (PRs #4/#5 merged green at `3b44af8`)
 - [x] Phase D — Gym registration and eligibility, eight Leader identities, challenge scaling (PR #6 merged green at `aa670b0`)
 - [x] Phase E — Elite Four run snapshot and exactly-one-Bird mechanic
-- [ ] Phase F — persistent Rival journey, R/B/Y windows, Yellow Eevee outcomes
+- [x] Phase F — persistent Rival journey, R/B/Y windows, Yellow Eevee outcomes
 - [ ] Phase G — optional Kanto+ sidecar, Steel, weather, minimal added moves
 - [ ] Phase H — diagnostics, balancing simulations, integration, parity, packaging, release and index submission
 
 ## Current execution
 
-Phases A-D are merged after green CI and clean independent reviews. Phase E is
-implemented on its feature branch: one immutable top-five reference snapshot
-per League entry, four persistent member seeds and generated parties, exact
-Elite Four encounter filtering, deterministic structural strategies, scoped T4
-AI, and the exactly-one-Bird 50/25/25 rule all use public registries, lifecycle
-events, hooks, and `mod.save`. Champion and Hall of Fame transitions preserve
-the run; blackout or other League exit clears it so the next entry increments
-the run counter without allowing reload rerolls.
+Phases A-E are merged after green CI and clean independent reviews. Phase F is
+implemented on its feature branch: one persistent Rival collection advances
+through all eight canon encounters, uses deterministic variable route-window
+budgets, trains/evolves every owned line through runtime metadata, persists T3
+moves and attachment, and rotates teams without player species/move input.
+Exact map/class/party-index tables cover every existing R/B/Y scripted path,
+including battles without `world.trainer_engaged`; prepared, active, result and
+checkpoint state remains isolated from ordinary, Gym and League authorities.
+Yellow preserves exactly Vaporeon after an Oak loss, Jolteon after both early
+wins, and Flareon after an Oak win plus Route 22 loss or skip.
 
 Current evidence:
 
@@ -58,16 +60,22 @@ Current evidence:
 - Phase E public runtime: 123/123 Red/Blue/Yellow entry, member generation,
   save/reload, checkpoint, T4 AI, internal-transition and blackout/re-entry
   checks; League core 127/127.
-- Deterministic/property suites: 311,617/311,617 assertions, including 86,250
+- Phase F public runtime: 252/252 exact R/B/Y scripted-context, persistent
+  journey, legal T3 move/AI, checkpoint, result-isolation and Yellow outcome
+  checks; Rival core 160/160, including every exact canonical R/B starter and
+  Yellow Eevee path row.
+- Deterministic/property suites: 367,574/367,574 assertions, including 55,957
+  Rival fairness assertions proving level/time-equivalent builds are blind to
+  complete player species and move-list changes, plus 86,250
   Gym identity/structure/repeatability assertions and 140,004 assertions over
   10,000 fully materialized four-member League runs. Each run fields exactly
   one allowed Bird; the deterministic sample is Articuno 4,984, Zapdos 2,562,
   and Moltres 2,454, within the normative 50/25/25 tolerances.
 - `modkit validate --base fixture`: green.
 - `modkit lint`: green, no ROM-derived content detected.
-- Reproducible double-pack check: green; 31 distributable files plus
+- Last Phase-E reproducible double-pack check: green; 31 distributable files plus
   `.modkit/pack.json`, with no recursive `dist/`, tests, scripts, docs, or DOCX.
-- Source-date-zero package SHA-256:
+- Last Phase-E source-date-zero package SHA-256:
   `6bf502943463efa8a7decb7b305a6fdd308d9ab3bf84b84e7038d397b977bf78`.
 
 The ROM-free fixture validator reports MK103 as not checkable for trainer-id

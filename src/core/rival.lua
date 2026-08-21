@@ -175,6 +175,8 @@ return function(deps)
       state.starterLine, outcome)
     local stream = rng.stream(root_seed(root), "rival-window", state.version,
       encounter_id, state.journeySeed.hi or 0, state.journeySeed.lo or 0)
+    local budget = stream:integer(window.minAcquisitions,
+      window.maxAcquisitions)
     local have = owned_lines(state)
     local candidates = {}
     for _, candidate in ipairs(windows.candidates(state.version, encounter_id,
@@ -184,10 +186,7 @@ return function(deps)
       end
     end
     candidates = shuffled(candidates, stream)
-    local count = math.min(window.maxAcquisitions, #candidates)
-    if count < math.min(window.minAcquisitions, #candidates) then
-      count = math.min(window.minAcquisitions, #candidates)
-    end
+    local count = math.min(budget, #candidates)
     local event = { encounterId = encounter_id,
       minBudget = window.minAcquisitions, maxBudget = window.maxAcquisitions,
       areas = copy_array(window.areas), acquiredIds = {} }
@@ -215,14 +214,48 @@ return function(deps)
     state.journeyEvents[#state.journeyEvents + 1] = event
   end
 
-  local function update_owned_to_anchor(state, anchor)
+  local function prepare_instance(mon, row, target_level, services)
+    local previous_level = tonumber(mon.level) or 1
+    local previous_species = mon.species
+    mon.level = math.max(previous_level, math.floor(target_level))
+
+    local meta = services and services.meta
+    local pokemon = services and services.pokemon
+    local resolver = services and services.stage_resolver
+    local line = meta and meta.lines and meta.lines[mon.lineId]
+    if row and (not pokemon or pokemon[row.species]) then
+      mon.species = row.species
+    elseif line and resolver and pokemon then
+      mon.species = resolver.resolve(line, mon.level, pokemon, mon.species)
+        or mon.species
+    end
+
+    local move_builder = services and services.movesets
+    local move_defs = services and services.moves
+    local species_def = pokemon and pokemon[mon.species]
+    if move_builder and move_defs and species_def then
+      if type(mon.moves) ~= "table" then
+        move_builder.generate(mon, species_def, move_defs, 3, nil, nil)
+      elseif mon.species ~= previous_species then
+        move_builder.refresh(mon, "evolution", species_def, move_defs,
+          3, nil, nil)
+      elseif mon.level > previous_level then
+        move_builder.refresh(mon, "level-up", species_def, move_defs,
+          3, nil, nil)
+      else
+        move_builder.hydrate_legacy(mon, species_def, move_defs)
+      end
+    end
+  end
+
+  local function update_owned_to_anchor(state, anchor, services)
     local by_line = {}
     for _, row in ipairs(anchor.slots) do by_line[row.lineId] = row end
     for _, mon in ipairs(state.owned) do
       local row = by_line[mon.lineId]
+      local target = row and row.floor or math.max(1, anchor.canonFloor - 3)
+      prepare_instance(mon, row, target, services)
       if row then
-        mon.species = row.species
-        mon.level = math.max(tonumber(mon.level) or 1, row.floor)
         mon.role = mon.role or row.role
         mon.type = mon.type or row.type
       end
@@ -365,13 +398,13 @@ return function(deps)
     return math.max(anchor.canonFloor, math.floor(top)), reference
   end
 
-  local function materialize(team, anchor, top)
+  local function materialize(team, anchor, top, services)
     local party, floors = {}, {}
     for index, mon in ipairs(team) do
       local floor = anchor.slots[index].floor
       local target = math.max(floor, top + floor - anchor.canonFloor)
-      mon.level = math.max(tonumber(mon.level) or 1,
-        math.max(1, math.min(100, math.floor(target))))
+      prepare_instance(mon, nil,
+        math.max(1, math.min(100, math.floor(target))), services)
       party[index] = { species = mon.species, level = mon.level }
       if mon.moves and #mon.moves > 0 then
         party[index].moves = copy_array(mon.moves)
@@ -424,11 +457,11 @@ return function(deps)
 
     local anchor = windows.anchor(state.version, encounter_id,
       state.starterLine, outcome)
-    update_owned_to_anchor(state, anchor)
+    update_owned_to_anchor(state, anchor, services)
     local selected = select_team(state, anchor)
     local ordered = order_for_anchor(selected, anchor, state.starterLine)
     local top, reference = encounter_top(anchor, context, state)
-    local party, floors = materialize(ordered, anchor, top)
+    local party, floors = materialize(ordered, anchor, top, services)
     state.activeIds = {}
     for index, mon in ipairs(ordered) do state.activeIds[index] = mon.id end
     state.pending = {
