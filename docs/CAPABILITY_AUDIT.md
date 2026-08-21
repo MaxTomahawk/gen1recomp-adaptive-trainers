@@ -1,6 +1,6 @@
 # Capability audit
 
-Updated: 2026-08-14
+Updated: 2026-08-21
 
 ## Current capabilities
 
@@ -17,4 +17,9 @@ Updated: 2026-08-14
 
 The existing capabilities are sufficient for mod implementation, testing, GitHub delivery, CI, and packaging. No additional plugin, MCP, provider, authentication, spending, or deployment capability is approved or needed.
 
-Engine work is not an admitted implementation capability by default. The Gym eligibility gap is recorded as `AT-SP-001` in `docs/IMPLEMENTATION_STATUS.md` and remains a candidate until the specification phase that consumes it reaches its test-first design boundary.
+Engine work is not an admitted implementation capability by default. The Gym
+eligibility gap reached its specification-mandated test-first boundary and was
+proven impossible through the prior public surface without mutating save state.
+The smallest generic seam was developed in isolation as `AT-SP-001`, admitted
+upstream through PR #1286, and is now part of current `dev`. No mod-specific
+policy entered the engine; Phase D consumes the merged public API directly.

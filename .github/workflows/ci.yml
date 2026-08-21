@@ -20,7 +20,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: bryanthaboi/gen1recomp
-          ref: b6388013ecff6c262b6bbe5b2ae6af8acd511ddc
+          ref: f5b8b6c85fb20b91de53f5f8ab274a3c799fb287
           path: .engine/gen1recomp
 
       - name: Install LuaJIT

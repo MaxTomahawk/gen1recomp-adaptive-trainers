@@ -25,3 +25,8 @@ tests/unit/movesets_spec.lua
 tests/unit/ai_spec.lua
 tests/property/phase_c_properties_spec.lua
 tests/integration/phase_c_moves_ai_spec.lua
+tests/integration/phase_d_bosses_spec.lua
+tests/integration/gym_registration_spec.lua
+tests/integration/gym_runtime_spec.lua
+tests/property/gym_properties_spec.lua
+tests/unit/bosses_spec.lua

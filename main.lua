@@ -49,15 +49,29 @@ return function(mod)
   })
   local line_meta = module("src/data/line_meta.lua").build()
   local profiles = module("src/data/trainer_profiles.lua")
+  local boss_rosters = module("src/data/boss_rosters.lua")
+  local battle_identities = module("src/data/battle_identities.lua")
+  local gym_registration = module("src/ui/gym_registration.lua")({
+    ui = mod.ui,
+  })
+  local bosses = module("src/core/bosses.lua")({
+    rng = rng,
+    stage_resolver = stage_resolver,
+    rosters = boss_rosters,
+  })
   local ecology_overrides = module("src/data/ecology_overrides.lua")
   local ai_tiers = module("src/data/ai_tiers.lua")
   local ai = module("src/core/ai.lua")(ai_tiers)
-  ai.register(mod, profiles)
+  mod.content.screens:register("AdaptiveGymRegistration", {
+    new = gym_registration.new,
+  })
 
   local game
   local pendingTrainer
   local preparedBattle
   local activeBattle
+  local preparedBoss
+  local activeBoss
   local checkpointRestorePending = false
   local collisionKeys = {}
   local centerIndex
@@ -81,6 +95,50 @@ return function(mod)
     mod.save:set("state", root)
     return root
   end
+
+  local function boss_strategy(root, bossId)
+    local attempt = root and root.bossAttempts
+      and root.bossAttempts[bossId]
+    if type(attempt) ~= "table" then return nil end
+    local identityDef = boss_rosters.leaders[bossId]
+    local source = type(attempt.strategy) == "table" and attempt.strategy
+      or identityDef and identityDef.strategyPackages[attempt.strategyId]
+    if type(source) ~= "table" then return nil end
+    local strategy = {}
+    for key, value in pairs(source) do strategy[key] = value end
+    strategy.preferredSwitchSpecies = {}
+    local preferredLines = {}
+    for _, lineId in ipairs(source.preferredLines or {}) do
+      preferredLines[lineId] = true
+    end
+    for _, instance in ipairs(attempt.party or {}) do
+      if preferredLines[instance.lineId] then
+        strategy.preferredSwitchSpecies[instance.species] = true
+      end
+    end
+    return strategy
+  end
+
+  local function boss_matches(active, context)
+    return type(active) == "table" and type(context) == "table"
+      and active.oppClass == (context.trainerClass or context.oppClass)
+      and (active.partyIndex or 1) == (context.partyIndex or 1)
+  end
+
+  local BOSS_PROFILE = { aiTier = 4, rosterBehavior = "boss" }
+  local function active_boss_context(battle)
+    local live = game or mod.game
+    local save = live and live.save
+    if not save then return nil end
+    local root = ensure_root(save)
+    if not boss_matches(root.activeBoss, battle) then return nil end
+    return {
+      profile = BOSS_PROFILE,
+      strategy = boss_strategy(root, root.activeBoss.id),
+    }
+  end
+
+  ai.register(mod, profiles, active_boss_context)
 
   local function audit_identities(live)
     local save = live and live.save
@@ -131,6 +189,49 @@ return function(mod)
   mod.events:on("save.created", bind_live_game)
   mod.events:on("save.loaded", bind_live_game)
 
+  mod.hooks:wrap("trainer.before_battle",
+    function(next, live, context, continueBattle)
+      local identityRef = battle_identities.for_battle(context)
+      local identityDef = identityRef and identityRef.kind == "GYM_LEADER"
+        and boss_rosters.leaders[identityRef.id]
+      local save = live and live.save
+      if not identityDef or not save then
+        return next(live, context, continueBattle)
+      end
+
+      local root = ensure_root(save)
+      local count = boss_rosters.active_count(identityDef, save.version)
+      -- Fairness authority is captured from the complete party before the
+      -- player sees or changes registration; the selected subset never feeds
+      -- the scaling formula.
+      local references = bosses.reference_levels(save.party or {}, count)
+      mod.ui.push(live, "AdaptiveGymRegistration", {
+        leaderId = identityRef.id,
+        maxCount = count,
+        party = save.party or {},
+        onConfirm = function(indices)
+          root.activeBoss = {
+            id = identityRef.id,
+            version = save.version,
+            oppClass = context.trainerClass,
+            partyIndex = context.partyIndex or 1,
+            mapId = context.mapId,
+            npcId = context.npcId,
+            registeredIndices = indices,
+            referenceLevels = references,
+          }
+          mod.save:set("state", root)
+          continueBattle({ playerPartyIndices = indices })
+        end,
+        onCancel = function()
+          root.activeBoss = nil
+          mod.save:set("state", root)
+          continueBattle({ cancel = true })
+        end,
+      })
+      return true
+    end, 100)
+
   local function active_identity_matches(active, save, mapId, oppClass,
       partyIndex)
     return type(active) == "table"
@@ -169,8 +270,7 @@ return function(mod)
   mod.hooks:wrap("trainer.party", function(next, oppClass, partyIndex, partyDef)
     local engagedTrainer = pendingTrainer
     pendingTrainer = nil
-    local profile = profiles.for_class(oppClass)
-    if not profile or type(partyDef) ~= "table" then
+    if type(partyDef) ~= "table" then
       return next(oppClass, partyIndex, partyDef)
     end
 
@@ -182,6 +282,31 @@ return function(mod)
     end
 
     local root = ensure_root(save)
+    local registeredBoss = root.activeBoss
+    if boss_matches(registeredBoss, {
+        trainerClass = oppClass, partyIndex = partyIndex,
+      }) and boss_rosters.leaders[registeredBoss.id] then
+      local identityDef = boss_rosters.leaders[registeredBoss.id]
+      local generated, bossState = bosses.build(identityDef, {
+        version = save.version,
+        playerLevels = registeredBoss.referenceLevels,
+      }, root, {
+        meta = line_meta,
+        pokemon = data.pokemon,
+        moves = data.moves,
+        movesets = movesets,
+        rosters = boss_rosters,
+      })
+      registeredBoss.strategyId = bossState.strategyId
+      registeredBoss.attemptCounter = bossState.attemptCounter
+      preparedBoss = registeredBoss
+      activeBoss = nil
+      mod.save:set("state", root)
+      return next(oppClass, partyIndex, generated)
+    end
+
+    local profile = profiles.for_class(oppClass)
+    if not profile then return next(oppClass, partyIndex, partyDef) end
     local mapId = current_map(save)
     local restored = not engagedTrainer and root.activeTrainer
     local key
@@ -226,6 +351,26 @@ return function(mod)
     local save = live and live.save
     if not save then return end
     local root = ensure_root(save)
+    local bossCandidate = preparedBoss or root.activeBoss
+    if ev and ev.kind == "trainer" and battle_matches(bossCandidate, ev.battle)
+        and bossCandidate.id then
+      activeBoss = {
+        id = bossCandidate.id,
+        oppClass = bossCandidate.oppClass,
+        partyIndex = bossCandidate.partyIndex,
+        battle = ev.battle,
+      }
+      ev.battle.adaptiveStrategy = boss_strategy(root, bossCandidate.id)
+      preparedBoss = nil
+      preparedBattle = nil
+      activeBattle = nil
+      checkpointRestorePending = false
+      mod.save:set("state", root)
+      return
+    end
+    preparedBoss = nil
+    activeBoss = nil
+    root.activeBoss = nil
     local candidate = preparedBattle or root.activeTrainer
     if ev and ev.kind == "trainer"
         and battle_matches(candidate, ev.battle) then
@@ -252,8 +397,12 @@ return function(mod)
     if not save then return end
     local root = ensure_root(save)
     checkpointRestorePending = ev and ev.kind == "battle"
-      and type(root.activeTrainer) == "table"
-    if checkpointRestorePending then preparedBattle = root.activeTrainer end
+      and (type(root.activeTrainer) == "table"
+        or type(root.activeBoss) == "table")
+    if checkpointRestorePending then
+      preparedBattle = root.activeTrainer
+      preparedBoss = root.activeBoss
+    end
   end)
 
   mod.events:on("battle.ended", function(ev)
@@ -261,6 +410,26 @@ return function(mod)
     local save = live and live.save
     if not save then return end
     local root = ensure_root(save)
+    local bossMatched
+    if activeBoss and ev and ev.battle == activeBoss.battle
+        and battle_matches(activeBoss, ev.battle) then
+      bossMatched = activeBoss
+    elseif checkpointRestorePending and ev
+        and battle_matches(root.activeBoss, ev.battle) then
+      bossMatched = root.activeBoss
+    end
+    if bossMatched and bossMatched.id then
+      local state = root.bossAttempts[bossMatched.id]
+      if state then state.lastResult = ev and ev.result or "run" end
+      bosses.record_result(root, bossMatched.id,
+        ev and ev.result or "run")
+      activeBoss = nil
+      preparedBoss = nil
+      checkpointRestorePending = false
+      root.activeBoss = nil
+      mod.save:set("state", root)
+      return
+    end
     local matched
     if activeBattle and ev and ev.battle == activeBattle.battle
         and battle_matches(activeBattle, ev.battle) then
@@ -293,6 +462,6 @@ return function(mod)
   end)
 
   mod.exports.status = function()
-    return { phase = "C", schema = schema.VERSION }
+    return { phase = "D", schema = schema.VERSION }
   end
 end
