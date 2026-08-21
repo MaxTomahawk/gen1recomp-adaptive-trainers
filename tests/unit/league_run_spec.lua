@@ -262,10 +262,28 @@ for _, memberId in ipairs(league.memberOrder) do
   local memberState = scoringRoot.leagueRun.generatedParties[memberId]
   local selected = {}
   for _, moveId in ipairs(memberState[1].moves or {}) do selected[moveId] = true end
-  for _, moveId in ipairs(scoringRoot.leagueRun.memberStrategies[memberId]
-      .signatureMoves or {}) do
-    check(selected[moveId], memberId
-      .. " final signature moveset realizes every available baseline group")
+  local groups = league_data.members[memberId].signatureMoveGroups
+  eq(#groups, 4, memberId .. " exposes four baseline signature groups")
+  for groupIndex, group in ipairs(groups) do
+    local candidates = group
+    if group.preferred then
+      candidates = {}
+      for _, moveId in ipairs(group.preferred) do
+        if scoringMoves[moveId] then candidates[#candidates + 1] = moveId end
+      end
+      if #candidates == 0 then candidates = group.fallback or {} end
+    end
+    local available, realized = false, false
+    for _, moveId in ipairs(candidates) do
+      if scoringMoves[moveId] then
+        available = true
+        if selected[moveId] then realized = true end
+      end
+    end
+    check(available, memberId .. " signature group " .. groupIndex
+      .. " is available in the adversarial registry")
+    check(realized, memberId .. " final moveset realizes source signature group "
+      .. groupIndex)
   end
 end
 local birdMember = scoringRoot.leagueRun.birdPair.member
