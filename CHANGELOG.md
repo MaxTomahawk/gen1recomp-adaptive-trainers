@@ -51,6 +51,9 @@ The format follows Keep a Changelog, and this project uses Semantic Versioning.
   with deterministic route-window acquisitions, owned-roster evolution and T3
   moves, attachment-driven team rotation, bounded pressure, exact scripted
   battle mapping, checkpoint-safe results, and the canonical Yellow Eevee paths.
+- Hall-of-Fame autosave completion and post-game load reconciliation now clear
+  the completed League run while preserving saves, reloads, and checkpoints
+  between Elite Four members.
 
 ## [0.1.0] - 2026-08-14
 

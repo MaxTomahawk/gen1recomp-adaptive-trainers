@@ -43,6 +43,11 @@ checkpoint state remains isolated from ordinary, Gym and League authorities.
 Yellow preserves exactly Vaporeon after an Oak loss, Jolteon after both early
 wins, and Flareon after an Oak win plus Route 22 loss or skip.
 
+The merged Phase E lifecycle preserves its run through internal Champion and
+Hall-of-Fame transitions, clears it at the Hall-of-Fame autosave before the
+title soft reset, and also clears on blackout, other League exits, or stale
+post-game home loads so the next entry cannot inherit or reroll the prior run.
+
 Current evidence:
 
 - Public SDK loader: 7/7 checks passed.
@@ -57,7 +62,8 @@ Current evidence:
 - Phase D public runtime: 679/679 all-Leader Red/Blue/Yellow generation,
   registration, scoped-AI, persistence and result checks; public seam lifecycle
   38/38; standalone registration UI 33/33.
-- Phase E public runtime: 123/123 Red/Blue/Yellow entry, member generation,
+- Phase E public runtime: 144/144 Red/Blue/Yellow entry, member generation,
+  Hall-of-Fame autosave/post-game recovery,
   save/reload, checkpoint, T4 AI, internal-transition and blackout/re-entry
   checks; League core 127/127.
 - Phase F public runtime: 298/298 exact R/B/Y scripted-context, persistent
@@ -75,8 +81,8 @@ Current evidence:
 - `modkit lint`: green, no ROM-derived content detected.
 - Last Phase-E reproducible double-pack check: green; 31 distributable files plus
   `.modkit/pack.json`, with no recursive `dist/`, tests, scripts, docs, or DOCX.
-- Last Phase-E source-date-zero package SHA-256:
-  `6bf502943463efa8a7decb7b305a6fdd308d9ab3bf84b84e7038d397b977bf78`.
+- Last merged Phase-E source-date-zero package SHA-256:
+  `46fb2ec45aa0446a2d73f91e90cbafabdec086b6f790236439e043649eba9a52`.
 
 The ROM-free fixture validator reports MK103 as not checkable for trainer-id
 patch references; it remains green and cannot distinguish real vanilla ids from

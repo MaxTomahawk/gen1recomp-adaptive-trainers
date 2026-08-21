@@ -8,6 +8,11 @@ local rosters = assert(loadfile(ROOT .. "/src/data/boss_rosters.lua"))()
 local identities = assert(loadfile(ROOT .. "/src/data/battle_identities.lua"))()
 local meta = assert(loadfile(ROOT .. "/src/data/line_meta.lua"))().build()
 
+local move_packages = assert(loadfile(ROOT .. "/src/data/move_packages.lua"))()
+local real_movesets = assert(loadfile(ROOT .. "/src/core/movesets.lua"))()({
+  rng = rng, packages = move_packages,
+})
+
 local checks, failures = 0, 0
 local function check(condition, message)
   checks = checks + 1
@@ -135,8 +140,12 @@ eq(identities.for_battle({ trainerClass = "OPP_GIOVANNI", partyIndex = 1,
     npcId = "ROCKET_HIDEOUT_B4F_obj_1" }).kind, "STORY_BOSS",
   "Giovanni's Hideout encounter remains an explicit story boss")
 eq(identities.for_battle({ trainerClass = "OPP_GIOVANNI", partyIndex = 2,
-    mapId = "SILPH_CO_11F", npcId = "SILPH_CO_11F_obj_1" }).kind,
+    mapId = "SILPH_CO_11F", npcId = "SILPH_CO_11F_obj_3" }).kind,
   "STORY_BOSS", "Giovanni's Silph encounter remains an explicit story boss")
+
+eq(identities.for_battle({ trainerClass = "OPP_GIOVANNI", partyIndex = 2,
+    mapId = "SILPH_CO_11F", npcId = "SILPH_CO_11F_obj_1" }), nil,
+  "the Silph president object cannot be mistaken for Giovanni")
 
 local bosses = bosses_factory({ rng = rng, stage_resolver = stage_resolver,
   rosters = rosters })
@@ -252,6 +261,61 @@ eq(migrated.attemptCounter, 4,
   "legacy integer boss attempts migrate without losing their counter")
 check(type(legacyRoot.bossAttempts.BROCK) == "table",
   "legacy attempt migration stores the structured record in mod.save")
+
+local realisticMoves = {
+  TACKLE = { type = "NORMAL", power = 35, accuracy = 95 },
+  ROCK_SLIDE = { type = "ROCK", power = 75, accuracy = 90 },
+  EARTHQUAKE = { type = "GROUND", power = 100, accuracy = 100 },
+  DIG = { type = "GROUND", power = 100, accuracy = 100 },
+  SCREECH = { type = "NORMAL", power = 0, accuracy = 85,
+    effect = "DEFENSE_DOWN2_EFFECT" },
+  BIDE = { type = "NORMAL", power = 0, accuracy = 100,
+    effect = "BIDE_EFFECT" },
+  SELFDESTRUCT = { type = "NORMAL", power = 130, accuracy = 100 },
+  SURF = { type = "WATER", power = 95, accuracy = 100 },
+  BUBBLEBEAM = { type = "WATER", power = 65, accuracy = 100 },
+  PSYCHIC = { type = "PSYCHIC", power = 90, accuracy = 100 },
+  THUNDER_WAVE = { type = "ELECTRIC", power = 0, accuracy = 100,
+    effect = "PARALYZE_EFFECT" },
+  ICE_BEAM = { type = "ICE", power = 95, accuracy = 100 },
+  RECOVER = { type = "NORMAL", power = 0, accuracy = 100,
+    effect = "HEAL_EFFECT" },
+  HYPER_BEAM = { type = "NORMAL", power = 150, accuracy = 90 },
+}
+pokemon.ONIX = { types = { "ROCK", "GROUND" },
+  level1Moves = { "TACKLE" }, learnset = {}, tmhm = { "SELFDESTRUCT" } }
+pokemon.STARMIE = { types = { "WATER", "PSYCHIC" },
+  level1Moves = { "TACKLE" }, learnset = {}, tmhm = { "HYPER_BEAM" } }
+
+local function copy_identity(identity, strategyId)
+  local out = {}
+  for key, value in pairs(identity) do out[key] = value end
+  out.strategyOrder = { strategyId }
+  return out
+end
+
+local function check_persisted_signature(identity, strategyId, label)
+  local realisticRoot = { seedHi = 811, seedLo = 923, bossAttempts = {} }
+  local _, realisticState = bosses.build(copy_identity(identity, strategyId), {
+    version = "red", playerLevels = { 50, 45, 40, 35 },
+  }, realisticRoot, { meta = meta, pokemon = pokemon,
+    moves = realisticMoves, movesets = real_movesets })
+  eq(#realisticState.strategy.signatureMoves, 4,
+    label .. " selects all four registry-available signature groups")
+  eq(#realisticState.party[1].moves, 4,
+    label .. " persists a complete signature moveset")
+  local final = {}
+  for _, moveId in ipairs(realisticState.party[1].moves) do
+    final[moveId] = true
+  end
+  for _, moveId in ipairs(realisticState.strategy.signatureMoves) do
+    check(final[moveId] == true,
+      label .. " persists selected signature move " .. moveId)
+  end
+end
+
+check_persisted_signature(rosters.leaders.MISTY, "CONTROL", "Misty")
+check_persisted_signature(rosters.leaders.BROCK, "STONEWALL", "Brock")
 
 if failures > 0 then error(failures .. " boss assertion(s) failed", 0) end
 print(("bosses: %d/%d checks passed"):format(checks, checks))

@@ -221,6 +221,42 @@ eq(movesets.refresh(inheritedAtCap, "evolution", cappedSpecies,
     moveDefs, 0), false,
   "unknown inherited techniques conservatively consume the TM budget")
 
+local signatureDefs = {
+  TACKLE = { type = "NORMAL", power = 35, accuracy = 95 },
+  SURF = { type = "WATER", power = 95, accuracy = 100 },
+  PSYCHIC = { type = "PSYCHIC", power = 90, accuracy = 100 },
+  THUNDER_WAVE = { type = "ELECTRIC", power = 0, accuracy = 100,
+    effect = "PARALYZE_EFFECT" },
+  RECOVER = { type = "NORMAL", power = 0, accuracy = 100,
+    effect = "HEAL_EFFECT" },
+  HYPER_BEAM = { type = "NORMAL", power = 150, accuracy = 90 },
+}
+local signatureSpecies = { types = { "WATER", "PSYCHIC" },
+  level1Moves = { "TACKLE" }, tmhm = { "HYPER_BEAM" } }
+local requiredSignature = { "SURF", "PSYCHIC", "THUNDER_WAVE", "RECOVER" }
+local signatureBoss = { id = "misty-signature", species = "STARMIE",
+  level = 21, roleSeed = 37 }
+local pinned = movesets.generate(signatureBoss, signatureSpecies,
+  signatureDefs, 4, { signatureMoves = requiredSignature })
+eq(#pinned, 4, "a complete signature package still produces four moves")
+for _, moveId in ipairs(requiredSignature) do
+  check(contains(pinned, moveId),
+    "registry-valid signature move " .. moveId .. " is persisted")
+  eq(signatureBoss.moveSources[moveId], "technique",
+    "pinned signature move " .. moveId .. " retains its public source")
+end
+
+local ordinaryControl = { id = "ordinary-control", species = "STARMIE",
+  level = 21, roleSeed = 37 }
+local flexControl = { id = "ordinary-control", species = "STARMIE",
+  level = 21, roleSeed = 37 }
+local ordinaryMoves = movesets.generate(ordinaryControl, signatureSpecies,
+  signatureDefs, 4)
+local flexMoves = movesets.generate(flexControl, signatureSpecies,
+  signatureDefs, 4, { techniques = {}, signatureMoves = {} })
+eq(table.concat(flexMoves, ","), table.concat(ordinaryMoves, ","),
+  "an empty signature package leaves ordinary and flex scoring unchanged")
+
 if failures > 0 then
   io.stderr:write(string.format("%d/%d moveset checks failed\n",
     failures, checks))

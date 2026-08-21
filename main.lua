@@ -223,9 +223,41 @@ return function(mod)
     if save then ensure_root(save) end
   end
 
+  local function clear_league_run(root, reason)
+    if not league.leave(root, reason) then return false end
+    preparedLeague, activeLeague = nil, nil
+    mod.save:set("state", root)
+    return true
+  end
+
   mod.events:on("game.ready", bind_live_game)
   mod.events:on("save.created", bind_live_game)
-  mod.events:on("save.loaded", bind_live_game)
+  mod.events:on("save.loaded", function(ev)
+    bind_live_game(ev)
+    local save = ev and ev.save or (game and game.save)
+    local mapId = save and save.player and save.player.map
+    if type(mapId) ~= "string" then return end
+    local root = ensure_root(save)
+    if root.leagueRun and not league.is_league_map(mapId) then
+      clear_league_run(root, "loaded-outside-league")
+    end
+  end)
+
+  -- record_hall_of_fame appends the winning team, marks post-game home, then
+  -- Game:writeSave captures the still-live HALL_OF_FAME map and emits this
+  -- public event. Clear before persistence so the title-screen soft reset
+  -- cannot resurrect a completed run. Ordinary in-League saves do not match.
+  mod.events:on("save.writing", function(ev)
+    local save = ev and ev.save or (game and game.save)
+    local hasHallOfFameEntry = type(save and save.hallOfFame) == "table"
+      and #save.hallOfFame > 0
+    if not save or save.postGameHomeOk ~= true
+        or not hasHallOfFameEntry
+        or not save.player or save.player.map ~= "HALL_OF_FAME" then
+      return
+    end
+    clear_league_run(ensure_root(save), "hall-of-fame-complete")
+  end)
 
   mod.events:on("map.entered", function(ev)
     if not ev or ev.mapId ~= "LORELEIS_ROOM" then return end
@@ -245,10 +277,7 @@ return function(mod)
     local save = live and live.save
     if not save then return end
     local root = ensure_root(save)
-    if league.leave(root, ev.toMapId or "exit") then
-      preparedLeague, activeLeague = nil, nil
-      mod.save:set("state", root)
-    end
+    clear_league_run(root, ev.toMapId or "exit")
   end)
 
   mod.hooks:wrap("trainer.before_battle",

@@ -44,7 +44,7 @@ function M.for_battle(context)
   if context.trainerClass == "OPP_GIOVANNI"
       and (context.partyIndex or 1) == 2
       and context.mapId == "SILPH_CO_11F"
-      and context.npcId == "SILPH_CO_11F_obj_1" then
+      and context.npcId == "SILPH_CO_11F_obj_3" then
     return { id = "GIOVANNI_SILPH", kind = "STORY_BOSS" }
   end
   return nil

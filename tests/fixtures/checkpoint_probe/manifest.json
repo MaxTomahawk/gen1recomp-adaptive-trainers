@@ -1,0 +1,8 @@
+{
+  "id": "adaptive_trainers_checkpoint_probe",
+  "name": "Adaptive Trainers Checkpoint Probe",
+  "version": "1.0.0",
+  "entry": "main.lua",
+  "api": 2,
+  "profile": "content"
+}

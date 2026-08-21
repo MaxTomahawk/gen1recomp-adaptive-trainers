@@ -141,12 +141,19 @@ for _, version in ipairs({ "red", "blue", "yellow" }) do
   T.eq(visibleBirds, 1, version .. " run visibly fields exactly one Bird")
 
   local pairBytes = SaveSerializer.encode(leagueRun.birdPair)
+  save.player.map = "BRUNOS_ROOM"
+  Runtime.emit("save.writing", { save = save, meta = save.meta })
+  T.eq(save.modData.adaptive_trainers.state.leagueRun, leagueRun,
+    version .. " ordinary save between League members preserves the run")
   local savedBytes = SaveSerializer.encode(save.modData)
   run.release()
 
   local reload = T.sdk.loadMod(modPath, { data = fixture_data() })
   local reloadSave = save_for(version, assert(SaveSerializer.decode(savedBytes)))
   local reloadGame = bind(reload, reloadSave)
+  Runtime.emit("save.loaded", { save = reloadSave, meta = reloadSave.meta })
+  T.check(reloadSave.modData.adaptive_trainers.state.leagueRun ~= nil,
+    version .. " ordinary load between League members preserves the run")
   local restoredRun = reloadSave.modData.adaptive_trainers.state.leagueRun
   T.eq(SaveSerializer.encode(restoredRun.birdPair), pairBytes,
     version .. " save/reload preserves the Bird pairing")
@@ -183,18 +190,83 @@ for _, version in ipairs({ "red", "blue", "yellow" }) do
   T.eq(reloadSave.modData.adaptive_trainers.state.leagueRun, restoredRun,
     version .. " Hall of Fame transition remains in the same League run")
 
+  -- record_hall_of_fame applies the post-game home marker, then Game:writeSave
+  -- captures the still-live HALL_OF_FAME map before emitting save.writing.
+  -- The completed run must be absent from that autosave so the title-screen
+  -- soft reset cannot resurrect it.
+  reloadSave.hallOfFame = { { { species = "FIXMON_A", level = 70 } } }
+  reloadSave.postGameHomeOk = true
+  reloadSave.player.map = "HALL_OF_FAME"
+  Runtime.emit("save.writing", { save = reloadSave,
+    meta = reloadSave.meta })
+  T.eq(reloadSave.modData.adaptive_trainers.state.leagueRun, nil,
+    version .. " Hall of Fame autosave clears the completed run")
+  local completedCounter = reloadSave.modData.adaptive_trainers.state
+    .leagueRunCounter
+
+  -- The persisted save is relocated home immediately after Game:writeSave.
+  -- A normal CONTINUE/load must keep the run cleared and the next Lorelei
+  -- entry must advance the same counter rather than reusing the old run.
+  local postGameBytes = SaveSerializer.encode(reloadSave.modData)
+  reload.release()
+  local postGame = T.sdk.loadMod(modPath, { data = fixture_data() })
+  local postGameSave = save_for(version,
+    assert(SaveSerializer.decode(postGameBytes)))
+  postGameSave.player.map = "PALLET_TOWN"
+  postGameSave.postGameHomeOk = true
+  postGameSave.hallOfFame = reloadSave.hallOfFame
+  local postGameGame = bind(postGame, postGameSave)
+  Runtime.emit("save.loaded", { save = postGameSave,
+    meta = postGameSave.meta })
+  T.eq(postGameSave.modData.adaptive_trainers.state.leagueRun, nil,
+    version .. " post-game home load does not restore a completed run")
+  postGameGame.overworld.map.id = "LORELEIS_ROOM"
+  postGameSave.player.map = "LORELEIS_ROOM"
+  Runtime.emit("map.entered", { mapId = "LORELEIS_ROOM",
+    fromMapId = "INDIGO_PLATEAU_LOBBY", via = "warp" })
+  local postGameRoot = postGameSave.modData.adaptive_trainers.state
+  T.eq(postGameRoot.leagueRunCounter, completedCounter + 1,
+    version .. " post-game Lorelei entry advances the run counter")
+  T.check(postGameRoot.leagueRun.id ~= restoredRun.id,
+    version .. " post-game Lorelei entry creates a distinct run")
+  postGame.release()
+
+  -- A legacy/current save loaded at home with a stale League run also
+  -- reconciles through the public save.loaded lifecycle. This is the
+  -- recovery path for saves written before the completion hook existed.
+  local stale = T.sdk.loadMod(modPath, { data = fixture_data() })
+  local staleSave = save_for(version,
+    assert(SaveSerializer.decode(savedBytes)))
+  staleSave.player.map = "PALLET_TOWN"
+  staleSave.postGameHomeOk = true
+  staleSave.hallOfFame = reloadSave.hallOfFame
+  bind(stale, staleSave)
+  Runtime.emit("save.loaded", { save = staleSave, meta = staleSave.meta })
+  T.eq(staleSave.modData.adaptive_trainers.state.leagueRun, nil,
+    version .. " post-game home load clears a stale completed run")
+  stale.release()
+
+  -- Continue the ordinary blackout coverage in a fresh run: leaving the
+  -- League still clears state independently of Hall-of-Fame completion.
+  local blackout = T.sdk.loadMod(modPath, { data = fixture_data() })
+  local blackoutSave = save_for(version)
+  bind(blackout, blackoutSave)
+  Runtime.emit("map.entered", { mapId = "LORELEIS_ROOM",
+    fromMapId = "INDIGO_PLATEAU_LOBBY", via = "warp" })
+  local blackoutRun = blackoutSave.modData.adaptive_trainers.state.leagueRun
+
   Runtime.emit("map.exited", { mapId = "LORELEIS_ROOM",
     toMapId = "INDIGO_PLATEAU_LOBBY" })
-  T.eq(reloadSave.modData.adaptive_trainers.state.leagueRun, nil,
+  T.eq(blackoutSave.modData.adaptive_trainers.state.leagueRun, nil,
     version .. " blackout/League exit clears the run")
   Runtime.emit("map.entered", { mapId = "LORELEIS_ROOM",
     fromMapId = "INDIGO_PLATEAU_LOBBY", via = "warp" })
-  local nextRoot = reloadSave.modData.adaptive_trainers.state
+  local nextRoot = blackoutSave.modData.adaptive_trainers.state
   T.eq(nextRoot.leagueRunCounter, 2,
     version .. " re-entry advances the run counter")
-  T.check(nextRoot.leagueRun.id ~= restoredRun.id,
+  T.check(nextRoot.leagueRun.id ~= blackoutRun.id,
     version .. " re-entry creates a distinct run identity")
-  reload.release()
+  blackout.release()
 end
 
 T.finish("adaptive trainers League persistence")
