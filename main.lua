@@ -156,6 +156,7 @@ return function(mod)
   local BOSS_PROFILE = { aiTier = 4, rosterBehavior = "boss" }
   local RIVAL_PROFILE = { aiTier = rival_windows.tuning.aiTier,
     rosterBehavior = "expert" }
+  local rival_matches
   local function active_boss_context(battle)
     local live = game or mod.game
     local save = live and live.save
@@ -169,8 +170,7 @@ return function(mod)
       return { profile = BOSS_PROFILE,
         strategy = league_strategy(root, root.activeLeagueMember.id) }
     end
-    if boss_matches(root.activeRival, battle)
-        and root.activeRival.encounterId then
+    if rival_matches(root.activeRival, save, battle) then
       return { profile = RIVAL_PROFILE }
     end
     return nil
@@ -339,10 +339,38 @@ return function(mod)
       and (active.partyIndex or 1) == (battle.partyIndex or 1)
   end
 
-  local function rival_matches(active, save, battle)
-    return battle_matches(active, battle)
+  rival_matches = function(active, save, battle)
+    return type(active) == "table"
+      and type(active.encounterId) == "string"
+      and battle_matches(active, battle)
       and active.version == save.version
       and active.mapId == current_map(save)
+      and rival_windows.for_battle(active.version, active.mapId,
+        active.oppClass, active.partyIndex) == active.encounterId
+  end
+
+  local function yellow_outcome_is_authoritative(root)
+    local flags = type(root.yellowRival) == "table" and root.yellowRival or {}
+    if flags.eeveeOutcome == "VAPOREON"
+        or flags.eeveeOutcome == "JOLTEON"
+        or flags.eeveeOutcome == "FLAREON" then
+      return true
+    end
+    if flags.oakResult == "lose" then return true end
+    return flags.oakResult == "win"
+      and (flags.route22EarlyResult == "win"
+        or flags.route22EarlyResult == "lose"
+        or flags.route22EarlyResult == "skip")
+  end
+
+  local function rival_can_build(encounterId, save, root)
+    if save.version ~= "yellow"
+        or (rival_windows.index(encounterId) or 0) < 5 then
+      return true
+    end
+    local native = tonumber(save.rivalStarter)
+    return yellow_outcome_is_authoritative(root)
+      or native == 1 or native == 2 or native == 3
   end
 
   local function rival_starter(save, partyDef)
@@ -403,7 +431,7 @@ return function(mod)
       rivalEncounter = root.activeRival.encounterId
       mapId = root.activeRival.mapId
     end
-    if rivalEncounter then
+    if rivalEncounter and rival_can_build(rivalEncounter, save, root) then
       local starterLine, starterSpecies = rival_starter(save, partyDef)
       if save.version == "yellow" or starterLine then
         local generated = rival.build(rivalEncounter, {
@@ -628,16 +656,26 @@ return function(mod)
     local save = live and live.save
     if not save then return end
     local root = ensure_root(save)
+    local persistedRival = root.activeRival
+    local validRival = rival_matches(persistedRival, save, {
+      oppClass = persistedRival and persistedRival.oppClass,
+      partyIndex = persistedRival and persistedRival.partyIndex,
+    })
+    if type(persistedRival) == "table" and not validRival then
+      root.activeRival = nil
+      preparedRival = nil
+      mod.save:set("state", root)
+    end
     checkpointRestorePending = ev and ev.kind == "battle"
       and (type(root.activeTrainer) == "table"
         or type(root.activeBoss) == "table"
         or type(root.activeLeagueMember) == "table"
-        or type(root.activeRival) == "table")
+        or validRival)
     if checkpointRestorePending then
       preparedBattle = root.activeTrainer
       preparedBoss = root.activeBoss
       preparedLeague = root.activeLeagueMember
-      preparedRival = root.activeRival
+      preparedRival = validRival and persistedRival or nil
     end
   end)
 

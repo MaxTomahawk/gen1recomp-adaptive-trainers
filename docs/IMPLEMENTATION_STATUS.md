@@ -66,11 +66,11 @@ Current evidence:
   Hall-of-Fame autosave/post-game recovery,
   save/reload, checkpoint, T4 AI, internal-transition and blackout/re-entry
   checks; League core 127/127.
-- Phase F public runtime: 298/298 exact R/B/Y scripted-context, persistent
+- Phase F public runtime: 323/323 exact R/B/Y scripted-context, persistent
   journey, legal T3 move/AI, checkpoint, result-isolation and Yellow outcome
   checks; Rival core 172/172, including every exact canonical R/B starter and
   Yellow Eevee path row.
-- Deterministic/property suites: 367,574/367,574 assertions, including 55,957
+- Deterministic/property suites: 372,974/372,974 assertions, including 61,357
   Rival fairness assertions proving level/time-equivalent builds are blind to
   complete player species and move-list changes, plus 86,250
   Gym identity/structure/repeatability assertions and 140,004 assertions over

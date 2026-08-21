@@ -296,6 +296,57 @@ yellow_mid_save(1, "JOLTEON")
 yellow_mid_save(2, "FLAREON")
 yellow_mid_save(3, "VAPOREON")
 
+for _, nativeStarter in ipairs({ 0, "UNKNOWN" }) do
+  local run, save, game = load_run("yellow")
+  save.rivalStarter = nativeStarter
+  local tower = { id = "POKEMON_TOWER", map = "POKEMON_TOWER_2F",
+    class = "OPP_RIVAL2", party = 2 }
+  local vanilla = run.data.trainers[tower.class].parties[tower.party]
+  local ok, party = pcall(party_for, run, save, game, tower)
+  local root = save.modData.adaptive_trainers.state
+  T.check(ok, "late Yellow migration fails closed for native starter "
+    .. tostring(nativeStarter))
+  T.eq(ok and SaveSerializer.encode(party) or nil,
+    SaveSerializer.encode(vanilla),
+    "invalid native Yellow authority preserves the vanilla party "
+      .. tostring(nativeStarter))
+  T.eq(#root.rival.owned, 0,
+    "invalid native Yellow authority cannot create owned Rival state "
+      .. tostring(nativeStarter))
+  T.eq(root.rival.encounterIndex, 0,
+    "invalid native Yellow authority cannot advance the Rival journey "
+      .. tostring(nativeStarter))
+  T.eq(root.rival.pending, nil,
+    "invalid native Yellow authority cannot create pending Rival state "
+      .. tostring(nativeStarter))
+  T.eq(root.activeRival, nil,
+    "invalid native Yellow authority cannot create an active binding "
+      .. tostring(nativeStarter))
+  run.release()
+end
+
+do
+  local run, save, game = load_run("yellow")
+  local tower = { id = "POKEMON_TOWER", map = "POKEMON_TOWER_2F",
+    class = "OPP_RIVAL2", party = 2 }
+  local vanilla = run.data.trainers[tower.class].parties[tower.party]
+  local ok, party = pcall(party_for, run, save, game, tower)
+  local root = save.modData.adaptive_trainers.state
+  T.check(ok, "late Yellow migration fails closed for nil native starter")
+  T.eq(ok and SaveSerializer.encode(party) or nil,
+    SaveSerializer.encode(vanilla),
+    "nil native Yellow authority preserves the vanilla party")
+  T.eq(#root.rival.owned, 0,
+    "nil native Yellow authority cannot create owned Rival state")
+  T.eq(root.rival.encounterIndex, 0,
+    "nil native Yellow authority cannot advance the Rival journey")
+  T.eq(root.rival.pending, nil,
+    "nil native Yellow authority cannot create pending Rival state")
+  T.eq(root.activeRival, nil,
+    "nil native Yellow authority cannot create an active binding")
+  run.release()
+end
+
 local staleRun, staleSave, staleGame = load_run("red")
 local staleRow = { id = "OAK_LAB", map = "OAKS_LAB",
   class = "OPP_RIVAL1", party = 1 }
@@ -323,5 +374,64 @@ T.check(staleRoot.rival.pending ~= nil
     and SaveSerializer.encode(staleRoot.rival.pending) == pendingBytes,
   "wrong-map failure preserves the legitimate pending journey party")
 staleRun.release()
+
+do
+  local run, save, game = load_run("red")
+  local oak = { id = "OAK_LAB", map = "OAKS_LAB",
+    class = "OPP_RIVAL1", party = 1 }
+  party_for(run, save, game, oak)
+  local root = save.modData.adaptive_trainers.state
+  local pendingBytes = SaveSerializer.encode(root.rival.pending)
+  root.activeRival = {
+    encounterId = "CERULEAN",
+    version = "red",
+    mapId = "ROUTE_22",
+    oppClass = "OPP_RIVAL1",
+    partyIndex = 1,
+  }
+  local bytes = SaveSerializer.encode(save.modData)
+  run.release()
+
+  run, save, game = load_run("red", assert(SaveSerializer.decode(bytes)))
+  save.player.map = "ROUTE_22"
+  game.overworld.map.id = "ROUTE_22"
+  root = save.modData.adaptive_trainers.state
+  local malformedBattle = { oppClass = "OPP_RIVAL1", partyIndex = 1,
+    enemyAIMods = { "LAYER_1" }, enemyParty = {},
+    rng = function() return 255 end }
+  local seenMods
+  Runtime.call("battle.enemy_action", function(battle)
+    seenMods = {}
+    for _, id in ipairs(battle.enemyAIMods or {}) do
+      seenMods[#seenMods + 1] = id
+    end
+    return { move = 1 }
+  end, malformedBattle)
+  T.check(not contains(seenMods, "ADAPTIVE_T3_ROLE"),
+    "a noncanonical serialized binding cannot activate Rival T3 AI")
+
+  local vanilla = run.data.trainers.OPP_RIVAL1.parties[1]
+  local party = Runtime.call("trainer.party",
+    function(_, _, source) return source end,
+    "OPP_RIVAL1", 1, vanilla)
+  T.eq(SaveSerializer.encode(party), SaveSerializer.encode(vanilla),
+    "a noncanonical serialized binding cannot reconstruct a Rival party")
+  T.eq(SaveSerializer.encode(root.rival.pending), pendingBytes,
+    "noncanonical reconstruction preserves the authoritative pending party")
+
+  Runtime.emit("checkpoint.restored", { kind = "battle", game = game })
+  Runtime.emit("battle.started", { kind = "trainer", battle = malformedBattle })
+  T.eq(root.activeRival, nil,
+    "a noncanonical serialized binding cannot activate after checkpoint")
+  Runtime.emit("battle.ended", { result = "win", battle = malformedBattle })
+  T.eq(root.rival.encounterResults.CERULEAN, nil,
+    "a noncanonical serialized binding cannot record a wrong result")
+  T.eq(root.rival.encounterResults.OAK_LAB, nil,
+    "a noncanonical serialized binding cannot consume the pending result")
+  T.check(root.rival.pending ~= nil
+      and SaveSerializer.encode(root.rival.pending) == pendingBytes,
+    "failed noncanonical result handling preserves the pending party")
+  run.release()
+end
 
 T.finish("adaptive trainers Rival version paths")

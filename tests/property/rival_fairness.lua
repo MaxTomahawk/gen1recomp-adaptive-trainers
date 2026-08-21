@@ -119,6 +119,12 @@ for sample = 1, 300 do
         and state_a.pending.encounterTop <= cap,
       version .. " pressure top remains inside floor/+8/P+2 bounds")
     for index, mon in ipairs(party_a) do
+      local slot_floor = anchor.slots[index].floor
+      local exact_level = math.min(windows.tuning.levels.globalCap,
+        math.max(slot_floor, state_a.pending.encounterTop
+          + slot_floor - anchor.canonFloor))
+      check(mon.level == exact_level,
+        version .. " every rotated slot preserves its exact relative offset")
       check(mon.level >= anchor.slots[index].floor,
         version .. " every rotated slot respects its canonical floor")
       check(mon.level <= 100,
