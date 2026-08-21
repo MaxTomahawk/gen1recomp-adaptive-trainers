@@ -50,17 +50,27 @@ local function strategy_score(view, moveDef, score)
   return score
 end
 
-local function first_backup(battle)
+local function first_backup(battle, strategy)
+  local preferred = strategy and strategy.preferredSwitchSpecies or {}
+  local packageAware = next(preferred) ~= nil
+  local bestIndex, bestPreferred, bestHp = nil, -1, -1
   for index, mon in ipairs(battle and battle.enemyParty or {}) do
     if index ~= battle.enemyIndex and (tonumber(mon.hp) or 0) > 0 then
-      return index
+      if not packageAware then return index end
+      local preferredScore = preferred[mon.species] and 1 or 0
+      local hp = tonumber(mon.hp) or 0
+      if preferredScore > bestPreferred
+          or (preferredScore == bestPreferred and hp > bestHp) then
+        bestIndex, bestPreferred, bestHp = index, preferredScore, hp
+      end
     end
   end
+  return bestIndex
 end
 
-local function tactical_switch(battle, profile, tuning)
+local function tactical_switch(battle, profile, tuning, strategy)
   if not battle or not profile or not tuning then return nil end
-  local backup = first_backup(battle)
+  local backup = first_backup(battle, strategy)
   if not backup then return nil end
   local used = tonumber(battle.adaptiveTrainerSwitches) or 0
   if used >= (tonumber(tuning.maxPerBattle) or 0) then return nil end
@@ -93,7 +103,20 @@ local function is_forced_action(battle, action)
     or action == battler.thrashMove or action == battler.rageMove)
 end
 
-function M.register(mod, profiles)
+local function scoped_action(next, battle, context)
+  if not context then return next(battle) end
+  local previousMods = battle.enemyAIMods
+  local previousStrategy = battle.adaptiveStrategy
+  battle.enemyAIMods = TIER_MODS[4]
+  battle.adaptiveStrategy = context.strategy
+  local ok, action = pcall(next, battle)
+  battle.enemyAIMods = previousMods
+  battle.adaptiveStrategy = previousStrategy
+  if not ok then error(action, 0) end
+  return action
+end
+
+function M.register(mod, profiles, bossContext)
   mod.content.ai_classes:register("ADAPTIVE_T3_ROLE", {
     kind = "layer", score = expert_score,
   })
@@ -102,14 +125,17 @@ function M.register(mod, profiles)
   })
 
   mod.hooks:wrap("battle.enemy_action", function(next, battle)
-    local action = next(battle)
+    local context = bossContext and bossContext(battle) or nil
+    local action = scoped_action(next, battle, context)
     if is_forced_action(battle, action) then return action end
     local id = battle and (battle.oppClass
       or (battle.trainer and battle.trainer.id))
-    local profile = profiles and profiles.byClass and profiles.byClass[id]
+    local profile = context and context.profile
+      or (profiles and profiles.byClass and profiles.byClass[id])
     local tier = profile and math.max(0, math.min(4,
       math.floor(tonumber(profile.aiTier) or 0)))
-    return tactical_switch(battle, profile, switchingTuning[tier]) or action
+    return tactical_switch(battle, profile, switchingTuning[tier],
+      context and context.strategy) or action
   end)
 
   local ids = {}

@@ -1,6 +1,6 @@
 # Implementation status
 
-Updated: 2026-08-14
+Updated: 2026-08-21
 
 ## Objective
 
@@ -8,19 +8,23 @@ Implement the complete approved Adaptive Trainer Ecology & Challenge System v1 a
 
 ## Verified baseline
 
-- Upstream: `bryanthaboi/gen1recomp` `dev` at `b6388013ecff6c262b6bbe5b2ae6af8acd511ddc` (2026-08-14).
+- Upstream: `bryanthaboi/gen1recomp` `dev` at `f5b8b6c85fb20b91de53f5f8ab274a3c799fb287` (2026-08-21).
 - Specification snapshot: `26e9e1d597060216168a03e49f138101726a8f3b`; upstream changes since that snapshot do not replace the trainer-party or Gym eligibility assumptions.
 - Toolchain available: Git, authenticated GitHub CLI, LuaJIT, LÖVE, Python 3, upstream `tools/modkit.py`, and GitHub Actions.
 - Intended mod id `adaptive_trainers` is valid under the current manifest rules.
 - Current public seams cover trainer party replacement, registry reads, per-save mod state, migrations, world context, trainer-engagement context, screens, battle lifecycle events, and weather hooks.
-- No public battle-local player-party eligibility mask exists. A later Phase D engine prerequisite may be required; no engine code has been changed.
+- The public `trainer.before_battle` continuation and battle-local
+  `playerPartyIndices` scope are available on current `dev`. The generic seam
+  was merged through upstream PR `bryanthaboi/gen1recomp#1286` as merge commit
+  `97a9c0f58fe8c0adca9ee8f5c57a84ebf3d84489`; the mod uses only that public
+  contract and does not vendor or privately import engine code.
 
 ## Phase status
 
 - [x] Phase A — identity, save schema, deterministic RNG, Kanto-only initial standard-trainer generation and persistence (PR #1 merged green at `928de80`)
 - [x] Phase B — elapsed growth, local catches, Center-aware owned/active roster behavior (PRs #2/#3 merged green at `c84984e`)
-- [ ] Phase C — legal persistent movesets, AI sophistication tiers, property tests (PR #4 merged; additive hardening branch green and awaiting PR merge)
-- [ ] Phase D — Gym registration and eligibility, eight Leader identities, challenge scaling
+- [x] Phase C — legal persistent movesets, AI sophistication tiers, property tests (PRs #4/#5 merged green at `3b44af8`)
+- [x] Phase D — Gym registration and eligibility, eight Leader identities, challenge scaling
 - [ ] Phase E — Elite Four run snapshot and exactly-one-Bird mechanic
 - [ ] Phase F — persistent Rival journey, R/B/Y windows, Yellow Eevee outcomes
 - [ ] Phase G — optional Kanto+ sidecar, Steel, weather, minimal added moves
@@ -28,19 +32,16 @@ Implement the complete approved Adaptive Trainer Ecology & Challenge System v1 a
 
 ## Current execution
 
-Phases A and B merged after green CI and clean independent reviews. Phase C
-landed in PR #4. The additive `agent/phase-c-finalize` hardening branch closes
-the final independently reviewed gaps: underfilled/legacy TM-budget safety,
-source backfill on direct refresh, data-driven T1-T3 switching, per-battle
-switch limits, special and ordinary-shaped locked-action preservation, and
-Red/Blue/Yellow move/source reload coverage. All local gates are green against
-the current pinned upstream;
-the next gates are hardening PR CI/review and merge. Phase D then begins
-immediately.
+Phases A-C are merged after green CI and clean independent reviews. Phase D is
+implemented on its feature branch: all eight version-correct Gym identities,
+exact encounter filtering, pre-battle registration, battle-local eligibility,
+full-party top-N scaling, deterministic attempt persistence/rerolls, fixed
+signature species, structural roster/move packages, and package-aware scoped
+T4 AI use only public registries, hooks, UI, and save surfaces.
 
 Current evidence:
 
-- Public SDK loader: 6/6 checks passed.
+- Public SDK loader: 7/7 checks passed.
 - Phase A public runtime: 327/327 checks passed across Red, Blue, and Yellow,
   including 100 byte-equivalent reruns per version and serialized reloads.
 - Phase B public runtime: 235/235 loss/growth/catch/rotation/reload checks,
@@ -49,15 +50,17 @@ Current evidence:
   freezing, and Blue/Yellow badge-path coverage.
 - Phase C public runtime: 35/35 persistent-move, evolution-refresh, merged-AI,
   tactical-switch, and serialized-reload checks.
-- Deterministic/property/unit suites: 85,363/85,363 property assertions plus
-  4,687 focused AI/data/ecology/generation/growth/catch/moveset/roster/
-  identity/power/RNG/schema assertions.
+- Phase D public runtime: 679/679 all-Leader Red/Blue/Yellow generation,
+  registration, scoped-AI, persistence and result checks; public seam lifecycle
+  38/38; standalone registration UI 33/33.
+- Deterministic/property suites: 171,613/171,613 assertions, including 86,250
+  Gym identity/structure/repeatability assertions.
 - `modkit validate --base fixture`: green.
 - `modkit lint`: green, no ROM-derived content detected.
-- Reproducible double-pack check: green; 25 distributable files plus
+- Reproducible double-pack check: green; 29 distributable files plus
   `.modkit/pack.json`, with no recursive `dist/`, tests, scripts, docs, or DOCX.
 - Source-date-zero package SHA-256:
-  `a4c70633c846f1678d25991a68acdc22b50487ba6ef95f74e1b74db3f338aea4`.
+  `4283dd15187ed9280e320b41b3957d06ee4ae3445b1e6297a9128b65c0e4f381`.
 
 The ROM-free fixture validator reports MK103 as not checkable for trainer-id
 patch references; it remains green and cannot distinguish real vanilla ids from
@@ -82,13 +85,21 @@ The detailed implementation plan is `docs/superpowers/plans/2026-08-14-adaptive-
 
 ### AT-SP-001 — battle-local player-party eligibility
 
-- State: `CANDIDATE`
+- State: `MERGED_AVAILABLE` (`bryanthaboi/gen1recomp#1286`, merge commit
+  `97a9c0f58fe8c0adca9ee8f5c57a84ebf3d84489`)
 - Required by: Phase D Gym registration rule
 - Missing capability: safely restrict every send, switch, auto-send, and exhaustion check to registered save-party indices without mutating `game.save.party`
 - Existing APIs considered: `trainer.party`, `world.trainer_engaged`, registered screens, UI list widgets, battle lifecycle events, and checkpoint APIs
 - Why insufficient: none controls the engine's player-party traversal or can atomically suspend a vanilla trainer engagement until a registration screen completes
-- Candidate delta: a generic additive pre-trainer-battle gate plus a battle-local eligible-index mask, with no Adaptive Trainers policy
-- Gate before implementation: re-audit current upstream, write the required RFC, prove no-mod parity and public-API behavior, then develop from current upstream `dev` on a fresh fork branch
+- Implemented delta: generic additive `trainer.before_battle` deferred
+  continuation plus ordered battle-local eligible indices, with cancellation,
+  checkpoint preservation, item-target/menu/switch/auto-send/exhaustion/EXP
+  enforcement, and no Adaptive Trainers policy
+- Verification: 167/167 engine suites and 19/19 modkit suites green locally;
+  dedicated party-scope 20/20, public-hook 15/15, and trainer cancel lifecycle
+  24/24; independent review reports no findings
+- Release gate: cleared on current upstream `dev`; stable publication still
+  waits for the complete mod Definition of Done, not for another engine change
 
 ### Trainer identity context
 

@@ -9,6 +9,8 @@ return {
       },
     },
     [3] = { chance = 32, maxPerBattle = 1 },
+    [4] = { chance = 96, maxPerBattle = 2, hpAtMost = 0.5,
+      rosterBehaviors = { boss = true } },
   },
   expert = {
     damagePowerDivisor = 40,

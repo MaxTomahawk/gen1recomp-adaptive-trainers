@@ -41,7 +41,14 @@ local profiles = { byClass = {
   OPP_BOSS = { aiTier = 4 },
 } }
 
-ai.register(mod, profiles)
+local bossStrategy = { id = "ANTI_GRASS",
+  preferredSwitchSpecies = { AERODACTYL = true } }
+ai.register(mod, profiles, function(battle)
+  if battle and battle.formalBoss then
+    return { profile = { aiTier = 4, rosterBehavior = "boss" },
+      strategy = bossStrategy }
+  end
+end)
 
 eq(table.concat(patched.OPP_NOVICE.aiMods, ","), "LAYER_1",
   "T0 uses random legal choice with the failed-status guard")
@@ -56,6 +63,30 @@ eq(patched.OPP_EXPERT.aiClass, nil,
   "T3 preserves its runtime trainer-class item identity")
 check(patched.OPP_BOSS.aiMods[5] == "ADAPTIVE_T4_STRATEGY",
   "T4 is mapped to a strategy-aware scoring layer instead of clamped to T3")
+
+local bossBattle = { formalBoss = true, oppClass = "OPP_UNPATCHED_LEADER",
+  enemyAIMods = { "LAYER_1" }, enemyIndex = 1,
+  enemyParty = { { species = "ONIX", hp = 40 },
+    { species = "GEODUDE", hp = 35 },
+    { species = "AERODACTYL", hp = 20 } },
+  enemy = { mon = { hp = 20, stats = { hp = 50 } } },
+  rng = function() return 0 end }
+local seenBossMods, seenBossStrategy
+local bossAction = wrapped["battle.enemy_action"](function(live)
+  seenBossMods = table.concat(live.enemyAIMods, ",")
+  seenBossStrategy = live.adaptiveStrategy
+  return { id = "ROCK_SLIDE" }
+end, bossBattle)
+eq(seenBossMods,
+  "LAYER_1,LAYER_2,LAYER_3,ADAPTIVE_T3_ROLE,ADAPTIVE_T4_STRATEGY",
+  "a formal boss receives T4 only during its action scope")
+check(seenBossStrategy == bossStrategy,
+  "the active structural package is visible during action scoring")
+eq(bossAction.index, 3,
+  "package-aware T4 switching prefers its structural answer")
+check(bossBattle.enemyAIMods[1] == "LAYER_1"
+    and bossBattle.adaptiveStrategy == nil,
+  "formal boss AI restores the shared battle fields after selection")
 
 eq(baseClasses.OPP_EXPERT.uses, 2,
   "expert switching leaves the runtime class item budget untouched")

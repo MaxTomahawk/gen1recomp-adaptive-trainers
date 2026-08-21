@@ -107,7 +107,7 @@
 - [x] Implement role scoring and refresh semantics; run green.
 - [x] Test tactical tier behavior independently from roster construction and prove scoring receives no full player-roster data.
 - [x] Register class-driven AI records through `mod.content.ai_classes`, run property tests and all prior suites, validate/lint, and update status.
-- [ ] Commit as `feat: add trainer movesets and ai tiers`, push PR, pass CI and independent review, then merge.
+- [x] Commit as `feat: add trainer movesets and ai tiers`, push PR, pass CI and independent review, then merge.
 
 ### Task 5: Phase D — Gym challenge framework
 
@@ -121,12 +121,12 @@
 - `gym_registration.choose(game, leaderId, maxCount, onConfirm, onCancel) -> screen`
 - Candidate generic engine contract: pre-battle continuation plus battle-local eligible player indices
 
-- [ ] Re-audit upstream at the current `dev` SHA and attempt a public-API-only registration/mask test.
-- [ ] If the test proves the gap, prepare the minimal generic RFC and fork branch from that upstream SHA; keep mod work independent until the seam merges/releases.
-- [ ] Test exact R/B/Y N values, top-N reference repetition, signature `R1+1`, other matched levels, vanilla floors, structural packages, stable reloads, and post-loss attempt increments before boss implementation.
-- [ ] Implement all eight baseline identities, pools, signatures, and strategies as data; run green.
-- [ ] Test mask enforcement across initial send, menu, switch, auto-send, exhaustion, checkpoint restore, and cancel; implement only through the admitted public seam.
-- [ ] Run mod and engine parity suites, validate/lint, update status and commits/PR evidence.
+- [x] Re-audit upstream at the current `dev` SHA and attempt a public-API-only registration/mask test.
+- [x] If the test proves the gap, prepare the minimal generic RFC and fork branch from that upstream SHA; keep mod work independent until the seam merges/releases.
+- [x] Test exact R/B/Y N values, top-N reference repetition, signature `R1+1`, other matched levels, vanilla floors, structural packages, stable reloads, and post-loss attempt increments before boss implementation.
+- [x] Implement all eight baseline identities, pools, signatures, and strategies as data; run green.
+- [x] Test mask enforcement across initial send, menu, switch, auto-send, exhaustion, checkpoint restore, and cancel; implement only through the admitted public seam.
+- [x] Run mod and engine parity suites, validate/lint, update status and commits/PR evidence.
 
 ### Task 6: Phase E — Elite Four run snapshot and Legendary Bird
 
