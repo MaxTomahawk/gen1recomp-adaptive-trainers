@@ -61,7 +61,7 @@ Current evidence:
   tactical-switch, and serialized-reload checks.
 - Phase D public runtime: 679/679 all-Leader Red/Blue/Yellow generation,
   registration, scoped-AI, persistence and result checks; public seam lifecycle
-  38/38; standalone registration UI 33/33.
+  47/47; standalone registration UI 33/33.
 - Phase E public runtime: 144/144 Red/Blue/Yellow entry, member generation,
   Hall-of-Fame autosave/post-game recovery,
   save/reload, checkpoint, T4 AI, internal-transition and blackout/re-entry
