@@ -72,8 +72,33 @@ return function(deps)
         outcome = "FLAREON"
       end
     end
+    if not outcome and (flags.eeveeOutcome == "VAPOREON"
+        or flags.eeveeOutcome == "JOLTEON"
+        or flags.eeveeOutcome == "FLAREON") then
+      outcome = flags.eeveeOutcome
+    end
     if outcome then flags.eeveeOutcome = outcome end
     return outcome
+  end
+
+  local function infer_yellow_history(root, native_starter)
+    local flags = table_at(root, "yellowRival")
+    local native = tonumber(native_starter)
+    if not flags.oakResult then
+      if native == 3 then
+        flags.oakResult = "lose"
+      elseif native == 1 or native == 2 then
+        flags.oakResult = "win"
+      end
+    end
+    if flags.oakResult == "win" and not flags.route22EarlyResult then
+      if native == 1 then
+        flags.route22EarlyResult = "win"
+      elseif native == 2 then
+        flags.route22EarlyResult = "skip"
+      end
+    end
+    return yellow_outcome(root)
   end
 
   local function ensure_state(context, root)
@@ -419,6 +444,9 @@ return function(deps)
     local target_index = assert(windows.index(encounter_id),
       "unknown Rival encounter " .. tostring(encounter_id))
     local state = ensure_state(context, root)
+    if state.version == "yellow" and target_index >= 3 then
+      infer_yellow_history(root, context.nativeRivalStarter)
+    end
     if target_index < state.encounterIndex then
       error("Rival journey cannot move backwards without save rollback", 2)
     end

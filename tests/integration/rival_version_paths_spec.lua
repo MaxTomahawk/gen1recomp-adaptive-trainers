@@ -275,4 +275,38 @@ outcome, starter = yellow_path("win", "skip")
 T.eq(outcome, "FLAREON", "public skipped Route 22 selects the Flareon path")
 T.eq(starter, "FLAREON", "public skipped Route 22 fields Flareon")
 
+local function yellow_mid_save(nativeStarter, expected)
+  local run, save, game = load_run("yellow")
+  save.rivalStarter = nativeStarter
+  local silph = { id = "SILPH_CO", map = "SILPH_CO_7F",
+    class = "OPP_RIVAL2", party = 4 + nativeStarter }
+  local ok, party = pcall(party_for, run, save, game, silph)
+  T.check(ok, "a mid-save install infers Yellow path " .. nativeStarter)
+  if ok then
+    local root = save.modData.adaptive_trainers.state
+    T.eq(root.yellowRival.eeveeOutcome, expected,
+      "native Yellow starter state migrates to " .. expected)
+    local found
+    for _, mon in ipairs(party) do if mon.species == expected then found = true end end
+    T.check(found, "the inferred mid-save path fields " .. expected)
+  end
+  run.release()
+end
+yellow_mid_save(1, "JOLTEON")
+yellow_mid_save(2, "FLAREON")
+yellow_mid_save(3, "VAPOREON")
+
+local staleRun, staleSave, staleGame = load_run("red")
+local staleRow = { id = "OAK_LAB", map = "OAKS_LAB",
+  class = "OPP_RIVAL1", party = 1 }
+party_for(staleRun, staleSave, staleGame, staleRow)
+T.check(staleSave.modData.adaptive_trainers.state.activeRival ~= nil,
+  "Rival preparation creates resumable active context")
+Runtime.emit("battle.started", { kind = "trainer", battle = {
+  oppClass = "OPP_YOUNGSTER", partyIndex = 1, enemyAIMods = { "LAYER_1" },
+} })
+T.eq(staleSave.modData.adaptive_trainers.state.activeRival, nil,
+  "an unrelated battle fails closed and clears stale Rival context")
+staleRun.release()
+
 T.finish("adaptive trainers Rival version paths")

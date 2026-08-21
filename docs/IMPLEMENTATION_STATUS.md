@@ -60,7 +60,7 @@ Current evidence:
 - Phase E public runtime: 123/123 Red/Blue/Yellow entry, member generation,
   save/reload, checkpoint, T4 AI, internal-transition and blackout/re-entry
   checks; League core 127/127.
-- Phase F public runtime: 252/252 exact R/B/Y scripted-context, persistent
+- Phase F public runtime: 295/295 exact R/B/Y scripted-context, persistent
   journey, legal T3 move/AI, checkpoint, result-isolation and Yellow outcome
   checks; Rival core 160/160, including every exact canonical R/B starter and
   Yellow Eevee path row.

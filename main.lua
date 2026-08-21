@@ -376,6 +376,7 @@ return function(mod)
           rivalStarterLine = starterLine,
           rivalStarterSpecies = starterSpecies,
           playerParty = save.party or {},
+          nativeRivalStarter = save.rivalStarter,
         }, root, {
           meta = line_meta,
           pokemon = data.pokemon,
@@ -518,6 +519,9 @@ return function(mod)
       mod.save:set("state", root)
       return
     end
+    preparedRival, activeRival = nil, nil
+    root.activeRival = nil
+    mod.save:set("state", root)
     local leagueCandidate = preparedLeague or root.activeLeagueMember
     if ev and ev.kind == "trainer"
         and battle_matches(leagueCandidate, ev.battle)
