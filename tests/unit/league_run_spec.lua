@@ -10,6 +10,11 @@ local bosses = assert(loadfile(ROOT .. "/src/core/bosses.lua"))()({
   rosters = assert(loadfile(ROOT .. "/src/data/boss_rosters.lua"))(),
 })
 local line_data = assert(loadfile(ROOT .. "/src/data/line_meta.lua"))()
+local move_packages = assert(loadfile(
+  ROOT .. "/src/data/move_packages.lua"))()
+local real_movesets = assert(loadfile(ROOT .. "/src/core/movesets.lua"))()({
+  rng = rng, packages = move_packages,
+})
 local league_data = assert(loadfile(ROOT .. "/src/data/league_rosters.lua"))()
 local league = assert(loadfile(ROOT .. "/src/core/league_run.lua"))()({
   rng = rng,
@@ -242,6 +247,45 @@ for _, moveId in ipairs(fallbackRoot.leagueRun.memberStrategies.AGATHA
     .signatureMoves) do fallbackSignature[moveId] = true end
 check(fallbackSignature.NIGHT_SHADE and not fallbackSignature.SHADOW_BALL,
   "Agatha falls back safely when Kanto+ Shadow Ball is absent")
+
+local scoringMoves = {}
+for moveId in pairs(moves) do
+  scoringMoves[moveId] = { id = moveId, type = "NORMAL",
+    power = moveId == "TACKLE" and 9999 or 1, accuracy = 100, effect = "" }
+end
+local scoringServices = { meta = meta, pokemon = pokemon, moves = scoringMoves,
+  movesets = real_movesets }
+local scoringRoot = { seedHi = 2222, seedLo = 3333, leagueRunCounter = 0 }
+league.enter(scoringRoot, { version = "blue", playerParty = { 70, 60, 50 } })
+for _, memberId in ipairs(league.memberOrder) do
+  league.party(scoringRoot, memberId, scoringServices)
+  local memberState = scoringRoot.leagueRun.generatedParties[memberId]
+  local selected = {}
+  for _, moveId in ipairs(memberState[1].moves or {}) do selected[moveId] = true end
+  for _, moveId in ipairs(scoringRoot.leagueRun.memberStrategies[memberId]
+      .signatureMoves or {}) do
+    check(selected[moveId], memberId
+      .. " final signature moveset realizes every available baseline group")
+  end
+end
+local birdMember = scoringRoot.leagueRun.birdPair.member
+local birdSpecies = scoringRoot.leagueRun.birdPair.species
+local birdInstance
+for _, instance in ipairs(scoringRoot.leagueRun.generatedParties[birdMember]) do
+  if instance.species == birdSpecies then birdInstance = instance; break end
+end
+local birdMoves = {}
+for _, moveId in ipairs(birdInstance and birdInstance.moves or {}) do
+  birdMoves[moveId] = true
+end
+for groupIndex, group in ipairs(league_data.birds[birdSpecies].moveGroups) do
+  local realized = false
+  for _, moveId in ipairs(group) do
+    if birdMoves[moveId] then realized = true; break end
+  end
+  check(realized, birdSpecies .. " final moveset realizes Bird package group "
+    .. groupIndex)
+end
 
 local persisted = root.leagueRun
 local loreleiBefore = league.party(root, "LORELEI", services)
