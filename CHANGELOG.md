@@ -47,6 +47,9 @@ The format follows Keep a Changelog, and this project uses Semantic Versioning.
 - Persistent Elite Four runs with an immutable top-five entry snapshot, four
   adaptive member identities and strategies, reload-stable parties, and exactly
   one run-specific Articuno, Zapdos, or Moltres under the 50/25/25 rule.
+- Hall-of-Fame autosave completion and post-game load reconciliation now clear
+  the completed League run while preserving saves, reloads, and checkpoints
+  between Elite Four members.
 
 ## [0.1.0] - 2026-08-14
 

@@ -37,9 +37,10 @@ implemented on its feature branch: one immutable top-five reference snapshot
 per League entry, four persistent member seeds and generated parties, exact
 Elite Four encounter filtering, deterministic structural strategies, scoped T4
 AI, and the exactly-one-Bird 50/25/25 rule all use public registries, lifecycle
-events, hooks, and `mod.save`. Champion and Hall of Fame transitions preserve
-the run; blackout or other League exit clears it so the next entry increments
-the run counter without allowing reload rerolls.
+events, hooks, and `mod.save`. Internal Champion and Hall of Fame transitions
+preserve the run through induction; the Hall-of-Fame autosave clears it before
+the title soft reset. Blackout, other League exit, and stale post-game home
+loads also clear it so the next entry increments without allowing reload rerolls.
 
 Current evidence:
 
@@ -55,7 +56,8 @@ Current evidence:
 - Phase D public runtime: 679/679 all-Leader Red/Blue/Yellow generation,
   registration, scoped-AI, persistence and result checks; public seam lifecycle
   38/38; standalone registration UI 33/33.
-- Phase E public runtime: 123/123 Red/Blue/Yellow entry, member generation,
+- Phase E public runtime: 144/144 Red/Blue/Yellow entry, member generation,
+  Hall-of-Fame autosave/post-game recovery,
   save/reload, checkpoint, T4 AI, internal-transition and blackout/re-entry
   checks; League core 127/127.
 - Deterministic/property suites: 311,617/311,617 assertions, including 86,250
@@ -68,7 +70,7 @@ Current evidence:
 - Reproducible double-pack check: green; 31 distributable files plus
   `.modkit/pack.json`, with no recursive `dist/`, tests, scripts, docs, or DOCX.
 - Source-date-zero package SHA-256:
-  `6bf502943463efa8a7decb7b305a6fdd308d9ab3bf84b84e7038d397b977bf78`.
+  `46fb2ec45aa0446a2d73f91e90cbafabdec086b6f790236439e043649eba9a52`.
 
 The ROM-free fixture validator reports MK103 as not checkable for trainer-id
 patch references; it remains green and cannot distinguish real vanilla ids from
