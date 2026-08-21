@@ -37,6 +37,9 @@ return function(deps)
     for _, id in ipairs(package and package.techniques or {}) do
       append_unique(pool.technique, techniqueSeen, id, moveDefs)
     end
+    for _, id in ipairs(package and package.signatureMoves or {}) do
+      append_unique(pool.technique, techniqueSeen, id, moveDefs)
+    end
     for _, id in ipairs(pool.level) do pool.byId[id] = "level" end
     for _, id in ipairs(pool.tm) do
       if not pool.byId[id] then pool.byId[id] = "tm" end
@@ -205,7 +208,7 @@ return function(deps)
     return redundancy_key(row)
   end
 
-  local function select_moves(rows, tier)
+  local function select_moves(rows, tier, signatureMoves)
     local rules = packages.tiers[tier] or packages.tiers[0]
     local selected, selectedIds, roleCounts = {}, {}, {}
     local tmCount = 0
@@ -226,10 +229,20 @@ return function(deps)
       roleCounts[key] = (roleCounts[key] or 0) + 1
       if row.source == "tm" then tmCount = tmCount + 1 end
     end
-    for _, row in ipairs(rows) do
-      if row.role == "STAB_DAMAGE" and can_add(row, false) then
-        add(row)
-        break
+
+    local rowsById = {}
+    for _, row in ipairs(rows) do rowsById[row.id] = row end
+    for _, moveId in ipairs(signatureMoves or {}) do
+      local row = rowsById[moveId]
+      if row and #selected < 4 and not selectedIds[moveId] then add(row) end
+    end
+
+    if #selected < 4 then
+      for _, row in ipairs(rows) do
+        if row.role == "STAB_DAMAGE" and can_add(row, false) then
+          add(row)
+          break
+        end
       end
     end
     for _, row in ipairs(rows) do
@@ -249,7 +262,8 @@ return function(deps)
     tier = math.max(0, math.min(4, math.floor(tonumber(tier) or 0)))
     local rows = ranked_candidates(instance, speciesDef, moveDefs, tier,
       package, teamContext)
-    local selected = select_moves(rows, tier)
+    local selected = select_moves(rows, tier,
+      package and package.signatureMoves)
     local moves = {}
     instance.moveSources = {}
     for _, row in ipairs(selected) do
