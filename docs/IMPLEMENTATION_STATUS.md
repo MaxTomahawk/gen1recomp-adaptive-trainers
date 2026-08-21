@@ -55,11 +55,11 @@ Current evidence:
 - Phase D public runtime: 679/679 all-Leader Red/Blue/Yellow generation,
   registration, scoped-AI, persistence and result checks; public seam lifecycle
   38/38; standalone registration UI 33/33.
-- Phase E public runtime: 117/117 Red/Blue/Yellow entry, member generation,
+- Phase E public runtime: 123/123 Red/Blue/Yellow entry, member generation,
   save/reload, checkpoint, T4 AI, internal-transition and blackout/re-entry
-  checks; League core 89/89.
-- Deterministic/property suites: 271,617/271,617 assertions, including 86,250
-  Gym identity/structure/repeatability assertions and 100,004 assertions over
+  checks; League core 127/127.
+- Deterministic/property suites: 311,617/311,617 assertions, including 86,250
+  Gym identity/structure/repeatability assertions and 140,004 assertions over
   10,000 fully materialized four-member League runs. Each run fields exactly
   one allowed Bird; the deterministic sample is Articuno 4,984, Zapdos 2,562,
   and Moltres 2,454, within the normative 50/25/25 tolerances.
@@ -68,7 +68,7 @@ Current evidence:
 - Reproducible double-pack check: green; 31 distributable files plus
   `.modkit/pack.json`, with no recursive `dist/`, tests, scripts, docs, or DOCX.
 - Source-date-zero package SHA-256:
-  `ba7d77657c89c930f7fb1a5533b2f4d31e9fcafdb43a17cd002a12a456d5ce32`.
+  `6bf502943463efa8a7decb7b305a6fdd308d9ab3bf84b84e7038d397b977bf78`.
 
 The ROM-free fixture validator reports MK103 as not checkable for trainer-id
 patch references; it remains green and cannot distinguish real vanilla ids from

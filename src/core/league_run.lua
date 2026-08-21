@@ -45,6 +45,12 @@ return function(deps)
   end
 
   local function available_choice(group, moves, stream)
+    if type(group) == "table" and group.preferred then
+      for _, moveId in ipairs(group.preferred) do
+        if moves[moveId] then return moveId end
+      end
+      group = group.fallback or {}
+    end
     local available = {}
     for _, moveId in ipairs(group or {}) do
       if moves[moveId] then available[#available + 1] = moveId end

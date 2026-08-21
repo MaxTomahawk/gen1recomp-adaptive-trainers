@@ -367,9 +367,12 @@ return function(mod)
       }) then
       leagueIdentity = league_rosters.members[root.activeLeagueMember.id]
     end
-    if leagueIdentity then
+    if leagueIdentity and not root.leagueRun
+        and leagueIdentity.id == "LORELEI" then
       league.enter(root, { version = save.version,
         playTime = save.playTime or 0, playerParty = save.party or {} })
+    end
+    if leagueIdentity and root.leagueRun then
       local generated, strategy = league.party(root, leagueIdentity.id, {
         meta = line_meta, pokemon = data.pokemon, moves = data.moves,
         movesets = movesets,

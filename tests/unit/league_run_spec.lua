@@ -63,7 +63,8 @@ local moveIds = { "TACKLE", "BLIZZARD", "ICE_BEAM", "SURF",
   "THUNDERBOLT", "CONFUSE_RAY", "LOVELY_KISS", "AMNESIA", "REST",
   "PSYCHIC", "REFLECT", "SUBMISSION", "SEISMIC_TOSS", "ROCK_SLIDE",
   "EARTHQUAKE", "BODY_SLAM", "MEGA_KICK", "ICE_PUNCH",
-  "THUNDERPUNCH", "FIRE_PUNCH", "BIDE", "NIGHT_SHADE", "HYPNOSIS",
+  "THUNDERPUNCH", "FIRE_PUNCH", "BIDE", "SHADOW_BALL",
+  "NIGHT_SHADE", "HYPNOSIS",
   "DREAM_EATER", "SLEEP_POWDER", "TOXIC", "SMOKESCREEN",
   "MEGA_DRAIN", "HYPER_BEAM", "AGILITY", "BARRIER", "DRAGON_RAGE",
   "FLY", "SKY_ATTACK", "THUNDER", "DRILL_PECK", "THUNDER_WAVE",
@@ -89,10 +90,28 @@ local services = { meta = meta, pokemon = pokemon, moves = moves,
   movesets = movesets }
 
 local EXPECTED = {
-  LORELEI = { signature = "LAPRAS", floors = { 56, 56, 54, 54, 53 } },
-  BRUNO = { signature = "MACHAMP", floors = { 58, 56, 55, 55, 53 } },
-  AGATHA = { signature = "GENGAR", floors = { 60, 58, 56, 56, 55 } },
-  LANCE = { signature = "DRAGONITE", floors = { 62, 60, 58, 56, 56 } },
+  LORELEI = { signature = "LAPRAS", line = "LAPRAS_LINE",
+    floors = { 56, 56, 54, 54, 53 },
+    pool = { "SEEL_LINE", "SHELLDER_LINE", "SLOWPOKE_LINE",
+      "JYNX_LINE", "LAPRAS_LINE" },
+    strategies = { "FREEZE_CONTROL", "BULKY_WATER", "ANTI_FIGHT_ROCK" } },
+  BRUNO = { signature = "MACHAMP", line = "MACHOP_LINE",
+    floors = { 58, 56, 55, 55, 53 },
+    pool = { "MACHOP_LINE", "HITMONLEE", "HITMONCHAN", "MANKEY_LINE",
+      "POLIWAG_LINE:POLIWRATH", "ONIX_LINE" },
+    strategies = { "PHYSICAL_PRESSURE", "ELEMENTAL_HITMONCHAN",
+      "ROCK_STEEL_ANTI_FLYING" } },
+  AGATHA = { signature = "GENGAR", line = "GASTLY_LINE",
+    floors = { 60, 58, 56, 56, 55 },
+    pool = { "GASTLY_LINE", "EKANS_LINE", "ZUBAT_LINE",
+      "KOFFING_LINE", "VENONAT_LINE" },
+    strategies = { "SLEEP_DREAM", "TOXIC_CONFUSION",
+      "SWITCH_PRESSURE" } },
+  LANCE = { signature = "DRAGONITE", line = "DRATINI_LINE",
+    floors = { 62, 60, 58, 56, 56 },
+    pool = { "DRATINI_LINE", "GYARADOS_LINE", "AERODACTYL_LINE",
+      "CHARMANDER_LINE:CHARIZARD", "HORSEA_LINE:KINGDRA" },
+    strategies = { "RARE_FLYERS", "WATER_DRAGON", "ANTI_ICE_FIRE" } },
 }
 
 for _, memberId in ipairs(league.memberOrder) do
@@ -100,8 +119,18 @@ for _, memberId in ipairs(league.memberOrder) do
   check(row ~= nil, memberId .. " has a League identity")
   eq(row.signatureSpecies, EXPECTED[memberId].signature,
     memberId .. " keeps its canonical signature")
+  eq(row.signatureLine, EXPECTED[memberId].line,
+    memberId .. " keeps its specified signature line")
   check(same(row.floors, EXPECTED[memberId].floors),
     memberId .. " has signature-ranked vanilla floors")
+  check(same(row.poolLines, EXPECTED[memberId].pool),
+    memberId .. " exposes the complete normative pool")
+  check(same(row.strategyOrder, EXPECTED[memberId].strategies),
+    memberId .. " exposes every normative strategy in stable order")
+  for _, lineId in ipairs(row.poolLines) do
+    check(league_data.line(meta, lineId) ~= nil,
+      memberId .. " pool line " .. lineId .. " exists in metadata")
+  end
   eq(league_data.by_battle({ trainerClass = row.classId,
       partyIndex = 1, mapId = row.mapId, npcId = row.npcId }).id,
     memberId, memberId .. " exact encounter identity is recognized")
@@ -117,6 +146,19 @@ check(league.is_league_map("HALL_OF_FAME"),
   "Hall of Fame transition remains inside the League run boundary")
 check(not league.is_league_map("INDIGO_PLATEAU_LOBBY"),
   "the lobby is outside the active run")
+local EXPECTED_BIRDS = {
+  ARTICUNO = { { "BLIZZARD", "ICE_BEAM" }, { "FLY", "SKY_ATTACK" },
+    { "REFLECT" }, { "TOXIC", "AGILITY" } },
+  ZAPDOS = { { "THUNDERBOLT", "THUNDER" }, { "DRILL_PECK" },
+    { "THUNDER_WAVE" }, { "LIGHT_SCREEN" } },
+  MOLTRES = { { "FIRE_BLAST" }, { "FLY" }, { "AGILITY" },
+    { "SUNNY_DAY", "SOLARBEAM" } },
+}
+for species, groups in pairs(EXPECTED_BIRDS) do
+  local bird = league_data.birds[species]
+  check(same(bird.moveGroups, groups),
+    species .. " exposes its complete normative move package")
+end
 
 local root = { seedHi = 1234, seedLo = 5678, leagueRunCounter = 0 }
 local run, created = league.enter(root, { version = "red", playTime = 900,
@@ -184,6 +226,22 @@ for _, memberId in ipairs(league.memberOrder) do
     memberId .. " cannot reroll after generation")
 end
 eq(totalBirds, 1, "a complete League run visibly contains exactly one Bird")
+local agathaSignature = root.leagueRun.generatedParties.AGATHA[1]
+check(packagesSeen[agathaSignature.id].preferredMoves.SHADOW_BALL == true,
+  "Agatha uses Shadow Ball when the runtime registry provides Kanto+")
+local fallbackMoves = {}
+for moveId, definition in pairs(moves) do
+  if moveId ~= "SHADOW_BALL" then fallbackMoves[moveId] = definition end
+end
+local fallbackRoot = { seedHi = 1234, seedLo = 5678, leagueRunCounter = 0 }
+league.enter(fallbackRoot, { version = "yellow", playerParty = { 60 } })
+league.party(fallbackRoot, "AGATHA", { meta = meta, pokemon = pokemon,
+  moves = fallbackMoves, movesets = movesets })
+local fallbackSignature = {}
+for _, moveId in ipairs(fallbackRoot.leagueRun.memberStrategies.AGATHA
+    .signatureMoves) do fallbackSignature[moveId] = true end
+check(fallbackSignature.NIGHT_SHADE and not fallbackSignature.SHADOW_BALL,
+  "Agatha falls back safely when Kanto+ Shadow Ball is absent")
 
 local persisted = root.leagueRun
 local loreleiBefore = league.party(root, "LORELEI", services)

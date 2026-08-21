@@ -100,6 +100,10 @@ for _, version in ipairs({ "red", "blue", "yellow" }) do
   local run = T.sdk.loadMod(modPath, { data = fixture_data() })
   local save = save_for(version)
   local game = bind(run, save)
+  local premature = engage(run, game, rosters.members.BRUNO)
+  T.eq(#premature, 1, version .. " cannot create a run at a later member")
+  T.eq(save.modData.adaptive_trainers.state.leagueRun, nil,
+    version .. " later-member activation fails closed to vanilla")
   Runtime.emit("map.entered", { mapId = "LORELEIS_ROOM",
     fromMapId = "INDIGO_PLATEAU_LOBBY", via = "warp" })
   local root = save.modData.adaptive_trainers.state

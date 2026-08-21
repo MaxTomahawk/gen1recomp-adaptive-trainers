@@ -35,6 +35,17 @@ local function check(condition, message)
   end
 end
 local counts = { ARTICUNO = 0, ZAPDOS = 0, MOLTRES = 0 }
+local function same(left, right)
+  if type(left) ~= type(right) then return false end
+  if type(left) ~= "table" then return left == right end
+  for key, value in pairs(left) do
+    if not same(value, right[key]) then return false end
+  end
+  for key in pairs(right) do
+    if left[key] == nil then return false end
+  end
+  return true
+end
 
 for index = 1, 10000 do
   local root = { seedHi = 0x13579bdf, seedLo = index,
@@ -50,9 +61,10 @@ for index = 1, 10000 do
     "run " .. index .. " uses an allowed member/Bird pair")
   counts[run.birdPair.species] = (counts[run.birdPair.species] or 0) + 1
 
-  local visible = 0
+  local visible, parties = 0, {}
   for _, memberId in ipairs(league.memberOrder) do
     local party = league.party(root, memberId, services)
+    parties[memberId] = party
     check(party[1].species == league_data.members[memberId].signatureSpecies,
       "run " .. index .. " preserves " .. memberId .. " signature")
     for slot, instance in ipairs(root.leagueRun.generatedParties[memberId]) do
@@ -79,6 +91,12 @@ for index = 1, 10000 do
       and repeated.birdPair.member == run.birdPair.member
       and repeated.birdPair.species == run.birdPair.species,
     "run " .. index .. " is repeatable and blind to exact player roster")
+  for _, memberId in ipairs(league.memberOrder) do
+    local repeatedParty = league.party(repeatRoot, memberId, services)
+    check(same(repeatedParty, parties[memberId]),
+      "run " .. index .. " " .. memberId
+        .. " is byte-stable when exact player species and moves change")
+  end
 end
 
 local function within(value, expected, tolerance)
