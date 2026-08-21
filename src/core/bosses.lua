@@ -96,7 +96,17 @@ return function(deps)
     return out
   end
 
-  local function attempt_strategy(identity, source, version, stream, rosters)
+  local function available_choice(alternatives, moveDefs, stream)
+    local available = {}
+    for _, moveId in ipairs(alternatives or {}) do
+      if moveDefs[moveId] then available[#available + 1] = moveId end
+    end
+    if #available == 0 then return nil end
+    return available[stream:integer(1, #available)]
+  end
+
+  local function attempt_strategy(identity, source, version, stream, rosters,
+      moveDefs)
     local out = {}
     for key, value in pairs(source) do out[key] = value end
     out.techniques = copy_array(source.techniques)
@@ -109,17 +119,14 @@ return function(deps)
     local selected = {}
     for _, alternatives in ipairs(
         rosters.signature_move_groups(identity, version)) do
-      local start = stream:integer(1, #alternatives)
-      for offset = 0, #alternatives - 1 do
-        local moveId = alternatives[((start + offset - 1) % #alternatives) + 1]
-        if not selected[moveId] then
-          out.signatureMoves[#out.signatureMoves + 1] = moveId
-          selected[moveId] = true
-          break
-        end
+      local moveId = available_choice(alternatives, moveDefs, stream)
+      if moveId and not selected[moveId] then
+        out.signatureMoves[#out.signatureMoves + 1] = moveId
+        selected[moveId] = true
       end
     end
-    append_unique(out.signatureMoves, out.signatureExtras)
+    local extra = available_choice(out.signatureExtras, moveDefs, stream)
+    if extra then append_unique(out.signatureMoves, { extra }) end
     while #out.signatureMoves > 4 do table.remove(out.signatureMoves) end
     for _, moveId in ipairs(out.signatureMoves) do
       out.preferredMoves[moveId] = true
@@ -187,7 +194,8 @@ return function(deps)
     local strategyId = identity.strategyOrder[
       stream:integer(1, #identity.strategyOrder)]
     local strategy = attempt_strategy(identity,
-      assert(identity.strategyPackages[strategyId]), version, stream, rosters)
+      assert(identity.strategyPackages[strategyId]), version, stream, rosters,
+      services.moves or {})
     local lines = { rosters.signature_line(identity, version) }
     local flex, selected = {}, {}
     local preferred = shuffled(strategy.preferredLines or {}, stream)

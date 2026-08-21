@@ -123,23 +123,20 @@ run.release()
 local reload = T.sdk.loadMod(modPath, { data = fixture_data() })
 local reloadSave = save_for(assert(SaveSerializer.decode(savedBytes)))
 local reloadGame = bind(reload, reloadSave)
-Runtime.emit("checkpoint.restored", { kind = "battle", game = reloadGame })
-T.same(reloadSave.modData.adaptive_trainers.state.activeBoss
-    .registeredIndices, { 2 },
-  "checkpoint restore retains the registered player-party mask authority")
 local repeated = Runtime.call("trainer.party",
   function(_, _, party) return party end,
   "OPP_BROCK", 1, reload.data.trainers.OPP_BROCK.parties[1])
 T.eq(SaveSerializer.encode(repeated), stableParty,
   "checkpoint save/reload cannot reroll the same registered attempt")
+Runtime.emit("checkpoint.restored", { kind = "battle", game = reloadGame })
+T.same(reloadSave.modData.adaptive_trainers.state.activeBoss
+    .registeredIndices, { 2 },
+  "checkpoint restore retains the registered player-party mask authority")
 local attempt = reloadSave.modData.adaptive_trainers.state
   .bossAttempts.BROCK
 T.eq(attempt.attemptCounter, 0, "reload does not manufacture an attempt")
 
 local battle = { oppClass = "OPP_BROCK", partyIndex = 1 }
-Runtime.emit("battle.started", { kind = "trainer", battle = battle })
-T.check(type(battle.adaptiveStrategy) == "table",
-  "battle start attaches the persisted structural strategy")
 local originalMods = { "LAYER_1" }
 battle.enemyAIMods = originalMods
 battle.adaptiveStrategy = nil

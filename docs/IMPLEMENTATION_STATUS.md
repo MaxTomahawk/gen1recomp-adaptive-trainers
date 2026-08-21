@@ -52,7 +52,7 @@ Current evidence:
   tactical-switch, and serialized-reload checks.
 - Phase D public runtime: 679/679 all-Leader Red/Blue/Yellow generation,
   registration, scoped-AI, persistence and result checks; public seam lifecycle
-  39/39; standalone registration UI 33/33.
+  38/38; standalone registration UI 33/33.
 - Deterministic/property suites: 171,613/171,613 assertions, including 86,250
   Gym identity/structure/repeatability assertions.
 - `modkit validate --base fixture`: green.
@@ -60,7 +60,7 @@ Current evidence:
 - Reproducible double-pack check: green; 29 distributable files plus
   `.modkit/pack.json`, with no recursive `dist/`, tests, scripts, docs, or DOCX.
 - Source-date-zero package SHA-256:
-  `64c32d8fadf82bc0329fbeb66ed517f5441d638798fabda90d7c0bce2ebd26f7`.
+  `4283dd15187ed9280e320b41b3957d06ee4ae3445b1e6297a9128b65c0e4f381`.
 
 The ROM-free fixture validator reports MK103 as not checkable for trainer-id
 patch references; it remains green and cannot distinguish real vanilla ids from

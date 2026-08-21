@@ -182,7 +182,12 @@ local fakeMovesets = {
   end,
   team_context = function() return {} end,
 }
-local services = { meta = meta, pokemon = pokemon, moves = {},
+local bossMoves = {
+  ROCK_SLIDE = {}, DIG = {}, SCREECH = {}, BIDE = {},
+  SANDSTORM = {}, REFLECT = {}, SUNNY_DAY = {}, THUNDERBOLT = {},
+  FLY = {}, FIRE_BLAST = {},
+}
+local services = { meta = meta, pokemon = pokemon, moves = bossMoves,
   movesets = fakeMovesets }
 local root = { seedHi = 123, seedLo = 456, bossAttempts = {} }
 local brock = rosters.leaders.BROCK
@@ -211,6 +216,8 @@ eq(#seenPackages[1].signatureMoves, 4,
 check((signatureMoves.EARTHQUAKE and not signatureMoves.DIG)
     or (signatureMoves.DIG and not signatureMoves.EARTHQUAKE),
   "signature move alternatives never crowd out another required slot")
+check(signatureMoves.DIG and not signatureMoves.EARTHQUAKE,
+  "an unavailable signature alternative falls back to a registry move")
 eq(#(seenPackages[2].signatureMoves or {}), 0,
   "signature-only techniques are not offered wholesale to flex members")
 local rerun = bosses.build(brock, {
