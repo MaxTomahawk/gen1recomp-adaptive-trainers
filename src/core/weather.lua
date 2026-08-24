@@ -9,6 +9,7 @@ local DAMAGE_SCALE = {
   RAIN = { WATER = 1.5, FIRE = 0.5 },
   SUN = { FIRE = 1.5, WATER = 0.5 },
 }
+local INSTALLED = setmetatable({}, { __mode = "k" })
 
 local function state(field)
   local value = type(field) == "table" and field.weather or nil
@@ -66,12 +67,15 @@ end
 
 function M.sand_residual_amount(battler)
   local mon = type(battler) == "table" and battler.mon or nil
-  local hp = type(mon) == "table" and tonumber(mon.hp) or 0
-  if hp <= 0 then return 0 end
+  local hp = type(mon) == "table" and tonumber(mon.hp)
+    or tonumber(type(battler) == "table" and battler.hp) or 0
+  if hp <= 0 or (type(battler) == "table"
+      and battler.vanished == true) then return 0 end
   for _, typeId in ipairs(battler_types(battler)) do
     if SAND_IMMUNE[typeId] then return 0 end
   end
-  local maxHp = type(mon.stats) == "table" and tonumber(mon.stats.hp) or nil
+  local maxHp = type(mon) == "table" and type(mon.stats) == "table" and tonumber(mon.stats.hp) or nil
+  maxHp = maxHp or tonumber(battler.maxHp)
   maxHp = maxHp or (type(battler.stats) == "table"
     and tonumber(battler.stats.hp)) or hp
   return math.max(1, math.floor(maxHp / 8))
@@ -112,10 +116,11 @@ local function put(registry, id, record)
   end
 end
 
-local function weather_effect(weatherId)
+local function weather_effect(weatherId, enabled)
   return {
     kind = "primary",
     run = function(ctx)
+      if enabled == false then return { failed = true } end
       M.start(assert(ctx.field, "weather effect requires field context"),
         weatherId)
       return {}
@@ -123,14 +128,17 @@ local function weather_effect(weatherId)
   }
 end
 
-function M.install(mod)
+function M.install(mod, options)
   assert(type(mod) == "table", "weather.install requires a mod API")
+  if INSTALLED[mod] then return nil end
+  options = options or {}
   put(mod.content and mod.content.move_effects,
-    "ADAPTIVE_RAIN_EFFECT", weather_effect("RAIN"))
+    "ADAPTIVE_RAIN_EFFECT", weather_effect("RAIN", true))
   put(mod.content and mod.content.move_effects,
-    "ADAPTIVE_SUN_EFFECT", weather_effect("SUN"))
+    "ADAPTIVE_SUN_EFFECT", weather_effect("SUN", true))
   put(mod.content and mod.content.move_effects,
-    "ADAPTIVE_SAND_EFFECT", weather_effect("SAND"))
+    "ADAPTIVE_SAND_EFFECT", weather_effect("SAND",
+      options.sandResidual == true))
 
   mod.hooks:wrap("battle.damage", function(next, ctx)
     local damage, info = next(ctx)
@@ -138,6 +146,41 @@ function M.install(mod)
     local moveType = ctx and ctx.move and ctx.move.type
     return M.scale_damage(field, moveType, damage), info
   end)
+
+  if options.solarBeam == true then
+    mod.hooks:wrap("battle.charge_required", function(next, ctx)
+      local required = next(ctx)
+      local field = ctx and ctx.battle and ctx.battle.field
+      if required == true and ctx and ctx.charge == true
+          and ctx.move and ctx.move.id == "SOLARBEAM"
+          and M.current(field) == "SUN" then
+        return false
+      end
+      return required
+    end)
+  end
+
+  if options.sandResidual == true then
+    mod.hooks:wrap("battle.field_residual", function(next, ctx)
+      local rows = next(ctx)
+      if type(rows) ~= "table" or M.current(ctx and ctx.field) ~= "SAND" then
+        return rows
+      end
+      local views = ctx and ctx.battlers or {}
+      for _, side in ipairs({ "player", "enemy" }) do
+        local battler = views[side]
+        local amount = M.sand_residual_amount(battler)
+        if amount > 0 then
+          rows[#rows + 1] = {
+            side = side, amount = amount,
+            message = tostring(battler.name or side)
+              .. " is buffeted by the sandstorm!",
+          }
+        end
+      end
+      return rows
+    end)
+  end
 
   mod.events:on("battle.turn_ended", function(ev)
     local battle = ev and ev.battle
@@ -147,6 +190,7 @@ function M.install(mod)
     local battle = ev and ev.battle
     if battle and battle.field then M.clear(battle.field) end
   end)
+  INSTALLED[mod] = true
   return nil
 end
 

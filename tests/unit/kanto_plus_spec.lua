@@ -1,5 +1,6 @@
 local ROOT = assert(os.getenv("ADAPTIVE_TRAINERS_ROOT"),
   "ADAPTIVE_TRAINERS_ROOT must name the standalone mod checkout")
+local GENERATED_ASSETS = "assets/" .. "generated/"
 
 local kanto_plus = assert(loadfile(ROOT .. "/src/data/kanto_plus.lua"))()
 
@@ -76,21 +77,31 @@ local steel_rows = {
   ["STEEL>ELECTRIC"] = 5, ["STEEL>STEEL"] = 5,
   ["NORMAL>STEEL"] = 5, ["GRASS>STEEL"] = 5,
   ["ICE>STEEL"] = 5, ["FLYING>STEEL"] = 5,
-  ["PSYCHIC>STEEL"] = 5, ["BUG>STEEL"] = 5,
+  ["PSYCHIC_TYPE>STEEL"] = 5, ["BUG>STEEL"] = 5,
   ["ROCK>STEEL"] = 5, ["GHOST>STEEL"] = 5,
   ["DRAGON>STEEL"] = 5, ["POISON>STEEL"] = 0,
   ["FIRE>STEEL"] = 20, ["FIGHTING>STEEL"] = 20,
   ["GROUND>STEEL"] = 20,
 }
 
-local function source_registries()
+local function source_registries(includeAssets)
   local pokemon = {}
   for target, row in pairs(evolution_rows) do
     pokemon[target] = {
-      id = target, name = target, types = { target == "STEELIX" and "STEEL"
-        or "NORMAL" }, marker = "runtime-source:" .. target,
+      id = target, name = target, dex = 200,
+      types = { target == "STEELIX" and "STEEL" or "NORMAL" },
+      baseStats = { hp = 60, attack = 70, defense = 80, speed = 50,
+        specialAttack = 45, specialDefense = 65 },
+      catchRate = 45, baseExp = 120, growthRate = "MEDIUM_FAST",
+      levelMoves = { { level = 1, move = "TACKLE" },
+        { level = 20, move = "IRON_TAIL" } },
+      tmhm = { "IRON_TAIL" }, evolutions = {},
+      spriteFront = GENERATED_ASSETS .. "battle/front/" .. target .. ".png",
+      spriteBack = GENERATED_ASSETS .. "battle/back/" .. target .. ".png",
+      picSize = 6,
+      source = "runtime-source:" .. target,
     }
-    local evolution = { method = row[2], species = target }
+    local evolution = { method = row[2], into = target }
     if row[3] then evolution.item = row[3] end
     pokemon[row[1]] = pokemon[row[1]] or {
       id = row[1], name = row[1], types = { "NORMAL" }, evolutions = {},
@@ -102,14 +113,26 @@ local function source_registries()
     moves[id] = { id = id, name = row[1], type = row[2], power = row[3],
       accuracy = row[4], pp = row[5], effect = "GOLD_SOURCE_EFFECT" }
   end
-  local chart = { STEEL = { name = "STEEL", category = "physical" } }
+  local chart = { types = {
+    STEEL = { name = "STEEL", category = "physical" },
+  }, matchups = {} }
   for id, multiplier in pairs(steel_rows) do
-    chart[id] = { multiplier = multiplier }
+    local attacker, defender = id:match("^([^>]+)>([^>]+)$")
+    chart.matchups[#chart.matchups + 1] = {
+      attacker = attacker, defender = defender, multiplier = multiplier,
+    }
   end
-  return {
+  local out = {
     pokemon = registry(pokemon), moves = registry(moves),
-    type_chart = registry(chart),
+    type_chart = chart,
   }
+  if includeAssets ~= false then
+    out.assets = {
+      path = function(_, path) return "datasets/gold/" .. path end,
+      info = function() return { type = "file", size = 1 } end,
+    }
+  end
+  return out
 end
 
 local absent = kanto_plus.detect({
@@ -126,7 +149,7 @@ local source = source_registries()
 local capabilities = kanto_plus.detect(source)
 eq(capabilities.available, true,
   "a complete runtime source activates the optional Kanto+ capability")
-eq(capabilities.species.STEELIX.marker, "runtime-source:STEELIX",
+eq(capabilities.species.STEELIX.source, "runtime-source:STEELIX",
   "species definitions are derived from the runtime registry")
 eq(capabilities.evolutions.STEELIX.from, "ONIX",
   "the Steelix continuation is derived from the source evolution row")
@@ -136,13 +159,102 @@ eq(capabilities.typeChart.STEEL.category, "physical",
   "Steel retains Gen1-style physical category")
 eq(capabilities.typeChart["POISON>STEEL"].multiplier, 0,
   "the derived Gen2 Steel chart includes Poison immunity")
+eq(capabilities.typeChart["PSYCHIC_TYPE>STEEL"].multiplier, 5,
+  "the derived chart uses the live Gen1Recomp Psychic type id")
 eq(capabilities.moves.IRON_TAIL.power, 100,
   "Iron Tail is derived with its specified baseline power")
 eq(capabilities.moves.SHADOW_BALL.pp, 15,
   "Shadow Ball is derived with its specified PP")
+check(type(capabilities.assetPath) == "function",
+  "detection retains the imported dataset asset namespace resolver")
+if type(capabilities.assetPath) == "function" then
+  eq(capabilities.assetPath(
+      GENERATED_ASSETS .. "battle/front/STEELIX.png"),
+    "datasets/gold/" .. GENERATED_ASSETS .. "battle/front/STEELIX.png",
+    "the retained asset resolver applies the Gold dataset namespace")
+end
 
-capabilities.species.STEELIX.marker = "changed-copy"
-eq(source.pokemon:get("STEELIX").marker, "runtime-source:STEELIX",
+-- Each required Gold semantic must independently deny admission.  These are
+-- deliberately three different capability groups, so a future relaxation in
+-- any one cannot accidentally enable a partial overlay.
+local missingSpecies = source_registries()
+missingSpecies.pokemon.records.STEELIX = nil
+local speciesRejected = kanto_plus.detect(missingSpecies)
+eq(speciesRejected.available, false,
+  "missing a required continuation species fails closed independently")
+eq(speciesRejected.missingSpecies[1], "STEELIX",
+  "missing continuation diagnostics name the exact absent species")
+
+local missingEvolution = source_registries()
+missingEvolution.pokemon.records.ONIX.evolutions = {}
+local evolutionRejected = kanto_plus.detect(missingEvolution)
+eq(evolutionRejected.available, false,
+  "missing a required continuation evolution fails closed independently")
+eq(evolutionRejected.missingEvolutions[1], "STEELIX",
+  "missing evolution diagnostics name the exact absent continuation")
+
+local missingMatchup = source_registries()
+for index, row in ipairs(missingMatchup.type_chart.matchups) do
+  if row.attacker == "POISON" and row.defender == "STEEL" then
+    table.remove(missingMatchup.type_chart.matchups, index)
+    break
+  end
+end
+local matchupRejected = kanto_plus.detect(missingMatchup)
+eq(matchupRejected.available, false,
+  "missing a required Steel matchup fails closed independently")
+eq(matchupRejected.missingTypeChart[1], "POISON>STEEL",
+  "missing Steel matchup diagnostics name the exact absent row")
+
+local unresolved = kanto_plus.detect(source_registries(false))
+eq(unresolved.available, false,
+  "Gold-shaped species cannot activate without an asset path resolver")
+check(type(unresolved.missingAssets) == "table",
+  "capability diagnostics include missing asset requirements")
+if type(unresolved.missingAssets) == "table" then
+  eq(unresolved.missingAssets[1], "assetPath",
+    "capability diagnostics identify the missing sprite namespace resolver")
+end
+
+local nilAssets = source_registries()
+nilAssets.assets.path = function() return nil end
+local nilAssetCapabilities = kanto_plus.detect(nilAssets)
+eq(nilAssetCapabilities.available, false,
+  "a resolver that cannot resolve required sprites fails closed")
+check(#nilAssetCapabilities.missingAssets > 0,
+  "unresolved required sprites are included in capability diagnostics")
+
+local brokenAssets = source_registries()
+brokenAssets.assets.path = function() error("broken asset facade", 0) end
+local detectedBroken, brokenAssetCapabilities = pcall(kanto_plus.detect,
+  brokenAssets)
+eq(detectedBroken, true,
+  "a throwing asset facade cannot escape capability detection")
+eq(brokenAssetCapabilities.available, false,
+  "a throwing asset facade fails closed before registry writes")
+
+for _, row in ipairs({
+    { "missing info", function(assets) assets.info = nil end },
+    { "nil info", function(assets) assets.info = function() return nil end end },
+    { "non-file info", function(assets)
+      assets.info = function() return { type = "directory" } end
+    end },
+    { "throwing info", function(assets)
+      assets.info = function() error("broken asset info", 0) end
+    end },
+  }) do
+  local invalidAssets = source_registries()
+  row[2](invalidAssets.assets)
+  local ok, detected = pcall(kanto_plus.detect, invalidAssets)
+  eq(ok, true, row[1] .. " cannot escape capability detection")
+  eq(detected.available, false,
+    row[1] .. " fails closed before registry writes")
+  check(#detected.missingAssets > 0,
+    row[1] .. " appears in capability diagnostics")
+end
+
+capabilities.species.STEELIX.source = "changed-copy"
+eq(source.pokemon:get("STEELIX").source, "runtime-source:STEELIX",
   "capability records do not alias the source registry")
 
 local incomplete = source_registries()
@@ -164,14 +276,28 @@ targetPokemon.MAGNEMITE = { id = "MAGNEMITE", types = { "ELECTRIC" },
 targetPokemon.MAGNETON = { id = "MAGNETON", types = { "ELECTRIC" },
   evolutions = {} }
 local target = {
-  pokemon = registry(targetPokemon), moves = registry(),
+  pokemon = registry(targetPokemon), moves = registry({ TACKLE = {} }),
   type_chart = registry(), move_effects = registry(),
 }
 local mod = { content = target }
 kanto_plus.apply(mod, kanto_plus.detect(source_registries()))
 
-eq(target.pokemon:get("CROBAT").marker, "runtime-source:CROBAT",
-  "apply registers runtime-derived species without embedded ROM data")
+eq(target.pokemon:get("CROBAT").baseStats.special, 55,
+  "apply folds Gold split Special into the Gen1 stat model")
+eq(target.pokemon:get("CROBAT").baseStats.specialAttack, nil,
+  "apply does not copy a Gold-only Special field into Gen1 content")
+eq(target.pokemon:get("CROBAT").level1Moves[1], "TACKLE",
+  "Gold level-one rows become Gen1 level1Moves")
+eq(target.pokemon:get("CROBAT").learnset[1].move, "IRON_TAIL",
+  "later Gold level rows become the Gen1 learnset")
+eq(target.pokemon:get("CROBAT").frontSize, 6,
+  "Gold picSize becomes the Gen1 frontSize field")
+eq(target.pokemon:get("CROBAT").spriteFront,
+  "datasets/gold/" .. GENERATED_ASSETS .. "battle/front/CROBAT.png",
+  "translated front sprites stay inside the Gold dataset namespace")
+eq(target.pokemon:get("CROBAT").spriteBack,
+  "datasets/gold/" .. GENERATED_ASSETS .. "battle/back/CROBAT.png",
+  "translated back sprites never expose a raw cache-relative path")
 eq(table.concat(target.pokemon:get("MAGNEMITE").types, ","),
   "ELECTRIC,STEEL", "Magnemite becomes Electric/Steel")
 eq(table.concat(target.pokemon:get("MAGNETON").types, ","),
@@ -195,6 +321,70 @@ eq(target.moves:get("SHADOW_BALL").effect,
   "Shadow Ball receives its Special-drop adapter")
 check(target.move_effects:get("ADAPTIVE_METAL_CLAW_EFFECT") ~= nil,
   "minimal move secondary effects are public registry records")
+
+local secondary_rows = {
+  { "ADAPTIVE_IRON_TAIL_EFFECT", 77, "stage", "TARGET", "defense", -1 },
+  { "ADAPTIVE_METAL_CLAW_EFFECT", 26, "stage", "USER", "attack", 1 },
+  { "ADAPTIVE_STEEL_WING_EFFECT", 26, "stage", "USER", "defense", 1 },
+  { "ADAPTIVE_SLUDGE_BOMB_EFFECT", 77, "status", "TARGET", "PSN" },
+  { "ADAPTIVE_SHADOW_BALL_EFFECT", 51, "stage", "TARGET", "special", -1 },
+}
+
+local function effect_context(roll, calls)
+  return {
+    user = "USER", target = "TARGET",
+    rng = function(low, high)
+      check(low == 0 and high == 255,
+        "secondary effects draw from the exact 256-value byte domain")
+      return roll
+    end,
+    changeStage = function(subject, stat, delta, secondary)
+      calls[#calls + 1] = { "stage", subject, stat, delta, secondary }
+      return { applied = true }
+    end,
+    inflict = function(subject, status, options)
+      calls[#calls + 1] = { "status", subject, status, options }
+      return { applied = true }
+    end,
+  }
+end
+
+for _, row in ipairs(secondary_rows) do
+  local effect = target.move_effects:get(row[1])
+  local belowCalls = {}
+  local below = effect.run(effect_context(row[2] - 1, belowCalls))
+  eq(#belowCalls, 1, row[1] .. " applies immediately below its threshold")
+  eq(below.applied, true, row[1] .. " returns its applied callback result")
+  eq(belowCalls[1][1], row[3], row[1] .. " uses the intended callback kind")
+  eq(belowCalls[1][2], row[4], row[1] .. " affects the intended battler")
+  eq(belowCalls[1][3], row[5], row[1] .. " applies the intended stat/status")
+  if row[3] == "stage" then
+    eq(belowCalls[1][4], row[6], row[1] .. " applies the intended stage delta")
+  end
+
+  local thresholdCalls = {}
+  local threshold = effect.run(effect_context(row[2], thresholdCalls))
+  eq(#thresholdCalls, 0, row[1] .. " does not apply at its threshold")
+  eq(next(threshold), nil,
+    row[1] .. " returns an empty effect result at its threshold")
+end
+
+local targetCallCount = 0
+for _, registryValue in pairs(target) do
+  targetCallCount = targetCallCount + #(registryValue.calls or {})
+end
+kanto_plus.apply(mod, kanto_plus.detect(source_registries()))
+local repeatedCallCount = 0
+for _, registryValue in pairs(target) do
+  repeatedCallCount = repeatedCallCount + #(registryValue.calls or {})
+end
+eq(repeatedCallCount, targetCallCount,
+  "repeated apply is idempotent and emits no duplicate registry operations")
+
+for targetSpecies in pairs(evolution_rows) do
+  check(target.pokemon:get(targetSpecies) ~= nil,
+    "apply exposes named continuation " .. targetSpecies)
+end
 
 local noTarget = {
   pokemon = registry(targetPokemon), moves = registry(),

@@ -108,7 +108,8 @@ local mod = {
   hooks = { wrap = function(_, id, callback) hooks[id] = callback end },
   events = { on = function(_, id, callback) events[id] = callback end },
 }
-eq(weather.install(mod), nil, "weather installation keeps the planned nil API")
+eq(weather.install(mod, { sandResidual = false, solarBeam = false }), nil,
+  "weather installation keeps the planned nil API")
 check(mod.content.move_effects:get("ADAPTIVE_RAIN_EFFECT") ~= nil,
   "install registers Rain Dance through the public effect registry")
 check(mod.content.move_effects:get("ADAPTIVE_SUN_EFFECT") ~= nil,
@@ -128,6 +129,13 @@ local messages = mod.content.move_effects:get("ADAPTIVE_SUN_EFFECT").run({
 eq(#messages, 0, "weather setup needs no engine-private message helper")
 eq(weather.current(installedField), "SUN",
   "the registered Sunny Day effect activates sun")
+
+local sandMessages = mod.content.move_effects
+  :get("ADAPTIVE_SAND_EFFECT").run({ field = installedField })
+eq(sandMessages.failed, true,
+  "Sandstorm fails closed when lifecycle-safe residual damage is unavailable")
+eq(weather.current(installedField), "SUN",
+  "disabled Sandstorm cannot replace an active supported weather state")
 
 local vanillaCalls = 0
 local info = { crit = false, typeMult = 10 }
@@ -156,6 +164,80 @@ weather.start(installedField, "RAIN")
 events["battle.ended"]({ battle = { field = installedField } })
 eq(weather.current(installedField), nil,
   "battle end clears installed weather state")
+
+local hookCount, eventCount, effectCount = 0, 0, 0
+for _ in pairs(hooks) do hookCount = hookCount + 1 end
+for _ in pairs(events) do eventCount = eventCount + 1 end
+for _ in pairs(mod.content.move_effects.records) do effectCount = effectCount + 1 end
+weather.install(mod, { sandResidual = false, solarBeam = false })
+local repeatedHooks, repeatedEvents, repeatedEffects = 0, 0, 0
+for _ in pairs(hooks) do repeatedHooks = repeatedHooks + 1 end
+for _ in pairs(events) do repeatedEvents = repeatedEvents + 1 end
+for _ in pairs(mod.content.move_effects.records) do
+  repeatedEffects = repeatedEffects + 1
+end
+eq(repeatedHooks, hookCount, "repeated install does not duplicate hooks")
+eq(repeatedEvents, eventCount, "repeated install does not duplicate events")
+eq(repeatedEffects, effectCount,
+  "repeated install does not duplicate effect registrations")
+
+local supportedHooks, supportedEvents = {}, {}
+local supported = {
+  content = { move_effects = registry() },
+  hooks = { wrap = function(_, id, callback) supportedHooks[id] = callback end },
+  events = { on = function(_, id, callback) supportedEvents[id] = callback end },
+}
+weather.install(supported, { sandResidual = true, solarBeam = true })
+check(type(supportedHooks["battle.charge_required"]) == "function",
+  "supported install wraps the public charge decision seam")
+check(type(supportedHooks["battle.field_residual"]) == "function",
+  "supported install wraps the public field residual seam")
+
+local supportedSun = { tokens = {} }
+weather.start(supportedSun, "SUN")
+local vanillaChargeCalls = 0
+local skip = supportedHooks["battle.charge_required"](function()
+  vanillaChargeCalls = vanillaChargeCalls + 1
+  return true
+end, { battle = { field = supportedSun }, move = { id = "SOLARBEAM" }, charge = true })
+eq(skip, false, "sun skips SolarBeam charge through the public seam")
+eq(vanillaChargeCalls, 1, "SolarBeam wrapper composes with vanilla once")
+local keepDig = supportedHooks["battle.charge_required"](function() return true end,
+  { battle = { field = supportedSun }, move = { id = "DIG" }, charge = true })
+eq(keepDig, true, "sun never removes another move charge turn")
+
+local supportedSand = { tokens = {} }
+local sandStart = supported.content.move_effects
+  :get("ADAPTIVE_SAND_EFFECT").run({ field = supportedSand })
+eq(#sandStart, 0, "supported Sandstorm activates successfully")
+local baseRows = { { side = "player", amount = 1, message = "prior mod" } }
+local rows = supportedHooks["battle.field_residual"](function(context)
+  eq(context.field, supportedSand,
+    "field residual wrapper passes the public field through next")
+  return baseRows
+end, {
+  field = supportedSand,
+  battlers = {
+    player = { side = "player", name = "REDMON", hp = 80, maxHp = 81,
+      types = { "NORMAL" } },
+    enemy = { side = "enemy", name = "FLYMON", hp = 80, maxHp = 80,
+      types = { "NORMAL" }, vanished = true },
+  },
+})
+eq(rows, baseRows, "field residual wrapper preserves the composed list")
+eq(#rows, 2, "sand excludes a semi-invulnerable detached battler")
+eq(rows[2].side, "player", "sand descriptor targets the eligible side")
+eq(rows[2].amount, 10, "sand requests floor one-eighth max HP")
+check(rows[2].message:find("REDMON", 1, true) ~= nil,
+  "sand descriptor names the affected detached battler")
+
+local noFieldRows = { { side = "enemy", amount = 2 } }
+local noField = supportedHooks["battle.field_residual"](
+  function() return noFieldRows end, {
+    field = { tokens = {} }, battlers = {},
+  })
+eq(noField, noFieldRows,
+  "no-weather field residual path is byte-identical by table identity")
 
 if failures > 0 then
   io.stderr:write(string.format("%d/%d weather checks failed\n", failures, checks))

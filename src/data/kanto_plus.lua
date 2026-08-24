@@ -42,7 +42,7 @@ local STEEL_MATCHUPS = {
   { id = "GRASS>STEEL", multiplier = 5 },
   { id = "ICE>STEEL", multiplier = 5 },
   { id = "FLYING>STEEL", multiplier = 5 },
-  { id = "PSYCHIC>STEEL", multiplier = 5 },
+  { id = "PSYCHIC_TYPE>STEEL", multiplier = 5 },
   { id = "BUG>STEEL", multiplier = 5 },
   { id = "ROCK>STEEL", multiplier = 5 },
   { id = "GHOST>STEEL", multiplier = 5 },
@@ -55,6 +55,11 @@ local STEEL_MATCHUPS = {
 
 local FALLBACK = {}
 for _, row in ipairs(EVOLUTIONS) do FALLBACK[row.target] = row.fallback end
+
+local KANTO_PLUS_MOVE = {}
+for _, row in ipairs(MOVE_REQUIREMENTS) do KANTO_PLUS_MOVE[row.id] = true end
+
+local APPLIED = setmetatable({}, { __mode = "k" })
 
 local function clone(value, seen)
   if type(value) ~= "table" then return value end
@@ -70,8 +75,20 @@ end
 
 local function get(registry, id)
   if type(registry) ~= "table" then return nil end
-  if type(registry.get) == "function" then return registry:get(id) end
-  return registry[id]
+  if type(registry.get) == "function" then
+    local value = registry:get(id)
+    if value ~= nil then return value end
+  end
+  if registry[id] ~= nil then return registry[id] end
+  if type(registry.types) == "table" and not tostring(id):find(">", 1, true) then
+    return registry.types[id]
+  end
+  local attacker, defender = tostring(id):match("^([^>]+)>([^>]+)$")
+  if attacker then
+    for _, row in ipairs(registry.matchups or {}) do
+      if row.attacker == attacker and row.defender == defender then return row end
+    end
+  end
 end
 
 local function exact_move(record, requirement)
@@ -90,14 +107,34 @@ local function evolution_to(definition, target)
   end
 end
 
+local function asset_resolvers(registries)
+  if type(registries.assetPath) == "function"
+      or type(registries.assetInfo) == "function" then
+    return registries.assetPath, registries.assetInfo
+  end
+  local assets = registries.assets
+  if type(assets) ~= "table" then return nil, nil end
+  local path = type(assets.path) == "function"
+    and function(value) return assets:path(value) end or nil
+  local info = type(assets.info) == "function"
+    and function(value) return assets:info(value) end or nil
+  return path, info
+end
+
 function M.detect(registries)
   registries = registries or {}
+  local assetPath, assetInfo = asset_resolvers(registries)
   local capabilities = {
     available = false,
     species = {}, evolutions = {}, moves = {}, typeChart = {},
+    assetPath = assetPath, assetInfo = assetInfo, resolvedAssets = {},
     missingSpecies = {}, missingEvolutions = {}, missingMoves = {},
-    missingTypeChart = {},
+    missingTypeChart = {}, missingAssets = {},
   }
+  if not assetPath then capabilities.missingAssets[1] = "assetPath" end
+  if not assetInfo then
+    capabilities.missingAssets[#capabilities.missingAssets + 1] = "assetInfo"
+  end
 
   for _, requirement in ipairs(EVOLUTIONS) do
     local species = get(registries.pokemon, requirement.target)
@@ -120,6 +157,31 @@ function M.detect(registries)
     else
       capabilities.missingEvolutions[#capabilities.missingEvolutions + 1]
         = requirement.target
+    end
+  end
+
+  if assetPath and assetInfo then
+    for _, requirement in ipairs(EVOLUTIONS) do
+      local record = capabilities.species[requirement.target]
+      if record then
+        local resolved = {}
+        for _, field in ipairs({ "spriteFront", "spriteBack" }) do
+          local path = record[field]
+          local pathOk, full, infoOk, info = false, nil, false, nil
+          if type(path) == "string" then
+            pathOk, full = pcall(assetPath, path)
+            infoOk, info = pcall(assetInfo, path)
+          end
+          if pathOk and type(full) == "string" and full ~= ""
+              and infoOk and type(info) == "table" and info.type == "file" then
+            resolved[field] = full
+          else
+            capabilities.missingAssets[#capabilities.missingAssets + 1]
+              = requirement.target .. "." .. field
+          end
+        end
+        capabilities.resolvedAssets[requirement.target] = resolved
+      end
     end
   end
 
@@ -153,6 +215,7 @@ function M.detect(registries)
     and #capabilities.missingEvolutions == 0
     and #capabilities.missingMoves == 0
     and #capabilities.missingTypeChart == 0
+    and #capabilities.missingAssets == 0
   return capabilities
 end
 
@@ -215,11 +278,67 @@ local function effect_records()
   }
 end
 
+local function translated_move_available(moveId, moves)
+  return KANTO_PLUS_MOVE[moveId] == true or get(moves, moveId) ~= nil
+end
+
+local function translate_species(record, moves, assets)
+  local stats = record.baseStats or {}
+  local special = tonumber(stats.special)
+  if special == nil then
+    local attack = tonumber(stats.specialAttack) or 1
+    local defense = tonumber(stats.specialDefense) or attack
+    special = math.floor((attack + defense) / 2)
+  end
+  local level1Moves, learnset, seenLevel1 = {}, {}, {}
+  for _, moveId in ipairs(record.level1Moves or {}) do
+    if translated_move_available(moveId, moves) and not seenLevel1[moveId] then
+      level1Moves[#level1Moves + 1] = moveId
+      seenLevel1[moveId] = true
+    end
+  end
+  local rows = record.levelMoves or record.learnset or {}
+  for _, row in ipairs(rows) do
+    if translated_move_available(row.move, moves) then
+      if (tonumber(row.level) or 0) <= 1 then
+        if not seenLevel1[row.move] then
+          level1Moves[#level1Moves + 1] = row.move
+          seenLevel1[row.move] = true
+        end
+      else
+        learnset[#learnset + 1] = { level = row.level, move = row.move }
+      end
+    end
+  end
+  local tmhm = {}
+  for _, moveId in ipairs(record.tmhm or {}) do
+    if translated_move_available(moveId, moves) then
+      tmhm[#tmhm + 1] = moveId
+    end
+  end
+  return {
+    id = record.id, name = record.name, dex = record.dex,
+    types = clone(record.types or {}),
+    baseStats = { hp = stats.hp, attack = stats.attack, defense = stats.defense,
+      speed = stats.speed, special = special },
+    catchRate = record.catchRate, baseExp = record.baseExp,
+    level1Moves = level1Moves, growthRate = record.growthRate,
+    tmhm = tmhm, learnset = learnset, evolutions = {},
+    spriteFront = assets and assets.spriteFront,
+    spriteBack = assets and assets.spriteBack,
+    frontSize = record.frontSize or record.picSize,
+    trueColor = record.trueColor,
+    battleScaleFront = record.battleScaleFront,
+    battleScaleBack = record.battleScaleBack,
+  }
+end
+
 function M.apply(mod, capabilities)
   local content = mod and mod.content
   if type(content) ~= "table" or not (capabilities and capabilities.available) then
     return nil
   end
+  if APPLIED[mod] then return nil end
 
   local useNpcMethod = type(content.evolution_methods) == "table"
   if useNpcMethod then
@@ -231,7 +350,8 @@ function M.apply(mod, capabilities)
 
   for _, requirement in ipairs(EVOLUTIONS) do
     put(content.pokemon, requirement.target,
-      capabilities.species[requirement.target])
+      translate_species(capabilities.species[requirement.target],
+        content.moves, capabilities.resolvedAssets[requirement.target]))
     append_evolution(content.pokemon,
       capabilities.evolutions[requirement.target], useNpcMethod)
   end
@@ -260,32 +380,157 @@ function M.apply(mod, capabilities)
     move.category = requirement.category
     put(content.moves, requirement.id, move)
   end
+  APPLIED[mod] = true
   return nil
 end
 
-function M.reconcile_instance(instance, pokemon)
-  if type(instance) ~= "table" then return false end
-  local suspended = instance.suspendedStage
-  if type(suspended) == "table" then
-    local expectedFallback = FALLBACK[suspended.species]
-    if expectedFallback == suspended.fallback
-        and instance.species == suspended.fallback
-        and get(pokemon, suspended.species) then
-      instance.species = suspended.species
-      instance.suspendedStage = nil
+local function move_available(moveId, moves, enabled)
+  if enabled == false and KANTO_PLUS_MOVE[moveId] then return false end
+  return get(moves, moveId) ~= nil
+end
+
+local function reconcile_moves(instance, moves, enabled)
+  if type(moves) ~= "table" then return false end
+  local suspended = instance.suspendedMoves
+  if type(suspended) == "table" and type(suspended.moves) == "table" then
+    local complete = true
+    for _, moveId in ipairs(suspended.moves) do
+      if not move_available(moveId, moves, enabled) then complete = false; break end
+    end
+    if complete then
+      instance.moves = clone(suspended.moves)
+      instance.moveSources = clone(suspended.moveSources)
+      instance.suspendedMoves = nil
       return true
     end
     return false
   end
 
+  if type(instance.moves) ~= "table" then return false end
+  local filtered, missing = {}, false
+  for _, moveId in ipairs(instance.moves) do
+    if move_available(moveId, moves, enabled) then
+      filtered[#filtered + 1] = moveId
+    else
+      missing = true
+    end
+  end
+  if not missing then return false end
+  instance.suspendedMoves = {
+    moves = clone(instance.moves),
+    moveSources = clone(instance.moveSources),
+  }
+  instance.moves = filtered
+  local sources = {}
+  for _, moveId in ipairs(filtered) do
+    if type(instance.moveSources) == "table" then
+      sources[moveId] = instance.moveSources[moveId]
+    end
+  end
+  instance.moveSources = next(sources) and sources or nil
+  return true
+end
+
+function M.reconcile_instance(instance, pokemon, moves, enabled)
+  if type(instance) ~= "table" then return false end
+  local changed = reconcile_moves(instance, moves, enabled)
+  local suspended = instance.suspendedStage
+  if type(suspended) == "table" then
+    local expectedFallback = FALLBACK[suspended.species]
+    if expectedFallback == suspended.fallback
+        and instance.species == suspended.fallback
+        and enabled ~= false and get(pokemon, suspended.species) then
+      instance.species = suspended.species
+      instance.suspendedStage = nil
+      return true
+    end
+    return changed
+  end
+
   local fallback = FALLBACK[instance.species]
-  if fallback and not get(pokemon, instance.species) and get(pokemon, fallback) then
+  local targetUnavailable = enabled == false or not get(pokemon, instance.species)
+  if fallback and targetUnavailable and get(pokemon, fallback) then
     local missing = instance.species
     instance.species = fallback
     instance.suspendedStage = { species = missing, fallback = fallback }
     return true
   end
-  return false
+  return changed
+end
+
+local function reconcile_list(list, pokemon, moves, enabled, report)
+  for _, instance in ipairs(list or {}) do
+    local beforeSpecies = instance.species
+    local hadSuspended = instance.suspendedStage ~= nil
+    local hadMoves = instance.suspendedMoves ~= nil
+    if M.reconcile_instance(instance, pokemon, moves, enabled) then
+      report.changed = true
+      report.instances = report.instances + 1
+      if beforeSpecies ~= instance.species then
+        if hadSuspended then
+          report.restored = report.restored + 1
+        else
+          report.downgraded = report.downgraded + 1
+        end
+      end
+      if not hadMoves and instance.suspendedMoves then
+        report.movesSuspended = report.movesSuspended + 1
+      elseif hadMoves and not instance.suspendedMoves then
+        report.movesRestored = report.movesRestored + 1
+      end
+    end
+  end
+end
+
+local function sync_rival_pending(rival, pokemon, moves, enabled, report)
+  local pending = type(rival) == "table" and rival.pending or nil
+  if type(pending) ~= "table" or type(pending.partyDef) ~= "table" then return end
+  local byId = {}
+  for _, instance in ipairs(rival.owned or {}) do byId[instance.id] = instance end
+  for index, slot in ipairs(pending.partyDef) do
+    local instance = byId[(pending.partyIds or {})[index]]
+    if instance then
+      if slot.species ~= instance.species then
+        slot.species = instance.species
+        report.changed = true
+      end
+      local wanted = type(instance.moves) == "table" and #instance.moves > 0
+        and clone(instance.moves) or nil
+      local same = type(slot.moves) == type(wanted)
+      if same and type(wanted) == "table" then
+        if #slot.moves ~= #wanted then same = false end
+        for moveIndex, moveId in ipairs(wanted) do
+          if slot.moves[moveIndex] ~= moveId then same = false; break end
+        end
+      end
+      if not same then slot.moves = wanted; report.changed = true end
+    else
+      reconcile_list({ slot }, pokemon, moves, enabled, report)
+    end
+  end
+end
+
+function M.reconcile_root(root, pokemon, moves, enabled)
+  local report = { changed = false, instances = 0, downgraded = 0,
+    restored = 0, movesSuspended = 0, movesRestored = 0 }
+  if type(root) ~= "table" then return report end
+  for _, trainer in pairs(root.trainers or {}) do
+    reconcile_list(trainer.owned, pokemon, moves, enabled, report)
+  end
+  for _, attempt in pairs(root.bossAttempts or {}) do
+    reconcile_list(type(attempt) == "table" and attempt.party or nil,
+      pokemon, moves, enabled, report)
+  end
+  local rival = root.rival
+  if type(rival) == "table" then
+    reconcile_list(rival.owned, pokemon, moves, enabled, report)
+    sync_rival_pending(rival, pokemon, moves, enabled, report)
+  end
+  local run = root.leagueRun
+  for _, party in pairs(type(run) == "table" and run.generatedParties or {}) do
+    reconcile_list(party, pokemon, moves, enabled, report)
+  end
+  return report
 end
 
 M.evolutions = EVOLUTIONS
