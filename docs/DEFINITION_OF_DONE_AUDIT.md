@@ -4,15 +4,15 @@ Updated: 2026-08-24
 
 This ledger maps the normative Definition of Done and Chapter 29 in
 `Gen1Recomp_Adaptive_Trainers_Complete_Design_Spec_NL.docx` to executable
-evidence. It deliberately separates completed A-F behavior from Phase G,
+evidence. It deliberately separates implemented A-G behavior from
 upstream-release, runtime-observability, packaging, and publication gates.
 
 Status meanings:
 
 - `VERIFIED_A_F` — executable evidence exists in the current mod tree.
+- `VERIFIED_G` — Phase G executable evidence exists against the disposable
+  combined public-engine surface while released seams remain a separate gate.
 - `PARTIAL` — part of the clause is executable, but a named gate remains.
-- `BLOCKED_PHASE_G` — the optional Kanto+ implementation or its upstream seam
-  is not on `main`.
 - `PENDING_RELEASE` — meaningful only against the final merged tree and released
   engine dependency.
 
@@ -38,7 +38,7 @@ Status meanings:
 | No load/pre-standard-generation writes outside `mod.save` | `VERIFIED_A_F` | `tests/acceptance/definition_of_done.lua` installs its filesystem spy before SDK discovery/load, attributes `mod_storage/` and legacy `mod_compat/` writes to the loaded mod while excluding engine-owned loader bookkeeping, proves both persistence paths are detectable and unused, preserves another mod namespace, and proves an unmapped class creates no trainer state. |
 | Mid-battle checkpoint restores the correct authority or fails closed | `VERIFIED_A_F` | `tests/integration/phase_b_persistence_spec.lua`; `tests/integration/gym_runtime_spec.lua`; `tests/integration/league_persistence_spec.lua`; `tests/integration/rival_version_paths_spec.lua` |
 | R/B/Y boss floors and Rival anchors | `VERIFIED_A_F` | `tests/integration/phase_d_bosses_spec.lua`; `tests/unit/rival_spec.lua`; `tests/integration/rival_version_paths_spec.lua` |
-| Kanto-only fallback without Gold identifiers | `BLOCKED_PHASE_G` | Phase G implementation and its dataset-view/field-residual release gates remain unresolved. |
+| Kanto-only fallback without Gold identifiers | `VERIFIED_G` | `tests/integration/kanto_fallback_spec.lua`; `tests/integration/phase_g_runtime_spec.lua`; ordinary-engine loader tests. |
 
 `scripts/check.sh` discovers `tests/acceptance/*.lua` in addition to every
 `*_spec.lua`. The acceptance executable reruns the representative A-F Chapter
@@ -60,8 +60,8 @@ from turning the ledger into a source-text assertion.
 | Rival owned history, windows, attachment, core, bounded pressure, and no species countering | `VERIFIED_A_F` | Phase F runtime, core, and fairness properties. |
 | Exact Yellow Eevee path | `VERIFIED_A_F` | Phase F R/B/Y integration. |
 | Legendary exclusions and population model | `VERIFIED_A_F` | Data, catch, standard, League, and Rival properties. |
-| Optional Kanto+ with graceful base fallback, Steelix, weather, and Steel | `BLOCKED_PHASE_G` | AT-SP-003 is under review and AT-SP-004 is not merged/released. |
-| Every Chapter 29 test, validate/lint, and no ROM-derived bytes | `PENDING_RELEASE` | A-F aggregate exists; final G/H tree, released engine SHA, ROM scan, and double-package evidence remain. |
+| Optional Kanto+ with graceful base fallback, Steelix, weather, and Steel | `PARTIAL` | Phase G is implemented and green against the combined public-engine surface; AT-SP-003 and AT-SP-004 are not merged/released. |
+| Every Chapter 29 test, validate/lint, and no ROM-derived bytes | `PENDING_RELEASE` | A-G aggregate evidence exists; final H tree, released engine SHA, ROM scan, and double-package evidence remain. |
 | Central trainer identity and gameplay fantasy remain legible | `PARTIAL` | Existing README/design describe the identity; final gameplay review belongs to the complete G/H build. |
 
 ## Observability boundary
@@ -76,8 +76,9 @@ seed labels, parts, and values; it does not claim to observe runtime events.
 `src/ui/debug.lua` emits nothing unless its injected environment contains the
 exact string `POKEPORT_DEV=1`.
 
-The current public mod sandbox intentionally does not expose the host
-environment or an equivalent `mod.dev` flag. The adapter is therefore tested
+The current released public mod sandbox intentionally does not expose the host
+environment or an equivalent `mod.developer` flag. Upstream PR #1769 proposes
+that generic boolean. The adapter is therefore tested
 and package-ready but is not wired to a production-visible screen or export.
 Runtime activation requires either an approved public dev-mode seam or an
 engine-owned dev-screen integration; using the legacy `os.getenv` compatibility
@@ -85,8 +86,10 @@ shim would add warnings and violate the clean public-API target.
 
 ## Release gates still open
 
-1. Merge/release AT-SP-003 and AT-SP-004, then integrate and verify Phase G.
-2. Resolve a public dev-only activation surface for the diagnostic adapter.
+1. Merge/release AT-SP-003 and AT-SP-004, then rerun Phase G against that
+   released engine.
+2. Merge/release AT-SP-005 and wire the diagnostic adapter through the public
+   developer-mode signal.
 3. Pin CI and `manifest.json` to the released engine containing every required
    seam.
 4. Run the complete upstream no-mod and relevant public-API regression suites.
