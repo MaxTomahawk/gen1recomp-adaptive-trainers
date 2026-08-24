@@ -18,8 +18,13 @@ GEN1RECOMP_ROOT=../gen1recomp SOURCE_DATE_EPOCH=0 ./scripts/package.sh
 
 `check.sh` runs deterministic unit/property tests and the LuaJIT public SDK
 integration suites, then runs `modkit validate` and `modkit lint`. `package.sh`
-repeats those gates, stages only distributable files, and writes a reproducible
-`.modpkg` under `dist/`.
+repeats those gates, stages only distributable files, writes a reproducible
+`.modpkg` under `dist/`, and then verifies that the fresh archive has the
+required archive-root layout, no repository-only or ROM-derived content, and a
+byte-identical second package. The second package is built in a temporary
+directory, so the gate never uses a stale `dist/` artifact. Running
+`tests/tooling/package_layout_spec.sh` directly performs the same two temporary
+package builds when no `PACKAGE_PATH` is supplied.
 
 Phases A through F are implemented: ordinary supported trainer classes receive a
 context/ecology-aware roster once, and that exact set of individuals then lives

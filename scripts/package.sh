@@ -27,21 +27,14 @@ cleanup() {
 }
 trap cleanup EXIT
 
-PACK_ROOT="$STAGE_PARENT/adaptive_trainers"
-mkdir -p "$PACK_ROOT"
-for file in manifest.json mod.card main.lua README.md CHANGELOG.md .luarc.json; do
-  cp "$REPO_ROOT/$file" "$PACK_ROOT/$file"
-done
-cp -R "$REPO_ROOT/src" "$PACK_ROOT/src"
-if [[ -d "$REPO_ROOT/assets" ]]; then
-  cp -R "$REPO_ROOT/assets" "$PACK_ROOT/assets"
-fi
-
 STAGED_OUTPUT="$STAGE_PARENT/adaptive_trainers-$VERSION.modpkg"
-python3 "$ENGINE_ROOT/tools/modkit.py" --repo "$ENGINE_ROOT" \
-  pack "$PACK_ROOT" --base fixture --output "$STAGED_OUTPUT"
+GEN1RECOMP_ROOT="$ENGINE_ROOT" SOURCE_DATE_EPOCH="$SOURCE_DATE_EPOCH" \
+  "$REPO_ROOT/scripts/package_once.sh" "$STAGED_OUTPUT"
 
 mkdir -p "$REPO_ROOT/dist"
 mv -f "$STAGED_OUTPUT" "$OUTPUT"
+
+GEN1RECOMP_ROOT="$ENGINE_ROOT" SOURCE_DATE_EPOCH="$SOURCE_DATE_EPOCH" \
+  PACKAGE_PATH="$OUTPUT" bash "$REPO_ROOT/tests/tooling/package_layout_spec.sh"
 
 echo "$OUTPUT"

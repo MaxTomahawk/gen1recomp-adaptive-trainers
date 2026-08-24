@@ -5,17 +5,35 @@ REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)
 ENGINE_ROOT=${GEN1RECOMP_ROOT:?GEN1RECOMP_ROOT must name the audited engine checkout}
 VERSION=$(sed -n 's/^[[:space:]]*"version":[[:space:]]*"\([^"]*\)".*/\1/p' \
   "$REPO_ROOT/manifest.json")
-PACKAGE="$REPO_ROOT/dist/adaptive_trainers-$VERSION.modpkg"
+PACKAGE=${PACKAGE_PATH:-}
+TEMP_PARENT=
+cleanup() {
+  if [[ -n "$TEMP_PARENT" && "$TEMP_PARENT" == /tmp/adaptive-trainers-layout.* ]]; then
+    rm -rf -- "$TEMP_PARENT"
+  fi
+}
+trap cleanup EXIT
 
-if [[ ! -f "$PACKAGE" ]]; then
-  echo "package layout test needs an initial package: $PACKAGE" >&2
-  exit 2
+if [[ -n "${PACKAGE_PATH:-}" ]]; then
+  if [[ ! -f "$PACKAGE" ]]; then
+    echo "package layout test was given a missing fresh package: $PACKAGE" >&2
+    exit 2
+  fi
+else
+  TEMP_PARENT=$(mktemp -d /tmp/adaptive-trainers-layout.XXXXXX)
+  PACKAGE="$TEMP_PARENT/adaptive_trainers-$VERSION.modpkg"
+  GEN1RECOMP_ROOT="$ENGINE_ROOT" SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-}" \
+    "$REPO_ROOT/scripts/package_once.sh" "$PACKAGE" >/dev/null
 fi
 
 FIRST_SHA=$(sha256sum "$PACKAGE" | cut -d' ' -f1)
-GEN1RECOMP_ROOT="$ENGINE_ROOT" SOURCE_DATE_EPOCH=0 \
-  "$REPO_ROOT/scripts/package.sh" >/dev/null
-SECOND_SHA=$(sha256sum "$PACKAGE" | cut -d' ' -f1)
+if [[ -z "$TEMP_PARENT" ]]; then
+  TEMP_PARENT=$(mktemp -d /tmp/adaptive-trainers-layout.XXXXXX)
+fi
+SECOND_PACKAGE="$TEMP_PARENT/second.modpkg"
+GEN1RECOMP_ROOT="$ENGINE_ROOT" SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-}" \
+  "$REPO_ROOT/scripts/package_once.sh" "$SECOND_PACKAGE" >/dev/null
+SECOND_SHA=$(sha256sum "$SECOND_PACKAGE" | cut -d' ' -f1)
 
 if [[ "$FIRST_SHA" != "$SECOND_SHA" ]]; then
   echo "two packages from identical inputs are not byte-equivalent" >&2

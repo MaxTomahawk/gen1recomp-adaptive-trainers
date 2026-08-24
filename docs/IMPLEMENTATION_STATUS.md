@@ -116,6 +116,11 @@ Current evidence:
   and Moltres 2,454, within the normative 50/25/25 tolerances.
 - `modkit validate --base fixture`: green.
 - `modkit lint`: green, no ROM-derived content detected.
+- The normal `scripts/package.sh` release workflow now makes the layout and
+  reproducibility check mandatory: it validates the freshly created archive,
+  builds exactly one temporary second archive through a non-recursive helper,
+  compares SHA-256 hashes, and rejects repository-only paths. The gate does not
+  consume a pre-existing `dist/` package.
 - Phase H A-F development double-pack: byte-identical and layout-clean at
   `SOURCE_DATE_EPOCH=0`; 36 archive entries, including the detached diagnostics
   modules, SHA-256
