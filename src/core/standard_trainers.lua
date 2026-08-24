@@ -9,6 +9,8 @@ return function(deps)
   local growth = deps.growth
   local roster = deps.roster
   local movesets = deps.movesets
+  local on_choice = type(deps.on_choice) == "function"
+    and deps.on_choice or function() end
   local M = {}
   local MAX_REPAIR_ATTEMPTS = 24
 
@@ -169,6 +171,16 @@ return function(deps)
     return out
   end
 
+  local function log_moves(identityKey, instance)
+    for _, moveId in ipairs(instance and instance.moves or {}) do
+      on_choice("trainer-moves", "trainer-move-role-v1", {
+        tonumber(instance.roleSeed) or 0,
+        instance.id or identityKey or "",
+        moveId,
+      })
+    end
+  end
+
   function M.build(ctx, vanillaParty, root, services)
     root.trainers = root.trainers or {}
     local existing = root.trainers[ctx.identityKey]
@@ -223,6 +235,13 @@ return function(deps)
               data.pokemon, data.moves)
             movesets.generate(caught, data.pokemon[caught.species],
               data.moves, profile.aiTier, nil, teamContext)
+          end
+          if caught then
+            on_choice("trainer-catch", "trainer-catch", {
+              existing.identityKey or ctx.identityKey,
+              existing.battleCount or 0,
+            })
+            log_moves(existing.identityKey or ctx.identityKey, caught)
           end
           local centerDistance = roster.center_distance(services.centerIndex,
             ctx.mapId, profile.pcRadius)
@@ -327,6 +346,10 @@ return function(deps)
       state.activeIds[index] = id
     end
     root.trainers[ctx.identityKey] = state
+    on_choice("trainer-roster", "trainer-init", { ctx.identityKey })
+    for _, instance in ipairs(state.owned) do
+      log_moves(ctx.identityKey, instance)
+    end
     return party_from_state(state), state
   end
 

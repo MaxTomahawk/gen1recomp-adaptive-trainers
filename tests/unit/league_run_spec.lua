@@ -166,6 +166,46 @@ for species, groups in pairs(EXPECTED_BIRDS) do
 end
 
 local root = { seedHi = 1234, seedLo = 5678, leagueRunCounter = 0 }
+local choiceLogs = {}
+local loggingLeague = assert(loadfile(
+  ROOT .. "/src/core/league_run.lua"))()({
+    rng = rng,
+    bosses = bosses,
+    stage_resolver = stage_resolver,
+    rosters = league_data,
+    on_choice = function(label, seedLabel, parts)
+      choiceLogs[#choiceLogs + 1] = {
+        label = label, seedLabel = seedLabel, parts = parts,
+      }
+    end,
+  })
+local choiceRoot = { seedHi = 1234, seedLo = 5678, leagueRunCounter = 0 }
+local choiceRun = loggingLeague.enter(choiceRoot, {
+  version = "red", playTime = 900,
+  playerParty = { { level = 42 }, { level = 60 }, { level = 55 } },
+})
+loggingLeague.party(choiceRoot, "LORELEI", services)
+eq(choiceLogs[1] and choiceLogs[1].label, "league-bird-pair",
+  "League Bird logs when the run materializes")
+eq(choiceLogs[1] and choiceLogs[1].seedLabel, "league-run",
+  "League Bird names the run seed stream")
+eq(choiceLogs[1] and choiceLogs[1].parts[1], 1,
+  "League run seed parts use the persisted run counter")
+eq(choiceLogs[2] and choiceLogs[2].label, "league-member-strategy",
+  "League member strategy logs before its party")
+eq(choiceLogs[3] and choiceLogs[3].label, "league-member-party",
+  "League member party logs after strategy materialization")
+eq(choiceLogs[2] and choiceLogs[2].seedLabel, "league-member",
+  "League member choices name the member seed stream")
+eq(choiceLogs[2] and choiceLogs[2].parts[1], "LORELEI",
+  "League member seed parts name the member")
+eq(choiceLogs[2] and choiceLogs[2].parts[2], choiceRun.memberSeeds.LORELEI,
+  "League member seed parts carry the persisted scalar seed")
+local leagueLogCount = #choiceLogs
+loggingLeague.enter(choiceRoot, { version = "red", playerParty = { 100 } })
+loggingLeague.party(choiceRoot, "LORELEI", services)
+eq(#choiceLogs, leagueLogCount,
+  "League rerun and reload paths do not reconstruct choice logs")
 local run, created = league.enter(root, { version = "red", playTime = 900,
   playerParty = { { level = 42 }, { level = 60 }, { level = 55 } } })
 eq(created, true, "first League entry creates a run")

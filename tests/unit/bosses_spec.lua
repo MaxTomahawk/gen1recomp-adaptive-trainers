@@ -200,6 +200,38 @@ local services = { meta = meta, pokemon = pokemon, moves = bossMoves,
   movesets = fakeMovesets }
 local root = { seedHi = 123, seedLo = 456, bossAttempts = {} }
 local brock = rosters.leaders.BROCK
+local choiceLogs = {}
+local loggingBosses = bosses_factory({ rng = rng,
+  stage_resolver = stage_resolver, rosters = rosters,
+  on_choice = function(label, seedLabel, parts)
+    choiceLogs[#choiceLogs + 1] = {
+      label = label, seedLabel = seedLabel, parts = parts,
+    }
+  end,
+})
+local choiceRoot = { seedHi = 123, seedLo = 456, bossAttempts = {} }
+loggingBosses.build(brock, {
+  version = "red", playerLevels = { 20, 18, 16 },
+}, choiceRoot, services)
+eq(choiceLogs[1] and choiceLogs[1].label, "boss-strategy",
+  "boss strategy logs first at attempt materialization")
+eq(choiceLogs[2] and choiceLogs[2].label, "boss-flex-pool",
+  "boss flex roster logs second at attempt materialization")
+eq(choiceLogs[3] and choiceLogs[3].label, "boss-target-levels",
+  "boss target levels log third at attempt materialization")
+for _, entry in ipairs(choiceLogs) do
+  eq(entry.seedLabel, "boss-attempt",
+    "every boss choice names the attempt seed stream")
+  eq(entry.parts[1], "red", "boss seed parts begin with version")
+  eq(entry.parts[2], "BROCK", "boss seed parts name the boss")
+  eq(entry.parts[3], 0, "boss seed parts end with the attempt counter")
+end
+local bossLogCount = #choiceLogs
+loggingBosses.build(brock, {
+  version = "red", playerLevels = { 99, 1 },
+}, choiceRoot, services)
+eq(#choiceLogs, bossLogCount,
+  "persisted boss reruns do not reconstruct choice logs")
 local party, state = bosses.build(brock, {
   version = "red", playerLevels = { 20, 18, 16 },
 }, root, services)

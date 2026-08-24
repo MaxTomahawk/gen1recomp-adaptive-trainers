@@ -3,6 +3,8 @@ return function(deps)
   local bosses = deps.bosses
   local stage_resolver = deps.stage_resolver
   local data = deps.rosters
+  local on_choice = type(deps.on_choice) == "function"
+    and deps.on_choice or function() end
   local M = {}
 
   local MEMBER_ORDER = { "LORELEI", "BRUNO", "AGATHA", "LANCE" }
@@ -109,6 +111,8 @@ return function(deps)
       run.memberSeeds[memberId] = stream:next_u32()
     end
     root.leagueRun = run
+    on_choice("league-bird-pair", "league-run",
+      { root.leagueRunCounter })
     return run, true
   end
 
@@ -241,6 +245,9 @@ return function(deps)
     end
     run.generatedParties[memberId] = instances
     run.memberStrategies[memberId] = strategy
+    local seedParts = { memberId, run.memberSeeds[memberId] }
+    on_choice("league-member-strategy", "league-member", seedParts)
+    on_choice("league-member-party", "league-member", seedParts)
     return materialize(instances), strategy
   end
 

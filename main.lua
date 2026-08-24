@@ -11,6 +11,10 @@ return function(mod)
     return value
   end
 
+  local on_choice
+  if mod.developer == true then
+    on_choice = module("src/core/choice_log.lua")({ log = mod.log })
+  end
   local rng = module("src/core/rng.lua")
   local schema = module("src/core/save_schema.lua")({ rng = rng })
   local identity = module("src/core/identity.lua")
@@ -46,6 +50,7 @@ return function(mod)
     growth = growth,
     roster = roster,
     movesets = movesets,
+    on_choice = on_choice,
   })
   local line_meta = module("src/data/line_meta.lua").build()
   local profiles = module("src/data/trainer_profiles.lua")
@@ -59,18 +64,21 @@ return function(mod)
     rng = rng,
     stage_resolver = stage_resolver,
     rosters = boss_rosters,
+    on_choice = on_choice,
   })
   local league = module("src/core/league_run.lua")({
     rng = rng,
     bosses = bosses,
     stage_resolver = stage_resolver,
     rosters = league_rosters,
+    on_choice = on_choice,
   })
   local rival_windows = module("src/data/rival_windows.lua")
   local rival = module("src/core/rival.lua")({
     rng = rng,
     player_power = player_power,
     windows = rival_windows,
+    on_choice = on_choice,
   })
   local ecology_overrides = module("src/data/ecology_overrides.lua")
   local ai_tiers = module("src/data/ai_tiers.lua")

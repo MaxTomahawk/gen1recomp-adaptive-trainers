@@ -2,6 +2,7 @@ package.path = "./?.lua;./?/init.lua;" .. package.path
 
 local T = require("tests.modkit")
 local Logger = require("src.core.Logger")
+local Runtime = require("src.mods.Runtime")
 local SaveSerializer = require("src.core.SaveSerializer")
 
 local modPath = assert(os.getenv("ADAPTIVE_TRAINERS_PATH"),
@@ -131,6 +132,12 @@ for index, screen in ipairs(pushed) do
   T.eq(screen.projection, nil,
     "screen " .. index .. " retains rows rather than the projection")
 end
+local standardMoveRow = false
+for _, row in ipairs(pushed[1].rows) do
+  if row == "move TACKLE: <unavailable>" then standardMoveRow = true end
+end
+T.check(standardMoveRow,
+  "runtime standard diagnostics retain every selected move score field")
 
 standard.roster[1].species = "MUTATED"
 boss.party[1].level = 100
@@ -174,4 +181,111 @@ T.eq(run.loader.modSave.adaptive_trainers.state, nil,
   "missing state is not initialized by diagnostics")
 
 run.release()
+
+local function species(id, stats, evolutions)
+  return {
+    id = id,
+    types = { id == "RATTATA" and "NORMAL" or "FLYING" },
+    baseStats = stats,
+    evolutions = evolutions or {},
+    learnset = {},
+    tmhm = {},
+    level1Moves = {},
+  }
+end
+
+local function choice_data()
+  local data = T.fixtures.fresh()
+  data.pokemon.PIDGEY = species("PIDGEY",
+    { hp = 40, attack = 45, defense = 40, speed = 56, special = 35 })
+  data.pokemon.SPEAROW = species("SPEAROW",
+    { hp = 40, attack = 60, defense = 30, speed = 70, special = 31 })
+  data.pokemon.RATTATA = species("RATTATA",
+    { hp = 30, attack = 56, defense = 35, speed = 72, special = 25 })
+  data.encounters.FIX_ROUTE = { grass = { rate = 25, slots = {
+    { level = 5, species = "SPEAROW" },
+  } } }
+  data.trainers.OPP_YOUNGSTER = {
+    id = "OPP_YOUNGSTER",
+    index = 2,
+    name = "YOUNGSTER",
+    baseMoney = 15,
+    parties = { { { species = "PIDGEY", level = 8 } } },
+  }
+  data.maps.FIX_ROUTE.objects = {
+    { index = 1, name = "FIX_ROUTE_obj_1",
+      trainerClass = "OPP_YOUNGSTER", trainerParty = 1 },
+  }
+  return data
+end
+
+local function choice_game(data, modData)
+  return {
+    data = data,
+    save = {
+      version = "red",
+      meta = { playthroughId = "debug-choice-log" },
+      player = { map = "FIX_ROUTE", id = 4242, name = "RED",
+        rival = "BLUE" },
+      party = { { species = "RATTATA", level = 14, hp = 0 } },
+      playTime = 1000,
+      modData = modData or { adaptive_trainers = {} },
+    },
+  }
+end
+
+local function engage(game)
+  Runtime.emit("world.trainer_engaged", {
+    npc = { id = "FIX_ROUTE_obj_1", def = { index = 1 } },
+    trainerClass = "OPP_YOUNGSTER",
+    partyIndex = 1,
+  })
+  return Runtime.call("trainer.party", function(_, _, party) return party end,
+    "OPP_YOUNGSTER", 1,
+    game.data.trainers.OPP_YOUNGSTER.parties[1])
+end
+
+local function choices_since(index)
+  local out = {}
+  for position = index + 1, #Logger.history do
+    local line = Logger.history[position]
+    if line:find("[adaptive_trainers] choice=", 1, true) then
+      out[#out + 1] = line
+    end
+  end
+  return out
+end
+
+local choiceStart = #Logger.history
+local choiceRun = T.sdk.loadMod(modPath, { dev = true, data = choice_data() })
+local firstGame = choice_game(choiceRun.data)
+choiceRun.loader.game = firstGame
+choiceRun.loader.modSave = firstGame.save.modData
+Runtime.emit("game.ready", { game = firstGame })
+engage(firstGame)
+local firstChoices = choices_since(choiceStart)
+T.eq(firstChoices[1],
+  '[info] [adaptive_trainers] choice=trainer-roster seed=trainer-init parts=["red|FIX_ROUTE|OPP_YOUNGSTER|1"]',
+  "developer runtime emits exact choice and seed content at materialization")
+local materializedCount = #firstChoices
+T.check(materializedCount >= 1,
+  "developer runtime emits at least the standard roster choice")
+engage(firstGame)
+T.eq(#choices_since(choiceStart), materializedCount,
+  "runtime rerun does not reconstruct persisted choice logs")
+local saved = SaveSerializer.encode(firstGame.save.modData)
+choiceRun.release()
+
+local reloadStart = #Logger.history
+local reloadRun = T.sdk.loadMod(modPath, { dev = true, data = choice_data() })
+local reloadedGame = choice_game(reloadRun.data,
+  assert(SaveSerializer.decode(saved)))
+reloadRun.loader.game = reloadedGame
+reloadRun.loader.modSave = reloadedGame.save.modData
+Runtime.emit("game.ready", { game = reloadedGame })
+engage(reloadedGame)
+T.eq(#choices_since(reloadStart), 0,
+  "serialized reload does not reconstruct persisted choice logs")
+reloadRun.release()
+
 T.finish("adaptive trainers runtime diagnostics")

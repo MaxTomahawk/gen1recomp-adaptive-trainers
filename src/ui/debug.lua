@@ -48,7 +48,14 @@ return function(deps)
     for _, mon in ipairs(report.roster or {}) do
       rows[#rows + 1] = roster_row("roster: ", mon)
     end
-    for _, moveId in ipairs(sorted_keys(report.moveScores)) do
+    local selectedMoves = {}
+    for _, mon in ipairs(report.roster or {}) do
+      for _, moveId in ipairs(mon.moves or {}) do selectedMoves[moveId] = true end
+    end
+    for moveId in pairs(report.moveScores or {}) do
+      if type(moveId) == "string" then selectedMoves[moveId] = true end
+    end
+    for _, moveId in ipairs(sorted_keys(selectedMoves)) do
       rows[#rows + 1] = "move " .. moveId .. ": "
         .. text(report.moveScores[moveId])
     end

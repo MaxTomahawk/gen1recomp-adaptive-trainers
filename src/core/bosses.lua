@@ -2,6 +2,8 @@ return function(deps)
   local rng = deps.rng
   local stage_resolver = deps.stage_resolver
   local roster_data = deps.rosters
+  local on_choice = type(deps.on_choice) == "function"
+    and deps.on_choice or function() end
   local M = {}
 
   local function clamp_level(value)
@@ -242,6 +244,10 @@ return function(deps)
         signatureSpecies)
     end
     state.preparedAttempt = state.attemptCounter
+    local seedParts = { version, identity.id, state.attemptCounter }
+    on_choice("boss-strategy", "boss-attempt", seedParts)
+    on_choice("boss-flex-pool", "boss-attempt", seedParts)
+    on_choice("boss-target-levels", "boss-attempt", seedParts)
     return materialize(state)
   end
 
