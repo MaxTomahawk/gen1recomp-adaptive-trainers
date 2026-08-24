@@ -17,8 +17,8 @@ Implement the complete approved Adaptive Trainer Ecology & Challenge System v1 a
   per-save mod state, migrations, world context, trainer-engagement context,
   screens, battle lifecycle events, damage hooks, and charge decisions. An
   active-independent semantic dataset view and engine-owned field-residual
-  application are still under isolated implementation/review and are not
-  treated as released dependencies.
+  application are now proposed in upstream PRs, but are not treated as merged
+  or released dependencies.
 - The public `trainer.before_battle` continuation and battle-local
   `playerPartyIndices` scope are available on current `dev`. The generic seam
   was merged through upstream PR `bryanthaboi/gen1recomp#1286` as merge commit
@@ -148,20 +148,22 @@ The detailed implementation plan is `docs/superpowers/plans/2026-08-14-adaptive-
 
 ### AT-SP-003 — active-independent semantic dataset view
 
-- State: `IMPLEMENTING_REVIEW`; local RFC 0015 branch, no upstream PR and no
-  released dependency
+- State: `UPSTREAM_PR_OPEN` (`bryanthaboi/gen1recomp#1767`, branch head
+  `68fc01dd1cedcd064debf3264bd95f5d091be467`); not merged/released
 - Required by: Phase G optional Kanto+ content derived from the player's valid
   Gold import while Red, Blue, or Yellow remains active
 - Missing capability: read-only semantic access to another imported version's
   registries and namespaced generated assets without changing active cache/game
   authority or reading raw ROM bytes
-- Current work: generic `mod.datasets` proposal rebased on current `dev`. Its
-  first review rejected executable/unbounded generated-data loading,
-  marker-only cache readiness, incomplete canonical hydration, and combined
-  parity/API evidence. A test-first remediation now uses bounded data-only
-  decoding, per-open cache revalidation, shared canonical R/B/Y/Gold hydration,
-  and separate no-mod/public tests; the complete refactor remains under
-  independent re-review before any push or PR
+- Current work: generic `mod.datasets` proposal rebased on current `dev`. Three
+  independent review/fix rounds replaced executable generated-data loading
+  with a bounded data-only decoder, added per-operation cache revalidation and
+  canonical R/B/Y/Gold hydration, reserved hidden Gen 2 extractor metadata
+  against every active-registry mutation verb, and separated no-mod/public
+  evidence. Expected optional-import absence is silent while stale or malformed
+  data remains actionable. Upstream CI is green (headless, engine/mod lint,
+  fixture, platform selftests and Xbox build), and the PR is clean and
+  mergeable pending maintainer review.
 - Release gate: unresolved; the mod must fail closed to complete Kanto-only
   behavior until a reviewed public seam is merged and available
 
