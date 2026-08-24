@@ -317,5 +317,60 @@ end
 check_persisted_signature(rosters.leaders.MISTY, "CONTROL", "Misty")
 check_persisted_signature(rosters.leaders.BROCK, "STONEWALL", "Brock")
 
+local steelRoot = { seedHi = 912, seedLo = 314, bossAttempts = {} }
+local steelPackages = {}
+local steelMovesets = {
+  generate = function(instance, _, _, _, package)
+    steelPackages[#steelPackages + 1] = package
+    instance.moves = {}
+    for index, moveId in ipairs(package.signatureMoves or {}) do
+      instance.moves[index] = moveId
+    end
+    return instance.moves
+  end,
+  team_context = function() return {} end,
+}
+local steelMoves = { IRON_TAIL = {}, EARTHQUAKE = {}, ROCK_SLIDE = {},
+  SANDSTORM = {}, REFLECT = {}, BIDE = {}, SCREECH = {}, SUNNY_DAY = {},
+  THUNDERBOLT = {}, FLY = {}, FIRE_BLAST = {} }
+
+pokemon.STEELIX = nil
+local unavailableSteelixParty = bosses.build(brock, {
+  version = "red", playerLevels = { 20, 18 },
+}, { seedHi = 912, seedLo = 314, bossAttempts = {} }, {
+  meta = meta, pokemon = pokemon, moves = steelMoves,
+  movesets = steelMovesets, kantoPlus = true,
+})
+eq(unavailableSteelixParty[1].species, "ONIX",
+  "Kanto+ Brock fails closed to Onix when Steelix is unavailable")
+local fallbackSignature = {}
+for _, moveId in ipairs(steelPackages[1].signatureMoves or {}) do
+  fallbackSignature[moveId] = true
+end
+check(fallbackSignature.ROCK_SLIDE and fallbackSignature.EARTHQUAKE
+    and fallbackSignature.SCREECH and fallbackSignature.BIDE,
+  "failed-closed Brock retains the complete Onix move baseline")
+check(not fallbackSignature.IRON_TAIL and not fallbackSignature.SANDSTORM,
+  "failed-closed Onix receives no Steelix-only baseline moves")
+
+pokemon.STEELIX = { types = { "STEEL", "GROUND" },
+  level1Moves = {}, learnset = {}, tmhm = {} }
+steelPackages = {}
+local steelParty, steelState = bosses.build(brock, {
+  version = "red", playerLevels = { 20, 18 },
+}, steelRoot, { meta = meta, pokemon = pokemon, moves = steelMoves,
+  movesets = steelMovesets, kantoPlus = true })
+eq(steelState.party[1].lineId, "ONIX_LINE",
+  "Kanto+ Brock preserves Onix line identity")
+eq(steelParty[1].species, "STEELIX",
+  "Kanto+ Brock promotes his signature to Steelix")
+local steelSignature = {}
+for _, moveId in ipairs(steelPackages[1].signatureMoves or {}) do
+  steelSignature[moveId] = true
+end
+check(steelSignature.IRON_TAIL and steelSignature.EARTHQUAKE
+    and steelSignature.ROCK_SLIDE and steelSignature.SANDSTORM,
+  "Kanto+ Steelix receives its four normative signature moves")
+
 if failures > 0 then error(failures .. " boss assertion(s) failed", 0) end
 print(("bosses: %d/%d checks passed"):format(checks, checks))

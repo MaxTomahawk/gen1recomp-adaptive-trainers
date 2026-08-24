@@ -75,6 +75,53 @@ return function(mod)
   local ecology_overrides = module("src/data/ecology_overrides.lua")
   local ai_tiers = module("src/data/ai_tiers.lua")
   local ai = module("src/core/ai.lua")(ai_tiers)
+  local kanto_plus = module("src/data/kanto_plus.lua")
+  local weather = module("src/core/weather.lua")
+
+  local phaseG = {
+    enabled = false,
+    reason = "dataset_api_unavailable",
+    datasetReason = "dataset_api_unavailable",
+  }
+  local gold
+  if type(mod.datasets) == "table"
+      and type(mod.datasets.open) == "function" then
+    local opened, view, reason = pcall(mod.datasets.open, mod.datasets, "gold")
+    if opened then
+      gold = view
+      if view then
+        phaseG.reason = "incomplete_gold"
+        phaseG.datasetReason = "incomplete_gold"
+      else
+        phaseG.reason = reason or "gold_unavailable"
+        phaseG.datasetReason = phaseG.reason
+      end
+    else
+      phaseG.datasetReason = "dataset_error"
+      phaseG.reason = "dataset_error"
+    end
+  end
+  if type(gold) == "table" and type(gold.content) == "table"
+      and type(gold.assets) == "table" then
+    local detected, capabilities = pcall(kanto_plus.detect, {
+      pokemon = gold.content.pokemon,
+      moves = gold.content.moves,
+      type_chart = gold.content.type_chart,
+      assetPath = function(path) return gold.assets:path(path) end,
+      assetInfo = function(path) return gold.assets:info(path) end,
+    })
+    if detected and type(capabilities) == "table"
+        and capabilities.available == true then
+      weather.install(mod, { solarBeam = true, sandResidual = true })
+      kanto_plus.apply(mod, capabilities)
+      phaseG.enabled = true
+      phaseG.reason = "enabled"
+      phaseG.datasetReason = nil
+    elseif not detected then
+      phaseG.reason = "invalid_gold"
+      phaseG.datasetReason = "invalid_cache"
+    end
+  end
   mod.content.screens:register("AdaptiveGymRegistration", {
     new = gym_registration.new,
   })
@@ -109,6 +156,11 @@ return function(mod)
     local root, schemaError = schema.ensure(mod.save:get("state"),
       save_identity(save))
     assert(root, schemaError)
+    local live = game or mod.game
+    local data = live and live.data
+    local pokemon = data and data.pokemon or mod.content.pokemon
+    local moves = data and data.moves or mod.content.moves
+    kanto_plus.reconcile_root(root, pokemon, moves, phaseG.enabled)
     mod.save:set("state", root)
     return root
   end
@@ -477,6 +529,7 @@ return function(mod)
         moves = data.moves,
         movesets = movesets,
         rosters = boss_rosters,
+        kantoPlus = phaseG.enabled,
       })
       registeredBoss.strategyId = bossState.strategyId
       registeredBoss.attemptCounter = bossState.attemptCounter
@@ -771,6 +824,14 @@ return function(mod)
   end)
 
   mod.exports.status = function()
-    return { phase = "F", schema = schema.VERSION }
+    return {
+      phase = "G",
+      schema = schema.VERSION,
+      kantoPlus = phaseG.enabled,
+      sandResidual = phaseG.enabled,
+      solarBeamSkip = phaseG.enabled,
+      reason = phaseG.reason,
+      datasetReason = phaseG.datasetReason,
+    }
   end
 end

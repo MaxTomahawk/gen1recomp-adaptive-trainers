@@ -106,7 +106,7 @@ return function(deps)
   end
 
   local function attempt_strategy(identity, source, version, stream, rosters,
-      moveDefs)
+      moveDefs, kantoPlus)
     local out = {}
     for key, value in pairs(source) do out[key] = value end
     out.techniques = copy_array(source.techniques)
@@ -118,7 +118,7 @@ return function(deps)
     out.signatureMoves = {}
     local selected = {}
     for _, alternatives in ipairs(
-        rosters.signature_move_groups(identity, version)) do
+        rosters.signature_move_groups(identity, version, kantoPlus)) do
       local moveId = available_choice(alternatives, moveDefs, stream)
       if moveId and not selected[moveId] then
         out.signatureMoves[#out.signatureMoves + 1] = moveId
@@ -146,8 +146,8 @@ return function(deps)
   end
 
   local function new_instance(identity, lineId, level, index, stream,
-      services, rosters, strategy, team, version)
-    local species = index == 1 and rosters.signature_species(identity, version)
+      services, rosters, strategy, team, version, signatureSpecies)
+    local species = index == 1 and signatureSpecies
       or resolve_line(rosters, services.meta, lineId, level, services.pokemon)
     assert(species, ("boss line %s has no legal stage at level %d")
       :format(tostring(lineId), level))
@@ -191,11 +191,18 @@ return function(deps)
       references)
     local stream = rng.stream({ hi = root.seedHi or 0, lo = root.seedLo or 0 },
       "boss-attempt", version, identity.id, state.attemptCounter)
+    local kantoPlus = services.kantoPlus == true
+    local signatureSpecies = rosters.signature_species(identity, version,
+      kantoPlus)
+    if not services.pokemon[signatureSpecies] then
+      kantoPlus = false
+      signatureSpecies = rosters.signature_species(identity, version, false)
+    end
     local strategyId = identity.strategyOrder[
       stream:integer(1, #identity.strategyOrder)]
     local strategy = attempt_strategy(identity,
       assert(identity.strategyPackages[strategyId]), version, stream, rosters,
-      services.moves or {})
+      services.moves or {}, kantoPlus)
     local lines = { rosters.signature_line(identity, version) }
     local flex, selected = {}, {}
     local preferred = shuffled(strategy.preferredLines or {}, stream)
@@ -231,7 +238,8 @@ return function(deps)
     state.party = {}
     for index, lineId in ipairs(lines) do
       state.party[index] = new_instance(identity, lineId, targets[index],
-        index, stream, services, rosters, strategy, state.party, version)
+        index, stream, services, rosters, strategy, state.party, version,
+        signatureSpecies)
     end
     state.preparedAttempt = state.attemptCounter
     return materialize(state)
