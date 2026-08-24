@@ -4,8 +4,6 @@ set -euo pipefail
 REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
 ENGINE_ROOT=${GEN1RECOMP_ROOT:-"$REPO_ROOT/.engine/gen1recomp"}
 
-GEN1RECOMP_ROOT="$ENGINE_ROOT" "$REPO_ROOT/scripts/check.sh"
-
 VERSION=$(sed -n 's/^[[:space:]]*"version":[[:space:]]*"\([^"]*\)".*/\1/p' \
   "$REPO_ROOT/manifest.json")
 if [[ -z "$VERSION" ]]; then
@@ -19,29 +17,33 @@ if [[ -z "${SOURCE_DATE_EPOCH:-}" ]]; then
 fi
 
 OUTPUT="$REPO_ROOT/dist/adaptive_trainers-$VERSION.modpkg"
-STAGE_PARENT=$(mktemp -d /tmp/adaptive-trainers-package.XXXXXX)
+DIST_PARENT="$REPO_ROOT/dist"
+rm -f -- "$OUTPUT"
+mkdir -p "$DIST_PARENT"
+
+GEN1RECOMP_ROOT="$ENGINE_ROOT" "$REPO_ROOT/scripts/check.sh"
+
+STAGE_PARENT=$(mktemp -d "$DIST_PARENT/.adaptive-trainers-package.XXXXXX")
+PUBLISHED=0
 cleanup() {
-  if [[ "$STAGE_PARENT" == /tmp/adaptive-trainers-package.* ]]; then
+  local status=$?
+  if [[ "$status" -ne 0 && "$PUBLISHED" -ne 1 ]]; then
+    rm -f -- "$OUTPUT" || true
+  fi
+  if [[ "$STAGE_PARENT" == "$DIST_PARENT"/.adaptive-trainers-package.* ]]; then
     rm -rf -- "$STAGE_PARENT"
   fi
+  return "$status"
 }
 trap cleanup EXIT
 
-PACK_ROOT="$STAGE_PARENT/adaptive_trainers"
-mkdir -p "$PACK_ROOT"
-for file in manifest.json mod.card main.lua README.md CHANGELOG.md .luarc.json; do
-  cp "$REPO_ROOT/$file" "$PACK_ROOT/$file"
-done
-cp -R "$REPO_ROOT/src" "$PACK_ROOT/src"
-if [[ -d "$REPO_ROOT/assets" ]]; then
-  cp -R "$REPO_ROOT/assets" "$PACK_ROOT/assets"
-fi
-
 STAGED_OUTPUT="$STAGE_PARENT/adaptive_trainers-$VERSION.modpkg"
-python3 "$ENGINE_ROOT/tools/modkit.py" --repo "$ENGINE_ROOT" \
-  pack "$PACK_ROOT" --base fixture --output "$STAGED_OUTPUT"
+GEN1RECOMP_ROOT="$ENGINE_ROOT" SOURCE_DATE_EPOCH="$SOURCE_DATE_EPOCH" \
+  "$REPO_ROOT/scripts/package_once.sh" "$STAGED_OUTPUT"
 
-mkdir -p "$REPO_ROOT/dist"
+GEN1RECOMP_ROOT="$ENGINE_ROOT" SOURCE_DATE_EPOCH="$SOURCE_DATE_EPOCH" \
+  PACKAGE_PATH="$STAGED_OUTPUT" bash "$REPO_ROOT/tests/tooling/package_layout_spec.sh"
+
 mv -f "$STAGED_OUTPUT" "$OUTPUT"
-
+PUBLISHED=1
 echo "$OUTPUT"

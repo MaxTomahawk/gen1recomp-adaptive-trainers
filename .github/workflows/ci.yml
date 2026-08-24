@@ -31,6 +31,16 @@ jobs:
       - name: Verify command diagnostics
         run: bash tests/tooling/check_script_spec.sh
 
+      - name: Verify pack helper rejects overwrite targets
+        env:
+          GEN1RECOMP_ROOT: ${{ github.workspace }}/.engine/gen1recomp
+        run: bash tests/tooling/package_helper_spec.sh
+
+      - name: Verify failed package gate is fail-closed
+        env:
+          GEN1RECOMP_ROOT: ${{ github.workspace }}/.engine/gen1recomp
+        run: bash tests/tooling/package_failure_spec.sh
+
       - name: Test, validate, and lint
         env:
           GEN1RECOMP_ROOT: ${{ github.workspace }}/.engine/gen1recomp
@@ -41,12 +51,6 @@ jobs:
           GEN1RECOMP_ROOT: ${{ github.workspace }}/.engine/gen1recomp
           SOURCE_DATE_EPOCH: "0"
         run: bash scripts/package.sh
-
-      - name: Verify package layout and reproducibility
-        env:
-          GEN1RECOMP_ROOT: ${{ github.workspace }}/.engine/gen1recomp
-          SOURCE_DATE_EPOCH: "0"
-        run: bash tests/tooling/package_layout_spec.sh
 
       - name: Upload package
         uses: actions/upload-artifact@v7

@@ -21,4 +21,24 @@ if [[ "$OUTPUT" != *"$EXPECTED"* ]]; then
   exit 1
 fi
 
+if ! grep -Fq 'tests/tooling/package_layout_spec.sh' "$REPO_ROOT/scripts/package.sh"; then
+  echo "package.sh must invoke the package layout/reproducibility gate" >&2
+  exit 1
+fi
+
+if ! grep -Fq 'PACKAGE_PATH=' "$REPO_ROOT/scripts/package.sh"; then
+  echo "package.sh must pass the fresh package path to the layout gate" >&2
+  exit 1
+fi
+
+if grep -Fq 'scripts/package.sh' "$REPO_ROOT/tests/tooling/package_layout_spec.sh"; then
+  echo "package layout gate must use the non-recursive pack helper" >&2
+  exit 1
+fi
+
+if grep -Fq 'dist/adaptive_trainers-' "$REPO_ROOT/tests/tooling/package_layout_spec.sh"; then
+  echo "package layout gate must not infer a stale dist artifact" >&2
+  exit 1
+fi
+
 echo "check script contract passed"
