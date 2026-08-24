@@ -1,6 +1,6 @@
 # Implementation status
 
-Updated: 2026-08-21
+Updated: 2026-08-24
 
 ## Objective
 
@@ -8,11 +8,17 @@ Implement the complete approved Adaptive Trainer Ecology & Challenge System v1 a
 
 ## Verified baseline
 
-- Upstream: `bryanthaboi/gen1recomp` `dev` at `c11c762f15ce3f62335f60049ef35db379b75772` (2026-08-21).
+- Upstream: `bryanthaboi/gen1recomp` `dev` at
+  `e88f2ef060cb8bd1d45d53a6aaa46f997f308791` (verified 2026-08-24).
 - Specification snapshot: `26e9e1d597060216168a03e49f138101726a8f3b`; upstream changes since that snapshot do not replace the trainer-party or Gym eligibility assumptions.
 - Toolchain available: Git, authenticated GitHub CLI, LuaJIT, LÖVE, Python 3, upstream `tools/modkit.py`, and GitHub Actions.
 - Intended mod id `adaptive_trainers` is valid under the current manifest rules.
-- Current public seams cover trainer party replacement, registry reads, per-save mod state, migrations, world context, trainer-engagement context, screens, battle lifecycle events, and weather hooks.
+- Current public seams cover trainer party replacement, registry reads,
+  per-save mod state, migrations, world context, trainer-engagement context,
+  screens, battle lifecycle events, damage hooks, and charge decisions. An
+  active-independent semantic dataset view and engine-owned field-residual
+  application are still under isolated implementation/review and are not
+  treated as released dependencies.
 - The public `trainer.before_battle` continuation and battle-local
   `playerPartyIndices` scope are available on current `dev`. The generic seam
   was merged through upstream PR `bryanthaboi/gen1recomp#1286` as merge commit
@@ -32,8 +38,8 @@ Implement the complete approved Adaptive Trainer Ecology & Challenge System v1 a
 
 ## Current execution
 
-Phases A-E are merged after green CI and clean independent reviews. Phase F is
-implemented on its feature branch: one persistent Rival collection advances
+Phases A-F are merged after green CI and clean independent reviews. Phase F
+implements one persistent Rival collection that advances
 through all eight canon encounters, uses deterministic variable route-window
 budgets, trains/evolves every owned line through runtime metadata, persists T3
 moves and attachment, and rotates teams without player species/move input.
@@ -122,6 +128,51 @@ The detailed implementation plan is `docs/superpowers/plans/2026-08-14-adaptive-
   24/24; independent review reports no findings
 - Release gate: cleared on current upstream `dev`; stable publication still
   waits for the complete mod Definition of Done, not for another engine change
+
+### AT-SP-002 — charge-stage decision
+
+- State: `MERGED_AVAILABLE` (`bryanthaboi/gen1recomp#1645`, merge commit
+  `a1a70540b84f58c16c1b7410a23b517a2b65dd1a`)
+- Required by: Phase G Sunny Day making SolarBeam skip its charge turn without
+  replacing the engine move pipeline
+- Missing capability: a public ruleset decision at an existing move's initial
+  charge boundary
+- Existing APIs considered: move effects, `battle.damage`, registered moves,
+  and battle lifecycle events; none runs before private charge state is created
+- Implemented delta: generic guarded shared `battle.charge_required` hook for
+  Gen 1 and Gen 2, with engine-owned PP, accuracy, animation, damage, and effect
+  semantics preserved
+- Verification: focused public/no-mod coverage, Gen 1/Gen 2 compatibility gates,
+  full engine/modkit suites, independent clean review, and upstream CI green
+- Release gate: cleared on current upstream `dev`
+
+### AT-SP-003 — active-independent semantic dataset view
+
+- State: `IMPLEMENTING_REVIEW`; no upstream PR and no released dependency
+- Required by: Phase G optional Kanto+ content derived from the player's valid
+  Gold import while Red, Blue, or Yellow remains active
+- Missing capability: read-only semantic access to another imported version's
+  registries and namespaced generated assets without changing active cache/game
+  authority or reading raw ROM bytes
+- Current work: generic `mod.datasets` proposal in an isolated engine worktree;
+  it must be rebased on current `dev`, independently reviewed, renumbered to an
+  unoccupied RFC, linted, and submitted under current Route B rules
+- Release gate: unresolved; the mod must fail closed to complete Kanto-only
+  behavior until a reviewed public seam is merged and available
+
+### AT-SP-004 — engine-owned field residual application
+
+- State: `IMPLEMENTING_REVIEW`; no upstream PR and no released dependency
+- Required by: Phase G Gen 2-style Sandstorm residual damage after vanilla
+  status residuals and before weather expiry
+- Missing capability: a public data-only residual request that preserves the
+  engine's HP, faint, result, experience, and replacement authority
+- Current work: generic guarded `battle.field_residual` proposal in an isolated
+  engine worktree. Independent review found live-authority leakage and
+  descriptor-order-dependent simultaneous-faint outcomes; both are blocking
+  defects being corrected test-first before submission
+- Release gate: unresolved; incomplete Sandstorm mechanics may not activate in
+  the distributed mod
 
 ### Trainer identity context
 
