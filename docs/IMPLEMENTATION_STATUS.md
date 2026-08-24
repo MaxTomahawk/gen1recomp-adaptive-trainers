@@ -126,13 +126,20 @@ Current evidence:
   and Moltres 2,454, within the normative 50/25/25 tolerances.
 - `modkit validate --base fixture`: green.
 - `modkit lint`: green, no ROM-derived content detected.
+- The normal `scripts/package.sh` release workflow now makes the layout and
+  reproducibility check mandatory: it validates the freshly created archive,
+  builds exactly one temporary second archive through a non-recursive helper,
+  compares SHA-256 hashes, and rejects repository-only paths before publishing
+  the accepted archive. The first archive stays staged until that gate passes;
+  a failed build removes any stale public artifact, and the gate does not
+  consume a pre-existing `dist/` package.
 - Phase H runtime double-pack: byte-identical and layout-clean at
   `SOURCE_DATE_EPOCH=0`; 38 distributable files plus `.modkit/pack.json`,
   including the detached diagnostics modules and developer-only choice logger,
   SHA-256
-  `2c734c0e25b4b6b98633cb4fb4d48151332dda2ab1915967da4aadf13304d564`.
-  This verifies the local combined-seam package only; stable release remains
-  gated on the public developer signal reaching the released engine.
+  `09a8e6cc94ff9a21f6a64cb7dfd81f9f68df54127dc595eeab95be5143bdee6d`.
+  Stable release remains gated on the required public seams reaching a released
+  engine.
 - Last Phase-E reproducible double-pack check: green; 31 distributable files plus
   `.modkit/pack.json`, with no recursive `dist/`, tests, scripts, docs, or DOCX.
 - Last merged Phase-E source-date-zero package SHA-256:

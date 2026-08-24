@@ -18,7 +18,8 @@ the engine into the distributed mod. The stable project commands are:
   unit/property/integration suite, then current `modkit validate` and
   `modkit lint`.
 - `GEN1RECOMP_ROOT=/path/to/gen1recomp SOURCE_DATE_EPOCH=0 ./scripts/package.sh`
-  — repeat the gates and build the reproducible ROM-free package under `dist/`.
+  — repeat the gates, build the reproducible ROM-free package under `dist/`,
+  and enforce its archive-layout and byte-reproducibility checks.
 - `git diff --check` and `git status --short` — verify patch hygiene and scope
   before committing.
 
