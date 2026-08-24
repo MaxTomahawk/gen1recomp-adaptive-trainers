@@ -58,11 +58,13 @@ post-game home loads so the next entry cannot inherit or reroll the prior run.
 
 Current evidence:
 
-- Phase H A-F acceptance: 470/470 direct and aggregate checks passed against
+- Phase H A-F acceptance: 472/472 direct and aggregate checks passed against
   the audited upstream `dev` baseline, including an instrumented proof that
-  filesystem spying is active before SDK discovery, load and pre-generation
-  perform zero filesystem/`mod.storage` writes, and initialization changes only
-  the mod's `mod.save` namespace. A 64-seed boss-core loss variation simulation
+  filesystem spying is active before SDK discovery, detects public
+  `mod.storage` and legacy-overlay writes, excludes engine-owned loader
+  bookkeeping, and proves load/pre-generation perform neither mod persistence
+  write while initialization changes only the mod's `mod.save` namespace. A
+  64-seed boss-core loss variation simulation
   is also green; the genuine public loss lifecycle is
   covered separately by the Gym runtime suite. Diagnostic projection and exact
   `POKEPORT_DEV=1` adapter suites add 162/162 focused checks, including hostile

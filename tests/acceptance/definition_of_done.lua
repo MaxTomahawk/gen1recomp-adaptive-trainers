@@ -44,8 +44,20 @@ end
 local function spying_mod_fs(path)
   local inner = FsIo.new(".")
   local alias = basename(path)
-  local counts = { observations = 0, writes = 0 }
+  local counts = {
+    observations = 0,
+    writes = 0,
+    modWrites = 0,
+    writePaths = {},
+  }
   local fs = { root = inner.root }
+  local function under(candidate, root)
+    return candidate == root
+      or candidate:sub(1, #root + 1) == root .. "/"
+  end
+  local function is_mod_persistence(candidate)
+    return under(candidate, "mod_storage") or under(candidate, "mod_compat")
+  end
   local function map(candidate)
     local prefix = "mods/" .. alias
     if candidate == prefix then return path end
@@ -60,7 +72,13 @@ local function spying_mod_fs(path)
   end
   function fs.write(candidate, body)
     counts.writes = counts.writes + 1
-    if candidate == "__adaptive_trainers_spy_probe__" then return true end
+    counts.writePaths[#counts.writePaths + 1] = candidate
+    if is_mod_persistence(candidate) then
+      counts.modWrites = counts.modWrites + 1
+    end
+    if candidate:find("__adaptive_trainers_spy_probe__", 1, true) then
+      return true
+    end
     return inner.write(map(candidate), body)
   end
   function fs.load(candidate)
@@ -87,12 +105,21 @@ local spyingFs, fsCounts = spying_mod_fs(modPath)
 spyingFs.write("__adaptive_trainers_spy_probe__", "probe")
 eq(fsCounts.writes, 1,
   "filesystem spy detects a controlled write before SDK load")
+eq(fsCounts.modWrites, 0,
+  "generic engine bookkeeping is not attributed to the mod")
+spyingFs.write("mod_storage/__adaptive_trainers_spy_probe__", "probe")
+spyingFs.write("mod_compat/__adaptive_trainers_spy_probe__", "probe")
+eq(fsCounts.modWrites, 2,
+  "filesystem spy detects public storage and legacy-overlay writes")
 fsCounts.writes = 0
+fsCounts.modWrites = 0
+fsCounts.writePaths = {}
 local run = T.sdk.loadMod(modPath, { data = data, fs = spyingFs })
 check(fsCounts.observations > 0,
   "filesystem spy is installed before SDK discovery and mod load")
-eq(fsCounts.writes, 0,
-  "mod load performs no filesystem or mod.storage writes")
+eq(fsCounts.modWrites, 0,
+  "mod load performs no mod.storage or legacy-overlay writes; observed: "
+    .. table.concat(fsCounts.writePaths, ", "))
 local save = {
   version = "red",
   meta = { playthroughId = "phase-h-no-generation" },
@@ -124,8 +151,8 @@ eq(next(save.modData.adaptive_trainers.state.trainers), nil,
   "an unmapped class cannot generate standard-trainer state")
 check(same(returned, vanilla),
   "an unmapped class remains byte-equivalent to its vanilla party")
-eq(fsCounts.writes, 0,
-  "pre-generation initialization performs no mod.storage/filesystem writes")
+eq(fsCounts.modWrites, 0,
+  "pre-generation initialization performs no mod.storage/legacy-overlay writes")
 run.release()
 
 -- Chapter 29 boss-core variation: recording a prepared loss advances exactly
