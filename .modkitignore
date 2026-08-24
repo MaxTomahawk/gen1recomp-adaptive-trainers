@@ -37,3 +37,8 @@ tests/unit/rival_spec.lua
 tests/property/rival_fairness.lua
 tests/property/rival_fairness_spec.lua
 tests/integration/rival_version_paths_spec.lua
+tests/integration/kanto_fallback_spec.lua
+tests/integration/phase_g_combined_engine_spec.lua
+tests/integration/phase_g_runtime_spec.lua
+tests/unit/kanto_plus_spec.lua
+tests/unit/weather_spec.lua

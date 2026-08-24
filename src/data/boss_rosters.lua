@@ -121,6 +121,11 @@ leader("BROCK", "ROCK", "ONIX_LINE",
     ANTI_GRASS = { preferredLines = { "AERODACTYL_LINE" },
       flexTechniques = { "FLY", "ROCK_SLIDE", "FIRE_BLAST" } },
   })
+M.leaders.BROCK.kantoPlusSignatureSpecies = "STEELIX"
+M.leaders.BROCK.kantoPlusSignatureMoveGroups = {
+  { "IRON_TAIL" }, { "EARTHQUAKE" }, { "ROCK_SLIDE" },
+  { "SANDSTORM" },
+}
 
 leader("MISTY", "WATER", "STARMIE_LINE",
   { red = "STARMIE", blue = "STARMIE", yellow = "STARMIE" },
@@ -279,12 +284,18 @@ function M.signature_line(identity, version)
   return identity.signatureLine
 end
 
-function M.signature_species(identity, version)
+function M.signature_species(identity, version, kantoPlus)
+  if kantoPlus == true and identity.kantoPlusSignatureSpecies then
+    return identity.kantoPlusSignatureSpecies
+  end
   local byVersion = identity.signatureSpeciesByVersion or {}
   return assert(byVersion[version], "missing version-specific boss signature species")
 end
 
-function M.signature_move_groups(identity, version)
+function M.signature_move_groups(identity, version, kantoPlus)
+  if kantoPlus == true and identity.kantoPlusSignatureMoveGroups then
+    return identity.kantoPlusSignatureMoveGroups
+  end
   if type(identity.signatureMoveGroups) == "table"
       and identity.signatureMoveGroups.red then
     return assert(identity.signatureMoveGroups[version],

@@ -26,8 +26,21 @@ T.check(type(run.data.screens.AdaptiveGymRegistration) == "table"
     and type(run.data.screens.AdaptiveGymRegistration.new) == "function",
   "the Gym registration screen is installed through the public registry")
 if exports and exports.status then
-  T.same(exports.status(), { phase = "F", schema = 1 },
-    "the status boundary reports the implemented save contract")
+  local status = exports.status()
+  local expectedReason = run.loader.datasetViews ~= nil
+    and "not_imported" or "dataset_api_unavailable"
+  T.eq(status.phase, "G", "the status boundary reports the implemented phase")
+  T.eq(status.schema, 1, "the status boundary reports the current save schema")
+  T.eq(status.kantoPlus, false,
+    "the normal fixture cannot enable the optional Gold sidecar")
+  T.eq(status.sandResidual, false,
+    "the normal fixture cannot install the optional residual hook")
+  T.eq(status.solarBeamSkip, false,
+    "the normal fixture cannot install the optional charge hook")
+  T.eq(status.reason, expectedReason,
+    "an unimported Gold cache reports the exact live dataset boundary")
+  T.eq(status.datasetReason, expectedReason,
+    "the dataset diagnostic reports the exact live dataset boundary")
 end
 
 run.release()
