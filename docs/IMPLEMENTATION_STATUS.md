@@ -35,9 +35,9 @@ Implement the complete approved Adaptive Trainer Ecology & Challenge System v1 a
 - [x] Phase F — persistent Rival journey, R/B/Y windows, Yellow Eevee outcomes
 - [x] Phase G — optional Kanto+ sidecar, Steel, weather, minimal added moves
   (PR #13 merged green at `8866e2d`)
-- [ ] Phase H — A-F diagnostics projections, acceptance aggregation, and
-  balancing evidence implemented locally; runtime dev-surface, released-engine
-  parity/package gates, release, and index submission open
+- [ ] Phase H — A-F diagnostics projections, acceptance aggregation, balancing
+  evidence, and the exact-gated runtime dev surface are implemented locally;
+  released-engine parity, release, and index submission remain open
 
 ## Current execution
 
@@ -79,10 +79,20 @@ Current evidence:
   `POKEPORT_DEV=1` adapter suites add 162/162 focused checks, including hostile
   value/cycle/metatable rejection, deep-detachment, every declared A-F choice
   label, and stable seed ordering. The public
-  runtime boundary adds 3/3 checks proving no ungated command/export or legacy
-  environment shim. This is not final Phase H release evidence: public runtime
-  dev activation, complete
-  upstream no-mod parity, and final packaging remain open.
+  runtime boundary now adds 82/82 checks against the combined public-seam
+  engine: exact boolean-only activation, all four command scopes, invalid and
+  missing/surplus targets, detached stable screens, lossless wrapped drawing,
+  scrolling/close, byte-identical read-only save/runtime/registry inputs,
+  current ceiling/catch/ecology/move-score and boss admission evidence,
+  production absence, exact seed-log text, and no reconstructed log on rerun
+  or serialized reload. Generator-level and real runtime suites pin
+  materialization ordering and seed parts for standard roster/catch/no-catch/
+  growth/moves,
+  boss strategy/flex/levels, League Bird/member strategy/party, and Rival
+  starter/window/acquisition/party choices. The pending public API and API-v1
+  no-mod parity suites are green at 23/23 and 12/12. This is not final Phase H
+  release evidence: the released engine still lacks the public developer
+  signal until upstream PR #1769 lands.
 
 - Public SDK loader: 7/7 checks passed.
 - Phase A public runtime: 327/327 checks passed across Red, Blue, and Yellow,
@@ -93,16 +103,16 @@ Current evidence:
   freezing, and Blue/Yellow badge-path coverage.
 - Phase C public runtime: 35/35 persistent-move, evolution-refresh, merged-AI,
   tactical-switch, and serialized-reload checks.
-- Phase D public runtime: 679/679 all-Leader Red/Blue/Yellow generation,
+- Phase D public runtime: 697/697 all-Leader Red/Blue/Yellow generation,
   registration, scoped-AI, persistence and result checks; public seam lifecycle
   47/47; standalone registration UI 33/33.
-- Phase E public runtime: 144/144 Red/Blue/Yellow entry, member generation,
+- Phase E public runtime: 147/147 Red/Blue/Yellow entry, member generation,
   Hall-of-Fame autosave/post-game recovery,
   save/reload, checkpoint, T4 AI, internal-transition and blackout/re-entry
-  checks; League core 167/167.
-- Phase F public runtime: 323/323 exact R/B/Y scripted-context, persistent
+  checks; League core 176/176.
+- Phase F public runtime: 326/326 exact R/B/Y scripted-context, persistent
   journey, legal T3 move/AI, checkpoint, result-isolation and Yellow outcome
-  checks; Rival core 172/172, including every exact canonical R/B starter and
+  checks; Rival core 182/182, including every exact canonical R/B starter and
   Yellow Eevee path row.
 - Phase G public runtime: 74/74 checks; combined public-engine acceptance:
   26/26; Kanto-only fallback/root reconciliation: 163/163; Kanto+ unit/property
@@ -123,12 +133,13 @@ Current evidence:
   the accepted archive. The first archive stays staged until that gate passes;
   a failed build removes any stale public artifact, and the gate does not
   consume a pre-existing `dist/` package.
-- Phase H A-F development double-pack: byte-identical and layout-clean at
-  `SOURCE_DATE_EPOCH=0`; 36 archive entries, including the detached diagnostics
-  modules, SHA-256
-  `3cb3989da599f4f005cedf8c37be3296ef855ae5b4448271ea0c37e3d7471b75`.
-  This is a pre-Phase-G development artifact only; final combined packaging and
-  release gates remain.
+- Phase H runtime double-pack: byte-identical and layout-clean at
+  `SOURCE_DATE_EPOCH=0`; 38 distributable files plus `.modkit/pack.json`,
+  including the detached diagnostics modules and developer-only choice logger,
+  SHA-256
+  `09a8e6cc94ff9a21f6a64cb7dfd81f9f68df54127dc595eeab95be5143bdee6d`.
+  Stable release remains gated on the required public seams reaching a released
+  engine.
 - Last Phase-E reproducible double-pack check: green; 31 distributable files plus
   `.modkit/pack.json`, with no recursive `dist/`, tests, scripts, docs, or DOCX.
 - Last merged Phase-E source-date-zero package SHA-256:
@@ -255,8 +266,11 @@ the collision case without private imports or a new engine seam.
   no-mod/API-v1 parity, Gen 1/Gen 2 documentation, RFC 0017, full ROM-free
   regression and lint evidence. Upstream CI is green; maintainer review is
   pending.
-- Current safe boundary: package the pure detached diagnostics and exact-gated
-  adapter, prove production has no ungated command/export, report projections
-  rather than claiming runtime events, and leave runtime activation disconnected
-- Release gate: unresolved; runtime registration stays disconnected until the
-  generic public signal is merged and available
+- Current safe boundary: the exact `mod.developer == true` runtime command,
+  screen, and materialization-site info logging are implemented and verified
+  against the combined public-seam engine. False, nil, and non-boolean values
+  remain inert; no export, `mod.storage`, environment shim, or private import is
+  used. Do not publish this build against a released engine that lacks the
+  public signal
+- Release gate: unresolved; keep stable publication blocked until the generic
+  public signal is merged and available in the released engine

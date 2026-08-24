@@ -11,6 +11,10 @@ return function(mod)
     return value
   end
 
+  local on_choice
+  if mod.developer == true then
+    on_choice = module("src/core/choice_log.lua")({ log = mod.log })
+  end
   local rng = module("src/core/rng.lua")
   local schema = module("src/core/save_schema.lua")({ rng = rng })
   local identity = module("src/core/identity.lua")
@@ -31,6 +35,7 @@ return function(mod)
     player_power = player_power,
     stage_resolver = stage_resolver,
     movesets = movesets,
+    on_choice = on_choice,
   })
   local roster = module("src/core/roster.lua")({
     rng = rng,
@@ -46,6 +51,7 @@ return function(mod)
     growth = growth,
     roster = roster,
     movesets = movesets,
+    on_choice = on_choice,
   })
   local line_meta = module("src/data/line_meta.lua").build()
   local profiles = module("src/data/trainer_profiles.lua")
@@ -59,24 +65,121 @@ return function(mod)
     rng = rng,
     stage_resolver = stage_resolver,
     rosters = boss_rosters,
+    on_choice = on_choice,
   })
   local league = module("src/core/league_run.lua")({
     rng = rng,
     bosses = bosses,
     stage_resolver = stage_resolver,
     rosters = league_rosters,
+    on_choice = on_choice,
   })
   local rival_windows = module("src/data/rival_windows.lua")
   local rival = module("src/core/rival.lua")({
     rng = rng,
     player_power = player_power,
     windows = rival_windows,
+    on_choice = on_choice,
   })
   local ecology_overrides = module("src/data/ecology_overrides.lua")
   local ai_tiers = module("src/data/ai_tiers.lua")
   local ai = module("src/core/ai.lua")(ai_tiers)
   local kanto_plus = module("src/data/kanto_plus.lua")
   local weather = module("src/core/weather.lua")
+
+  if mod.developer == true then
+    local diagnostics = module("src/core/diagnostics.lua")
+    local debug = module("src/ui/debug.lua")({
+      diagnostics = diagnostics,
+      ui = mod.ui,
+    })
+    mod.content.screens:register("AdaptiveTrainerDiagnostics", {
+      new = debug.new,
+    })
+    mod.commands:register("adaptive_trainers:debug", function(ctx, scope,
+        target, ...)
+      if select("#", ...) > 0 then
+        return nil, "diagnostics received surplus arguments"
+      end
+      if type(scope) ~= "string" or scope == "" then
+        return nil, "diagnostic scope is required"
+      end
+      local root = mod.save:get("state")
+      if type(root) ~= "table" then
+        return nil, "Adaptive Trainers state is unavailable"
+      end
+
+      local live = type(ctx) == "table" and ctx.game or mod.game
+      if type(live) ~= "table" then
+        return nil, "game context is required"
+      end
+      local projection
+      if scope == "standard" then
+        if type(target) ~= "string" or target == "" then
+          return nil, "standard identity key is required"
+        end
+        local state = root.trainers and root.trainers[target]
+        local runtimeSave, data = live.save, live.data
+        local profile = state and profiles.for_class(state.classId)
+        local active = root.activeTrainer
+        local partyIndex = type(active) == "table"
+          and active.identityKey == target and active.partyIndex
+          or tonumber(target:match("|(%d+)|") or target:match("|(%d+)$"))
+          or 1
+        local evidence = {}
+        if type(runtimeSave) == "table" and type(data) == "table"
+            and type(profile) == "table" then
+          evidence = standard.diagnostic_evidence({
+            identityKey = target,
+            partyIndex = partyIndex,
+            playTime = runtimeSave.playTime or 0,
+            playerParty = runtimeSave.party or {},
+            badgeCount = player_power.badge_count(runtimeSave, data),
+          }, root, {
+            data = data,
+            meta = line_meta,
+            profile = profile,
+            ecologyOverrides = ecology_overrides,
+          })
+        end
+        projection = debug.project("standard", root, target, evidence)
+        if not projection then
+          return nil, "unknown standard identity " .. target
+        end
+      elseif scope == "boss" then
+        if type(target) ~= "string" or target == "" then
+          return nil, "boss id is required"
+        end
+        local state = root.bossAttempts and root.bossAttempts[target]
+        local identityDef = boss_rosters.leaders[target]
+        local evidence = identityDef and bosses.diagnostic_evidence(
+          identityDef, state, {
+            rosters = boss_rosters,
+            meta = line_meta,
+            pokemon = live.data and live.data.pokemon,
+          }) or {
+            poolCandidates = {},
+            rejectedConstraints = { "current-identity-definition-unavailable" },
+            historicalRejectionsAvailable = false,
+          }
+        projection = debug.project("boss", root, target, evidence)
+        if not projection then return nil, "unknown boss id " .. target end
+      elseif scope == "rival" or scope == "league" then
+        if target ~= nil then
+          return nil, scope .. " diagnostics accept no target"
+        end
+        projection = debug.project(scope, root)
+        if not projection then
+          return nil, scope .. " state is unavailable"
+        end
+      else
+        return nil, "unknown diagnostic scope " .. scope
+      end
+
+      mod.ui.push(live, "AdaptiveTrainerDiagnostics", projection)
+      return projection
+    end)
+  end
 
   local phaseG = {
     enabled = false,

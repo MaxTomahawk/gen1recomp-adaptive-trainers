@@ -310,6 +310,158 @@ local context = {
   playerParty = { { species = "RATTATA", level = 12, hp = 0 } },
 }
 
+local choiceLogs = {}
+local loggingStandard = standard_factory({
+  rng = rng,
+  player_power = player_power,
+  ecology = ecology,
+  selector = selector,
+  validator = validator,
+  stage_resolver = stage_resolver,
+  movesets = {
+    team_context = function() return {} end,
+    generate = function(instance)
+      instance.moves = { "TACKLE" }
+      return instance.moves
+    end,
+    hydrate_legacy = function() end,
+  },
+  on_choice = function(label, seedLabel, parts)
+    choiceLogs[#choiceLogs + 1] = {
+      label = label, seedLabel = seedLabel, parts = parts,
+    }
+  end,
+})
+local choiceRoot = { seedHi = root.seedHi, seedLo = root.seedLo,
+  trainers = {} }
+loggingStandard.build(context, vanillaTeam, choiceRoot, {
+  data = data, meta = meta, profile = profile,
+})
+eq(choiceLogs[1] and choiceLogs[1].label, "trainer-roster",
+  "standard roster choice logs at initial materialization")
+eq(choiceLogs[1] and choiceLogs[1].seedLabel, "trainer-init",
+  "standard roster choice names its deterministic stream")
+eq(choiceLogs[1] and choiceLogs[1].parts[1], context.identityKey,
+  "standard roster seed parts identify the concrete trainer")
+eq(choiceLogs[2] and choiceLogs[2].label, "trainer-moves",
+  "standard selected moves log at moveset materialization")
+eq(choiceLogs[2] and choiceLogs[2].seedLabel, "trainer-move-role-v1",
+  "standard move choice names its deterministic score stream")
+local standardLogCount = #choiceLogs
+loggingStandard.build(context, vanillaTeam, choiceRoot, {
+  data = data, meta = meta, profile = profile,
+})
+eq(#choiceLogs, standardLogCount,
+  "persisted standard reruns do not reconstruct choice logs")
+
+local catchLogs = {}
+local caughtInstance = {
+  id = context.identityKey .. "#catch-2",
+  lineId = "SPEAROW_LINE",
+  species = "SPEAROW",
+  level = 6,
+  roleSeed = 77,
+}
+local catchStandard = standard_factory({
+  rng = rng,
+  player_power = player_power,
+  ecology = ecology,
+  selector = selector,
+  validator = validator,
+  stage_resolver = stage_resolver,
+  growth = { materialize = function() end },
+  roster = {
+    maybe_catch = function(state)
+      state.owned[#state.owned + 1] = caughtInstance
+      return caughtInstance
+    end,
+    center_distance = function() return nil end,
+    rotate = function() return false end,
+  },
+  movesets = {
+    hydrate_legacy = function() end,
+    team_context = function() return {} end,
+    generate = function(instance)
+      instance.moves = { "TACKLE" }
+      return instance.moves
+    end,
+  },
+  on_choice = function(label, seedLabel, parts)
+    catchLogs[#catchLogs + 1] = {
+      label = label, seedLabel = seedLabel, parts = parts,
+    }
+  end,
+})
+local catchRoot = { seedHi = root.seedHi, seedLo = root.seedLo,
+  trainers = { [context.identityKey] = {
+    identityKey = context.identityKey,
+    owned = { { id = context.identityKey .. "#1", species = "PIDGEY",
+      level = 8, roleSeed = 1, moves = { "TACKLE" } } },
+    activeIds = { context.identityKey .. "#1" },
+    lastResult = "lose",
+    lastBattleAt = 0,
+    battleCount = 1,
+    lastGrowthBattleCount = 0,
+    lastCatchBattleCount = 0,
+  } } }
+data.moves = { TACKLE = {} }
+catchStandard.build(context, vanillaTeam, catchRoot, {
+  data = data, meta = meta, profile = profile,
+})
+eq(catchLogs[1] and catchLogs[1].label, "trainer-catch",
+  "successful standard catch choice logs at materialization")
+eq(catchLogs[1] and catchLogs[1].seedLabel, "trainer-catch",
+  "standard catch names its deterministic stream")
+eq(catchLogs[2] and catchLogs[2].label, "trainer-moves",
+  "a caught individual's selected moves log after the catch")
+
+local noCatchLogs = {}
+local noCatchStandard = standard_factory({
+  rng = rng,
+  player_power = player_power,
+  ecology = ecology,
+  selector = selector,
+  validator = validator,
+  stage_resolver = stage_resolver,
+  growth = { materialize = function() end },
+  roster = {
+    maybe_catch = function()
+      return nil, { reason = "roll", probability = 0.5 }
+    end,
+    center_distance = function() return nil end,
+    rotate = function() return false end,
+  },
+  movesets = { hydrate_legacy = function() end },
+  on_choice = function(label, seedLabel, parts)
+    noCatchLogs[#noCatchLogs + 1] = {
+      label = label, seedLabel = seedLabel, parts = parts,
+    }
+  end,
+})
+local noCatchRoot = { seedHi = root.seedHi, seedLo = root.seedLo,
+  trainers = { [context.identityKey] = {
+    identityKey = context.identityKey,
+    owned = { { id = context.identityKey .. "#1", species = "PIDGEY",
+      level = 8, roleSeed = 1, moves = { "TACKLE" } } },
+    activeIds = { context.identityKey .. "#1" },
+    lastResult = "lose",
+    lastBattleAt = 0,
+    battleCount = 1,
+    lastGrowthBattleCount = 0,
+    lastCatchBattleCount = 0,
+  } } }
+noCatchStandard.build(context, vanillaTeam, noCatchRoot, {
+  data = data, meta = meta, profile = profile,
+})
+eq(noCatchLogs[1] and noCatchLogs[1].label, "trainer-no-catch",
+  "a seeded failed catch logs at decision materialization")
+eq(noCatchLogs[1] and noCatchLogs[1].seedLabel, "trainer-catch",
+  "the no-catch decision names the consumed catch stream")
+eq(noCatchLogs[1] and noCatchLogs[1].parts[1], context.identityKey,
+  "no-catch seed parts name the concrete trainer")
+eq(noCatchLogs[1] and noCatchLogs[1].parts[2], 1,
+  "no-catch seed parts name the battle counter")
+
 local originalRandom = math.random
 math.random = function() error("initial generation must not use math.random") end
 local firstParty, firstState = standard.build(context, vanillaTeam, root, {

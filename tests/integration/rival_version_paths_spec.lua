@@ -1,6 +1,7 @@
 package.path = "./?.lua;./?/init.lua;" .. package.path
 
 local T = require("tests.modkit")
+local Logger = require("src.core.Logger")
 local Runtime = require("src.mods.Runtime")
 local SaveSerializer = require("src.core.SaveSerializer")
 local StateStack = require("src.core.StateStack")
@@ -84,11 +85,24 @@ local function bind(run, save)
   return game
 end
 
-local function load_run(version, modData)
-  local run = T.sdk.loadMod(modPath, { data = fixture_data(version) })
+local function load_run(version, modData, developer)
+  local run = T.sdk.loadMod(modPath, {
+    data = fixture_data(version), dev = developer,
+  })
   local save = save_for(version, modData)
   local game = bind(run, save)
   return run, save, game
+end
+
+local function choices_since(index)
+  local out = {}
+  for position = index + 1, #Logger.history do
+    local line = Logger.history[position]
+    if line:find("[adaptive_trainers] choice=", 1, true) then
+      out[#out + 1] = line
+    end
+  end
+  return out
 end
 
 local function party_for(run, save, game, row)
@@ -432,6 +446,39 @@ do
       and SaveSerializer.encode(root.rival.pending) == pendingBytes,
     "failed noncanonical result handling preserves the pending party")
   run.release()
+end
+
+do
+  local start = #Logger.history
+  local run, save, game = load_run("red", nil, true)
+  local oak = { id = "OAK_LAB", map = "OAKS_LAB",
+    class = "OPP_RIVAL1", party = 1 }
+  party_for(run, save, game, oak)
+  local state = save.modData.adaptive_trainers.state.rival
+  local hi, lo = state.journeySeed.hi, state.journeySeed.lo
+  local expectedChoices = {
+    ('[info] [adaptive_trainers] choice=rival-acquisition seed=rival-starter parts=["red",%d,%d]'):format(hi, lo),
+    ('[info] [adaptive_trainers] choice=rival-active-party seed=rival-journey parts=["red","OAK_LAB",%d,%d]'):format(hi, lo),
+  }
+  local developerEnabled = type(
+    run.data.commands["adaptive_trainers:debug"]) == "function"
+  T.same(choices_since(start), developerEnabled and expectedChoices or {},
+    developerEnabled
+      and "real Rival sites emit exact deterministic choice order and content"
+      or "older engine keeps real Rival choice logs inert")
+  party_for(run, save, game, oak)
+  T.eq(#choices_since(start), developerEnabled and #expectedChoices or 0,
+    "real Rival rerun does not reconstruct persisted choices")
+  local bytes = SaveSerializer.encode(save.modData)
+  run.release()
+
+  local reloadStart = #Logger.history
+  local reload, reloadSave, reloadGame = load_run("red",
+    assert(SaveSerializer.decode(bytes)), true)
+  party_for(reload, reloadSave, reloadGame, oak)
+  T.eq(#choices_since(reloadStart), 0,
+    "real Rival serialized reload does not reroll or reconstruct choices")
+  reload.release()
 end
 
 T.finish("adaptive trainers Rival version paths")

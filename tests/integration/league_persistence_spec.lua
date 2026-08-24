@@ -1,6 +1,7 @@
 package.path = "./?.lua;./?/init.lua;" .. package.path
 
 local T = require("tests.modkit")
+local Logger = require("src.core.Logger")
 local Runtime = require("src.mods.Runtime")
 local SaveSerializer = require("src.core.SaveSerializer")
 local StateStack = require("src.core.StateStack")
@@ -69,6 +70,17 @@ local function bind(run, save)
   run.loader.game, run.loader.modSave = game, save.modData
   Runtime.emit("game.ready", { game = game })
   return game
+end
+
+local function choices_since(index)
+  local out = {}
+  for position = index + 1, #Logger.history do
+    local line = Logger.history[position]
+    if line:find("[adaptive_trainers] choice=", 1, true) then
+      out[#out + 1] = line
+    end
+  end
+  return out
 end
 
 local function engage(run, game, identity)
@@ -267,6 +279,43 @@ for _, version in ipairs({ "red", "blue", "yellow" }) do
   T.check(nextRoot.leagueRun.id ~= blackoutRun.id,
     version .. " re-entry creates a distinct run identity")
   blackout.release()
+end
+
+do
+  local start = #Logger.history
+  local run = T.sdk.loadMod(modPath, { data = fixture_data(), dev = true })
+  local save = save_for("red")
+  local game = bind(run, save)
+  Runtime.emit("map.entered", { mapId = "LORELEIS_ROOM",
+    fromMapId = "INDIGO_PLATEAU_LOBBY", via = "warp" })
+  engage(run, game, rosters.members.LORELEI)
+  local memberSeed = save.modData.adaptive_trainers.state.leagueRun
+    .memberSeeds.LORELEI
+  local expectedChoices = {
+    '[info] [adaptive_trainers] choice=league-bird-pair seed=league-run parts=[1]',
+    ('[info] [adaptive_trainers] choice=league-member-strategy seed=league-member parts=["LORELEI",%d]'):format(memberSeed),
+    ('[info] [adaptive_trainers] choice=league-member-party seed=league-member parts=["LORELEI",%d]'):format(memberSeed),
+  }
+  local developerEnabled = type(
+    run.data.commands["adaptive_trainers:debug"]) == "function"
+  T.same(choices_since(start), developerEnabled and expectedChoices or {},
+    developerEnabled
+      and "real League sites emit exact deterministic choice order and content"
+      or "older engine keeps real League choice logs inert")
+  engage(run, game, rosters.members.LORELEI)
+  T.eq(#choices_since(start), developerEnabled and #expectedChoices or 0,
+    "real League rerun does not reconstruct persisted choices")
+  local bytes = SaveSerializer.encode(save.modData)
+  run.release()
+
+  local reloadStart = #Logger.history
+  local reload = T.sdk.loadMod(modPath, { data = fixture_data(), dev = true })
+  local reloadSave = save_for("red", assert(SaveSerializer.decode(bytes)))
+  local reloadGame = bind(reload, reloadSave)
+  engage(reload, reloadGame, rosters.members.LORELEI)
+  T.eq(#choices_since(reloadStart), 0,
+    "real League serialized reload does not reroll or reconstruct choices")
+  reload.release()
 end
 
 T.finish("adaptive trainers League persistence")

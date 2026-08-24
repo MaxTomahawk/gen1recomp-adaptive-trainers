@@ -9,6 +9,8 @@ return function(deps)
   local growth = deps.growth
   local roster = deps.roster
   local movesets = deps.movesets
+  local on_choice = type(deps.on_choice) == "function"
+    and deps.on_choice or function() end
   local M = {}
   local MAX_REPAIR_ATTEMPTS = 24
 
@@ -30,6 +32,14 @@ return function(deps)
   local function vanilla_top(vanilla)
     local top = 1
     for _, slot in ipairs(vanilla or {}) do top = math.max(top, slot.level or 1) end
+    return top
+  end
+
+  local function owned_top(instances)
+    local top = 1
+    for _, mon in ipairs(instances or {}) do
+      top = math.max(top, tonumber(mon.level) or 1)
+    end
     return top
   end
 
@@ -169,6 +179,89 @@ return function(deps)
     return out
   end
 
+  local function ecology_line_ids(rows, meta)
+    local out, seen = {}, {}
+    for _, row in ipairs(rows or {}) do
+      local line = meta and meta.bySpecies and meta.bySpecies[row.species]
+      local lineId = line and line.lineId
+      if type(lineId) == "string" and not seen[lineId] then
+        seen[lineId] = true
+        out[#out + 1] = lineId
+      end
+    end
+    return out
+  end
+
+  function M.diagnostic_evidence(ctx, root, services)
+    ctx, services = ctx or {}, services or {}
+    local state = root and root.trainers and root.trainers[ctx.identityKey]
+    local data, meta, profile = services.data, services.meta, services.profile
+    if type(state) ~= "table" or type(data) ~= "table"
+        or type(meta) ~= "table" or type(profile) ~= "table"
+        or type(state.owned) ~= "table"
+        or type(state.activeIds) ~= "table" then
+      return {}
+    end
+    local override = services.ecologyOverrides
+      and ((services.ecologyOverrides.byMap or {})[state.mapId]
+        or (services.ecologyOverrides.byClass or {})[state.classId])
+    local ecologyRows = ecology.resolve(data, state.mapId, profile, {
+      mapId = state.mapId,
+      oppClass = state.classId,
+      partyIndex = ctx.partyIndex,
+      override = override,
+    })
+    local playerReference = player_power.reference(ctx.playerParty or {})
+    local ceiling = growth and growth.contextual_ceiling(
+      state.vanillaTop or owned_top(state.owned), playerReference,
+      ctx.badgeCount, profile) or nil
+    local transitionContext = {
+      playTime = ctx.playTime,
+      trainerMedian = median_level(state.owned),
+      mapId = state.mapId,
+      pokemon = data.pokemon,
+      meta = meta,
+    }
+    local catch = roster and roster.catch_preview(state, transitionContext,
+      profile, ecologyRows) or {}
+    local moveScores = {}
+    if movesets and type(movesets.selected_scores) == "function" then
+      local active = active_instances(state)
+      for _, instance in ipairs(state.owned or {}) do
+        local team = {}
+        for _, teammate in ipairs(active) do
+          if teammate ~= instance then team[#team + 1] = teammate end
+        end
+        local teamContext = movesets.team_context(team, data.pokemon,
+          data.moves)
+        local scores = movesets.selected_scores(instance,
+          data.pokemon and data.pokemon[instance.species], data.moves,
+          profile.aiTier, nil, teamContext)
+        for moveId, score in pairs(scores) do
+          if moveScores[moveId] == nil or score > moveScores[moveId] then
+            moveScores[moveId] = score
+          end
+        end
+      end
+    end
+    return {
+      ceiling = ceiling,
+      catchProbability = catch.probability,
+      ecologyCandidates = ecology_line_ids(ecologyRows, meta),
+      moveScores = moveScores,
+    }
+  end
+
+  local function log_moves(identityKey, instance)
+    for _, moveId in ipairs(instance and instance.moves or {}) do
+      on_choice("trainer-moves", "trainer-move-role-v1", {
+        tonumber(instance.roleSeed) or 0,
+        instance.id or identityKey or "",
+        moveId,
+      })
+    end
+  end
+
   function M.build(ctx, vanillaParty, root, services)
     root.trainers = root.trainers or {}
     local existing = root.trainers[ctx.identityKey]
@@ -216,13 +309,26 @@ return function(deps)
         if elapsed > 900 then
           growth.materialize(existing, transitionContext, profile)
           transitionContext.trainerMedian = median_level(existing.owned)
-          local caught = roster.maybe_catch(existing, transitionContext,
+          local caught, catchReport = roster.maybe_catch(existing,
+            transitionContext,
             profile, evidence)
           if caught and movesets then
             local teamContext = movesets.team_context(active_instances(existing),
               data.pokemon, data.moves)
             movesets.generate(caught, data.pokemon[caught.species],
               data.moves, profile.aiTier, nil, teamContext)
+          end
+          if caught then
+            on_choice("trainer-catch", "trainer-catch", {
+              existing.identityKey or ctx.identityKey,
+              existing.battleCount or 0,
+            })
+            log_moves(existing.identityKey or ctx.identityKey, caught)
+          elseif catchReport and catchReport.reason == "roll" then
+            on_choice("trainer-no-catch", "trainer-catch", {
+              existing.identityKey or ctx.identityKey,
+              existing.battleCount or 0,
+            })
           end
           local centerDistance = roster.center_distance(services.centerIndex,
             ctx.mapId, profile.pcRadius)
@@ -327,6 +433,10 @@ return function(deps)
       state.activeIds[index] = id
     end
     root.trainers[ctx.identityKey] = state
+    on_choice("trainer-roster", "trainer-init", { ctx.identityKey })
+    for _, instance in ipairs(state.owned) do
+      log_moves(ctx.identityKey, instance)
+    end
     return party_from_state(state), state
   end
 

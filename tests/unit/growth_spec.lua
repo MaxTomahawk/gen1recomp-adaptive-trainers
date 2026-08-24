@@ -149,6 +149,54 @@ check(trained.owned[1].level > 9,
 eq(trained.owned[1].movesetRefreshReason, nil,
   "ordinary growth leaves no deferred moveset mutation")
 
+local choiceLogs = {}
+local loggingGrowth = assert(loadfile(ROOT .. "/src/core/growth.lua"))()({
+  rng = rng,
+  player_power = player_power,
+  stage_resolver = stage_resolver,
+  movesets = movesets,
+  on_choice = function(label, seedLabel, parts)
+    choiceLogs[#choiceLogs + 1] = {
+      label = label,
+      seedLabel = seedLabel,
+      parts = parts,
+    }
+  end,
+})
+local logged = state()
+loggingGrowth.materialize(logged, context(100 + 72 * 3600), profile)
+eq(choiceLogs[1] and choiceLogs[1].label, "trainer-growth-focus",
+  "growth focus logs at its authoritative seeded draw")
+eq(choiceLogs[2] and choiceLogs[2].label, "trainer-growth-rounding",
+  "growth rounding logs immediately after focus")
+for index = 1, 2 do
+  eq(choiceLogs[index] and choiceLogs[index].seedLabel, "trainer-growth",
+    "growth choice " .. index .. " names the exact stream label")
+  eq(choiceLogs[index] and choiceLogs[index].parts[1], logged.identityKey,
+    "growth choice " .. index .. " names the concrete trainer")
+  eq(choiceLogs[index] and choiceLogs[index].parts[2], logged.battleCount,
+    "growth choice " .. index .. " names the battle counter")
+  eq(choiceLogs[index] and choiceLogs[index].parts[3], "a",
+    "growth choice " .. index .. " names the owned individual")
+end
+local growthMoveIndex
+for index, entry in ipairs(choiceLogs) do
+  if entry.label == "trainer-moves" then growthMoveIndex = index; break end
+end
+check(growthMoveIndex and growthMoveIndex > 2,
+  "growth-triggered selected moves log after the growth draws")
+local growthMove = growthMoveIndex and choiceLogs[growthMoveIndex]
+eq(growthMove and growthMove.seedLabel, "trainer-move-role-v1",
+  "growth-triggered moves name the deterministic scorer seed")
+eq(growthMove and growthMove.parts[1], 4,
+  "growth-triggered move parts begin with the persisted role seed")
+eq(growthMove and growthMove.parts[2], "a",
+  "growth-triggered move parts name the owned individual")
+local loggedCount = #choiceLogs
+loggingGrowth.materialize(logged, context(100 + 72 * 3600), profile)
+eq(#choiceLogs, loggedCount,
+  "repeated growth materialization does not reconstruct choice logs")
+
 local aboveCeiling = state()
 aboveCeiling.vanillaTop = 20
 aboveCeiling.owned[1].level = 20

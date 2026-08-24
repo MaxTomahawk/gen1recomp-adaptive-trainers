@@ -203,6 +203,47 @@ for outcome_id, encounters in pairs(YELLOW_ROWS) do
 end
 
 local save = root()
+local choiceLogs = {}
+local loggingRival = assert(loadfile(ROOT .. "/src/core/rival.lua"))()({
+  rng = rng,
+  player_power = player_power,
+  windows = windows,
+  on_choice = function(label, seedLabel, parts)
+    choiceLogs[#choiceLogs + 1] = {
+      label = label, seedLabel = seedLabel, parts = parts,
+    }
+  end,
+})
+local choiceSave = root()
+loggingRival.build("OAK_LAB",
+  context("red", 0, "SQUIRTLE_LINE", "SQUIRTLE", { 5 }), choiceSave)
+loggingRival.record_result("OAK_LAB", "win", choiceSave)
+loggingRival.build("ROUTE_22_EARLY",
+  context("red", 3600, nil, nil, { 12, 10, 8 }), choiceSave)
+eq(choiceLogs[1] and choiceLogs[1].label, "rival-acquisition",
+  "Rival starter acquisition logs at materialization")
+eq(choiceLogs[1] and choiceLogs[1].seedLabel, "rival-starter",
+  "Rival starter names its deterministic stream")
+eq(choiceLogs[2] and choiceLogs[2].label, "rival-active-party",
+  "Rival Oak party logs after the starter")
+eq(choiceLogs[3] and choiceLogs[3].label, "rival-window",
+  "Rival route-window budget logs before acquisitions")
+eq(choiceLogs[4] and choiceLogs[4].label, "rival-acquisition",
+  "Rival route acquisition logs at materialization")
+eq(choiceLogs[5] and choiceLogs[5].label, "rival-active-party",
+  "Rival active party logs after the route choices")
+eq(choiceLogs[3] and choiceLogs[3].seedLabel, "rival-window",
+  "Rival window and acquisitions name the route seed stream")
+eq(choiceLogs[3] and choiceLogs[3].parts[1], "red",
+  "Rival window seed parts begin with version")
+eq(choiceLogs[3] and choiceLogs[3].parts[2], "ROUTE_22_EARLY",
+  "Rival window seed parts name the encounter")
+local rivalLogCount = #choiceLogs
+loggingRival.build("ROUTE_22_EARLY",
+  context("red", 7200, nil, nil, { 100 }), choiceSave)
+eq(#choiceLogs, rivalLogCount,
+  "persisted Rival reruns do not reconstruct choice logs")
+
 local oak_party, state = rival.build("OAK_LAB",
   context("red", 0, "SQUIRTLE_LINE", "SQUIRTLE", { 5 }), save)
 eq(#oak_party, 1, "Oak Lab creates only the Rival starter")

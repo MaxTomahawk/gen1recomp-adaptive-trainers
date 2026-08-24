@@ -13,6 +13,8 @@ return function(deps)
     "Rival tuning scoring table is required")
   local level_tuning = assert(tuning.levels,
     "Rival tuning levels table is required")
+  local on_choice = type(deps.on_choice) == "function"
+    and deps.on_choice or function() end
 
   local function require_number(owner, key, path, positive)
     local value = owner[key]
@@ -192,6 +194,11 @@ return function(deps)
       }
       state.owned[1] = starter
       state.attachmentById[starter.id] = attachment_tuning.starter
+      on_choice("rival-acquisition", "rival-starter", {
+        version,
+        state.journeySeed.hi or 0,
+        state.journeySeed.lo or 0,
+      })
     end
 
     local starter = find_line(state, state.starterLine)
@@ -243,6 +250,13 @@ return function(deps)
       encounter_id, state.journeySeed.hi or 0, state.journeySeed.lo or 0)
     local budget = stream:integer(window.minAcquisitions,
       window.maxAcquisitions)
+    local seedParts = {
+      state.version,
+      encounter_id,
+      state.journeySeed.hi or 0,
+      state.journeySeed.lo or 0,
+    }
+    on_choice("rival-window", "rival-window", seedParts)
     local have = owned_lines(state)
     local candidates = {}
     for _, candidate in ipairs(windows.candidates(state.version, encounter_id,
@@ -276,6 +290,9 @@ return function(deps)
       state.owned[#state.owned + 1] = mon
       state.attachmentById[mon.id] = 0
       event.acquiredIds[#event.acquiredIds + 1] = mon.id
+      on_choice("rival-acquisition", "rival-window", {
+        seedParts[1], seedParts[2], seedParts[3], seedParts[4], mon.id,
+      })
     end
     state.journeyEvents[#state.journeyEvents + 1] = event
   end
@@ -554,6 +571,12 @@ return function(deps)
       playerReference = reference,
       slotFloors = floors,
     }
+    on_choice("rival-active-party", "rival-journey", {
+      state.version,
+      encounter_id,
+      state.journeySeed.hi or 0,
+      state.journeySeed.lo or 0,
+    })
     return copy_party(party), state
   end
 

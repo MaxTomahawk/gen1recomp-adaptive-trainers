@@ -128,6 +128,14 @@ for _, move in ipairs(noviceMoves) do
   end
 end
 check(noviceTmCount <= 1, "T0 never exceeds its one-TM ceiling")
+local noviceBefore = table.concat(novice.moves, ",")
+local scores = movesets.selected_scores(novice, species, moveDefs, 0)
+for _, moveId in ipairs(novice.moves) do
+  check(type(scores and scores[moveId]) == "number",
+    "selected move " .. moveId .. " exposes its finite current score")
+end
+eq(table.concat(novice.moves, ","), noviceBefore,
+  "selected move scoring cannot mutate persistent move authority")
 
 local repeated = { id = "novice", species = "BUTTERFREE", level = 10 }
 eq(table.concat(movesets.generate(repeated, species, moveDefs, 0), ","),

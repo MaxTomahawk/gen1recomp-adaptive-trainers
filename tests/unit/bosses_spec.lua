@@ -200,6 +200,61 @@ local services = { meta = meta, pokemon = pokemon, moves = bossMoves,
   movesets = fakeMovesets }
 local root = { seedHi = 123, seedLo = 456, bossAttempts = {} }
 local brock = rosters.leaders.BROCK
+local choiceLogs = {}
+local loggingBosses = bosses_factory({ rng = rng,
+  stage_resolver = stage_resolver, rosters = rosters,
+  on_choice = function(label, seedLabel, parts)
+    choiceLogs[#choiceLogs + 1] = {
+      label = label, seedLabel = seedLabel, parts = parts,
+    }
+  end,
+})
+local choiceRoot = { seedHi = 123, seedLo = 456, bossAttempts = {} }
+loggingBosses.build(brock, {
+  version = "red", playerLevels = { 20, 18, 16 },
+}, choiceRoot, services)
+eq(choiceLogs[1] and choiceLogs[1].label, "boss-strategy",
+  "boss strategy logs first at attempt materialization")
+eq(choiceLogs[2] and choiceLogs[2].label, "boss-flex-pool",
+  "boss flex roster logs second at attempt materialization")
+eq(choiceLogs[3] and choiceLogs[3].label, "boss-target-levels",
+  "boss target levels log third at attempt materialization")
+for _, entry in ipairs(choiceLogs) do
+  eq(entry.seedLabel, "boss-attempt",
+    "every boss choice names the attempt seed stream")
+  eq(entry.parts[1], "red", "boss seed parts begin with version")
+  eq(entry.parts[2], "BROCK", "boss seed parts name the boss")
+  eq(entry.parts[3], 0, "boss seed parts end with the attempt counter")
+end
+local bossLogCount = #choiceLogs
+loggingBosses.build(brock, {
+  version = "red", playerLevels = { 99, 1 },
+}, choiceRoot, services)
+eq(#choiceLogs, bossLogCount,
+  "persisted boss reruns do not reconstruct choice logs")
+local probeIdentity = {
+  id = "PROBE",
+  flexPool = { "MISSING_LINE", "GEODUDE_LINE" },
+}
+local probeState = {
+  version = "red",
+  targetLevels = { 20, 18 },
+}
+local diagnosticEvidence = loggingBosses.diagnostic_evidence(probeIdentity,
+  probeState, services)
+eq(diagnosticEvidence and diagnosticEvidence.poolCandidates[1],
+  "GEODUDE_LINE",
+  "boss diagnostics expose currently admitted configured pool candidates")
+eq(diagnosticEvidence and diagnosticEvidence.rejectedConstraints[1],
+  "MISSING_LINE:missing-line-metadata",
+  "boss diagnostics label the specific current candidate rejection reason")
+eq(diagnosticEvidence and diagnosticEvidence.historicalRejectionsAvailable,
+  false,
+  "boss diagnostics explicitly distinguish unavailable historical trace")
+eq(probeIdentity.flexPool[1], "MISSING_LINE",
+  "boss diagnostic admission cannot mutate configured identity data")
+eq(probeState.targetLevels[2], 18,
+  "boss diagnostic admission cannot mutate persisted attempt state")
 local party, state = bosses.build(brock, {
   version = "red", playerLevels = { 20, 18, 16 },
 }, root, services)

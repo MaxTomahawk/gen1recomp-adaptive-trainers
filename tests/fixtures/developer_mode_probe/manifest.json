@@ -1,0 +1,9 @@
+{
+  "id": "adaptive_trainers_developer_mode_probe",
+  "name": "Adaptive Trainers Developer Mode Probe",
+  "version": "1.0.0",
+  "game_version": ">=0.0.0-dev <1.0.0",
+  "entry": "main.lua",
+  "api": 2,
+  "profile": "content"
+}

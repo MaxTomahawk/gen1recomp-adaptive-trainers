@@ -2,6 +2,8 @@ return function(deps)
   local rng = deps.rng
   local stage_resolver = deps.stage_resolver
   local roster_data = deps.rosters
+  local on_choice = type(deps.on_choice) == "function"
+    and deps.on_choice or function() end
   local M = {}
 
   local function clamp_level(value)
@@ -242,6 +244,10 @@ return function(deps)
         signatureSpecies)
     end
     state.preparedAttempt = state.attemptCounter
+    local seedParts = { version, identity.id, state.attemptCounter }
+    on_choice("boss-strategy", "boss-attempt", seedParts)
+    on_choice("boss-flex-pool", "boss-attempt", seedParts)
+    on_choice("boss-target-levels", "boss-attempt", seedParts)
     return materialize(state)
   end
 
@@ -260,6 +266,59 @@ return function(deps)
     state.strategy = nil
     state.preparedAttempt = nil
     return true
+  end
+
+  function M.diagnostic_evidence(identity, state, services)
+    state = type(state) == "table" and state or {}
+    services = type(services) == "table" and services or {}
+    local rosters = services.rosters or roster_data
+    local pokemon = type(services.pokemon) == "table" and services.pokemon
+      or {}
+    local meta = services.meta
+    local accepted, rejected = {}, {}
+    local levels = {}
+    local targets = type(state.targetLevels) == "table"
+      and state.targetLevels or {}
+    for index = 2, #targets do
+      levels[#levels + 1] = targets[index]
+    end
+    local flexPool = type(identity) == "table"
+      and type(identity.flexPool) == "table" and identity.flexPool or {}
+    for _, lineId in ipairs(flexPool) do
+      local line = rosters and rosters.line(meta, lineId)
+      local reason
+      if not line then
+        reason = "missing-line-metadata"
+      elseif #levels == 0 then
+        reason = "current-flex-levels-unavailable"
+      else
+        local availableSpecies = false
+        for _, stage in ipairs(line.stages or {}) do
+          if pokemon[stage.species] then availableSpecies = true; break end
+        end
+        if not availableSpecies then
+          reason = "missing-runtime-species"
+        else
+          for _, level in ipairs(levels) do
+            if not stage_resolver.resolve(line, level, pokemon,
+                rosters.preferred_species(lineId)) then
+              reason = "no-legal-stage-at-current-level"
+              break
+            end
+          end
+        end
+      end
+      if reason then
+        rejected[#rejected + 1] = tostring(lineId) .. ":" .. reason
+      else
+        accepted[#accepted + 1] = lineId
+      end
+    end
+    return {
+      poolCandidates = accepted,
+      rejectedConstraints = rejected,
+      historicalRejectionsAvailable = false,
+    }
   end
 
   function M.identity_score(party, identity, pokemon)

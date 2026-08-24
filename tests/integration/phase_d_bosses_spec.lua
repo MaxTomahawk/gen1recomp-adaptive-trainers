@@ -1,6 +1,7 @@
 package.path = "./?.lua;./?/init.lua;" .. package.path
 
 local T = require("tests.modkit")
+local Logger = require("src.core.Logger")
 local Runtime = require("src.mods.Runtime")
 local SaveSerializer = require("src.core.SaveSerializer")
 local StateStack = require("src.core.StateStack")
@@ -87,13 +88,24 @@ local function game_for(run, save)
   } }
 end
 
-local function load_run(version, modData)
-  local run = T.sdk.loadMod(modPath, { data = fixture_data() })
+local function load_run(version, modData, developer)
+  local run = T.sdk.loadMod(modPath, { data = fixture_data(), dev = developer })
   local save = save_for(version, modData)
   local game = game_for(run, save)
   run.loader.game, run.loader.modSave = game, save.modData
   Runtime.emit("game.ready", { game = game })
   return run, save, game
+end
+
+local function choices_since(index)
+  local out = {}
+  for position = index + 1, #Logger.history do
+    local line = Logger.history[position]
+    if line:find("[adaptive_trainers] choice=", 1, true) then
+      out[#out + 1] = line
+    end
+  end
+  return out
 end
 
 local function engage(game, info)
@@ -198,6 +210,37 @@ for _, version in ipairs({ "red", "blue", "yellow" }) do
     version .. " a new attempt retains the fixed signature line")
   T.eq(#nextAttempt, #beforeLoss,
     version .. " attempt variation preserves formal party size")
+  reload.release()
+end
+
+do
+  local start = #Logger.history
+  local run, save, game = load_run("red", nil, true)
+  engage(game, LEADER_CLASSES.BROCK)
+  local choices = choices_since(start)
+  local expectedChoices = {
+    '[info] [adaptive_trainers] choice=boss-strategy seed=boss-attempt parts=["red","BROCK",0]',
+    '[info] [adaptive_trainers] choice=boss-flex-pool seed=boss-attempt parts=["red","BROCK",0]',
+    '[info] [adaptive_trainers] choice=boss-target-levels seed=boss-attempt parts=["red","BROCK",0]',
+  }
+  local developerEnabled = type(
+    run.data.commands["adaptive_trainers:debug"]) == "function"
+  T.same(choices, developerEnabled and expectedChoices or {},
+    developerEnabled
+      and "real boss site emits exact deterministic choice order and content"
+      or "older engine keeps real boss choice logs inert")
+  engage(game, LEADER_CLASSES.BROCK)
+  T.eq(#choices_since(start), developerEnabled and #expectedChoices or 0,
+    "real boss rerun does not reconstruct persisted choices")
+  local bytes = SaveSerializer.encode(save.modData)
+  run.release()
+
+  local reloadStart = #Logger.history
+  local reload, _, reloadGame = load_run("red",
+    assert(SaveSerializer.decode(bytes)), true)
+  engage(reloadGame, LEADER_CLASSES.BROCK)
+  T.eq(#choices_since(reloadStart), 0,
+    "real boss serialized reload does not reroll or reconstruct choices")
   reload.release()
 end
 
