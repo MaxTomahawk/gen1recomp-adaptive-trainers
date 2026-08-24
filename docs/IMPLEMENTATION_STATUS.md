@@ -35,9 +35,9 @@ Implement the complete approved Adaptive Trainer Ecology & Challenge System v1 a
 - [x] Phase F — persistent Rival journey, R/B/Y windows, Yellow Eevee outcomes
 - [x] Phase G — optional Kanto+ sidecar, Steel, weather, minimal added moves
   (PR #13 merged green at `8866e2d`)
-- [ ] Phase H — A-F diagnostics projections, acceptance aggregation, and
-  balancing evidence implemented locally; runtime dev-surface, released-engine
-  parity/package gates, release, and index submission open
+- [ ] Phase H — A-F diagnostics projections, acceptance aggregation, balancing
+  evidence, and the exact-gated runtime dev surface are implemented locally;
+  released-engine parity, release, and index submission remain open
 
 ## Current execution
 
@@ -79,10 +79,17 @@ Current evidence:
   `POKEPORT_DEV=1` adapter suites add 162/162 focused checks, including hostile
   value/cycle/metatable rejection, deep-detachment, every declared A-F choice
   label, and stable seed ordering. The public
-  runtime boundary adds 3/3 checks proving no ungated command/export or legacy
-  environment shim. This is not final Phase H release evidence: public runtime
-  dev activation, complete
-  upstream no-mod parity, and final packaging remain open.
+  runtime boundary now adds 66/66 checks against the combined public-seam
+  engine: exact boolean-only activation, all four command scopes, invalid and
+  missing targets, detached stable screens, scrolling/close, byte-identical
+  read-only save state, production absence, exact seed-log text, and no
+  reconstructed log on rerun or serialized reload. Generator-level suites pin
+  materialization ordering and seed parts for standard roster/catch/moves,
+  boss strategy/flex/levels, League Bird/member strategy/party, and Rival
+  starter/window/acquisition/party choices. The pending public API and API-v1
+  no-mod parity suites are green at 23/23 and 12/12. This is not final Phase H
+  release evidence: the released engine still lacks the public developer
+  signal until upstream PR #1769 lands.
 
 - Public SDK loader: 7/7 checks passed.
 - Phase A public runtime: 327/327 checks passed across Red, Blue, and Yellow,
@@ -116,12 +123,13 @@ Current evidence:
   and Moltres 2,454, within the normative 50/25/25 tolerances.
 - `modkit validate --base fixture`: green.
 - `modkit lint`: green, no ROM-derived content detected.
-- Phase H A-F development double-pack: byte-identical and layout-clean at
-  `SOURCE_DATE_EPOCH=0`; 36 archive entries, including the detached diagnostics
-  modules, SHA-256
-  `3cb3989da599f4f005cedf8c37be3296ef855ae5b4448271ea0c37e3d7471b75`.
-  This is a pre-Phase-G development artifact only; final combined packaging and
-  release gates remain.
+- Phase H runtime double-pack: byte-identical and layout-clean at
+  `SOURCE_DATE_EPOCH=0`; 38 distributable files plus `.modkit/pack.json`,
+  including the detached diagnostics modules and developer-only choice logger,
+  SHA-256
+  `0f6d427d1dec6689cc6ea9d46e2199cf5c7cb87de08014aa5a16f650033acc41`.
+  This verifies the local combined-seam package only; stable release remains
+  gated on the public developer signal reaching the released engine.
 - Last Phase-E reproducible double-pack check: green; 31 distributable files plus
   `.modkit/pack.json`, with no recursive `dist/`, tests, scripts, docs, or DOCX.
 - Last merged Phase-E source-date-zero package SHA-256:
@@ -248,8 +256,11 @@ the collision case without private imports or a new engine seam.
   no-mod/API-v1 parity, Gen 1/Gen 2 documentation, RFC 0017, full ROM-free
   regression and lint evidence. Upstream CI is green; maintainer review is
   pending.
-- Current safe boundary: package the pure detached diagnostics and exact-gated
-  adapter, prove production has no ungated command/export, report projections
-  rather than claiming runtime events, and leave runtime activation disconnected
-- Release gate: unresolved; runtime registration stays disconnected until the
-  generic public signal is merged and available
+- Current safe boundary: the exact `mod.developer == true` runtime command,
+  screen, and materialization-site info logging are implemented and verified
+  against the combined public-seam engine. False, nil, and non-boolean values
+  remain inert; no export, `mod.storage`, environment shim, or private import is
+  used. Do not publish this build against a released engine that lacks the
+  public signal
+- Release gate: unresolved; keep stable publication blocked until the generic
+  public signal is merged and available in the released engine
