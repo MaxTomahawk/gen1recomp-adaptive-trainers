@@ -18,7 +18,8 @@ export ADAPTIVE_TRAINERS_ROOT="$REPO_ROOT"
 export ADAPTIVE_TRAINERS_PATH
 ADAPTIVE_TRAINERS_PATH=$(realpath --relative-to="$ENGINE_ROOT" "$REPO_ROOT")
 
-mapfile -t LUA_TESTS < <(find "$REPO_ROOT/tests" -type f -name '*_spec.lua' | sort)
+mapfile -t LUA_TESTS < <(find "$REPO_ROOT/tests" -type f \
+  \( -name '*_spec.lua' -o -path '*/acceptance/*.lua' \) | sort)
 for test_file in "${LUA_TESTS[@]}"; do
   (
     cd "$ENGINE_ROOT"

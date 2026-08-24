@@ -33,12 +33,15 @@ Implement the complete approved Adaptive Trainer Ecology & Challenge System v1 a
 - [x] Phase D — Gym registration and eligibility, eight Leader identities, challenge scaling (PR #6 merged green at `aa670b0`)
 - [x] Phase E — Elite Four run snapshot and exactly-one-Bird mechanic
 - [x] Phase F — persistent Rival journey, R/B/Y windows, Yellow Eevee outcomes
-- [ ] Phase G — optional Kanto+ sidecar, Steel, weather, minimal added moves
-- [ ] Phase H — diagnostics, balancing simulations, integration, parity, packaging, release and index submission
+- [x] Phase G — optional Kanto+ sidecar, Steel, weather, minimal added moves
+  (PR #13 merged green at `8866e2d`)
+- [ ] Phase H — A-F diagnostics projections, acceptance aggregation, and
+  balancing evidence implemented locally; runtime dev-surface, released-engine
+  parity/package gates, release, and index submission open
 
 ## Current execution
 
-Phases A-F are merged after green CI and clean independent reviews. Phase F
+Phases A-G are merged after green CI and clean independent reviews. Phase F
 implements one persistent Rival collection that advances
 through all eight canon encounters, uses deterministic variable route-window
 budgets, trains/evolves every owned line through runtime metadata, persists T3
@@ -54,7 +57,32 @@ Hall-of-Fame transitions, clears it at the Hall-of-Fame autosave before the
 title soft reset, and also clears on blackout, other League exits, or stale
 post-game home loads so the next entry cannot inherit or reroll the prior run.
 
+Phase G is implemented as a complete fail-closed sidecar. It admits the nine
+approved Gold-derived continuations, Steel/type data, added moves, sprites, and
+weather only after the full public dataset and battle capability set validates;
+otherwise every existing individual remains or reconciles to a Kanto stage.
+The combined-engine acceptance drives real dataset views, serialized battle
+checkpoint restoration, SolarBeam charge bypass, engine-owned Sandstorm
+residual/faint handling, immunities, and the Gold Steelix image/draw path.
+
 Current evidence:
+
+- Phase H A-F acceptance: 472/472 direct and aggregate checks passed against
+  the audited upstream `dev` baseline, including an instrumented proof that
+  filesystem spying is active before SDK discovery, detects public
+  `mod.storage` and legacy-overlay writes, excludes engine-owned loader
+  bookkeeping, and proves load/pre-generation perform neither mod persistence
+  write while initialization changes only the mod's `mod.save` namespace. A
+  64-seed boss-core loss variation simulation
+  is also green; the genuine public loss lifecycle is
+  covered separately by the Gym runtime suite. Diagnostic projection and exact
+  `POKEPORT_DEV=1` adapter suites add 162/162 focused checks, including hostile
+  value/cycle/metatable rejection, deep-detachment, every declared A-F choice
+  label, and stable seed ordering. The public
+  runtime boundary adds 3/3 checks proving no ungated command/export or legacy
+  environment shim. This is not final Phase H release evidence: public runtime
+  dev activation, complete
+  upstream no-mod parity, and final packaging remain open.
 
 - Public SDK loader: 7/7 checks passed.
 - Phase A public runtime: 327/327 checks passed across Red, Blue, and Yellow,
@@ -76,6 +104,9 @@ Current evidence:
   journey, legal T3 move/AI, checkpoint, result-isolation and Yellow outcome
   checks; Rival core 172/172, including every exact canonical R/B starter and
   Yellow Eevee path row.
+- Phase G public runtime: 74/74 checks; combined public-engine acceptance:
+  26/26; Kanto-only fallback/root reconciliation: 163/163; Kanto+ unit/property
+  coverage: 120/120; weather: 63/63.
 - Deterministic/property suites: 372,974/372,974 assertions, including 61,357
   Rival fairness assertions proving level/time-equivalent builds are blind to
   complete player species and move-list changes, plus 86,250
@@ -85,6 +116,12 @@ Current evidence:
   and Moltres 2,454, within the normative 50/25/25 tolerances.
 - `modkit validate --base fixture`: green.
 - `modkit lint`: green, no ROM-derived content detected.
+- Phase H A-F development double-pack: byte-identical and layout-clean at
+  `SOURCE_DATE_EPOCH=0`; 36 archive entries, including the detached diagnostics
+  modules, SHA-256
+  `3cb3989da599f4f005cedf8c37be3296ef855ae5b4448271ea0c37e3d7471b75`.
+  This is a pre-Phase-G development artifact only; final combined packaging and
+  release gates remain.
 - Last Phase-E reproducible double-pack check: green; 31 distributable files plus
   `.modkit/pack.json`, with no recursive `dist/`, tests, scripts, docs, or DOCX.
 - Last merged Phase-E source-date-zero package SHA-256:
@@ -192,3 +229,27 @@ Battle-checkpoint reconstruction restores `mod.save` before invoking the public
 `trainer.party` hook. The mod therefore persists the active concrete identity
 in its checkpointed save state and reuses it during reconstruction; this closes
 the collision case without private imports or a new engine seam.
+
+### AT-SP-005 — dev-only diagnostics activation
+
+- State: `UPSTREAM_PR_OPEN` (`bryanthaboi/gen1recomp#1769`, branch head
+  `fb95dc5b6a7e1ac6eef36782ffa831844e31a6cb`); not merged/released
+- Required by: Phase H runtime access to the Chapter 30 diagnostic projections
+  only when `POKEPORT_DEV=1`
+- Missing capability: a public read-only dev-mode signal or an engine-owned
+  dev-console/screen registration boundary
+- Existing APIs considered: screens, commands, exports, manifest
+  `force_enable_env`, and the legacy `os.getenv` compatibility shim
+- Why insufficient: screens, commands, and exports do not identify dev mode;
+  `force_enable_env` controls enablement rather than exposing the reason; the
+  sandbox intentionally hides the host environment and reports `os.getenv` as
+  legacy compatibility usage
+- Current work: generic additive `mod.developer` boolean proposal with separate
+  no-mod/API-v1 parity, Gen 1/Gen 2 documentation, RFC 0017, full ROM-free
+  regression and lint evidence. Upstream CI is green; maintainer review is
+  pending.
+- Current safe boundary: package the pure detached diagnostics and exact-gated
+  adapter, prove production has no ungated command/export, report projections
+  rather than claiming runtime events, and leave runtime activation disconnected
+- Release gate: unresolved; runtime registration stays disconnected until the
+  generic public signal is merged and available

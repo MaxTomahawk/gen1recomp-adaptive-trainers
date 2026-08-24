@@ -2,6 +2,8 @@ AGENTS.md
 Gen1Recomp_Adaptive_Trainers_Complete_Design_Spec_NL.docx
 docs/CAPABILITY_AUDIT.md
 docs/IMPLEMENTATION_STATUS.md
+docs/DEFINITION_OF_DONE_AUDIT.md
+docs/BALANCING.md
 docs/superpowers/plans/2026-08-14-adaptive-trainers.md
 scripts/check.sh
 scripts/package.sh
@@ -37,6 +39,10 @@ tests/unit/rival_spec.lua
 tests/property/rival_fairness.lua
 tests/property/rival_fairness_spec.lua
 tests/integration/rival_version_paths_spec.lua
+tests/integration/debug_runtime_spec.lua
+tests/unit/diagnostics_spec.lua
+tests/unit/debug_spec.lua
+tests/acceptance/definition_of_done.lua
 tests/integration/kanto_fallback_spec.lua
 tests/integration/phase_g_combined_engine_spec.lua
 tests/integration/phase_g_runtime_spec.lua
