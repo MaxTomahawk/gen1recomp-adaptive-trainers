@@ -78,6 +78,61 @@ return function(mod)
   local kanto_plus = module("src/data/kanto_plus.lua")
   local weather = module("src/core/weather.lua")
 
+  if mod.developer == true then
+    local diagnostics = module("src/core/diagnostics.lua")
+    local debug = module("src/ui/debug.lua")({
+      diagnostics = diagnostics,
+      ui = mod.ui,
+    })
+    mod.content.screens:register("AdaptiveTrainerDiagnostics", {
+      new = debug.new,
+    })
+    mod.commands:register("adaptive_trainers:debug", function(ctx, scope,
+        target)
+      if type(scope) ~= "string" or scope == "" then
+        return nil, "diagnostic scope is required"
+      end
+      local root = mod.save:get("state")
+      if type(root) ~= "table" then
+        return nil, "Adaptive Trainers state is unavailable"
+      end
+
+      local projection
+      if scope == "standard" then
+        if type(target) ~= "string" or target == "" then
+          return nil, "standard identity key is required"
+        end
+        projection = debug.project("standard", root, target)
+        if not projection then
+          return nil, "unknown standard identity " .. target
+        end
+      elseif scope == "boss" then
+        if type(target) ~= "string" or target == "" then
+          return nil, "boss id is required"
+        end
+        projection = debug.project("boss", root, target)
+        if not projection then return nil, "unknown boss id " .. target end
+      elseif scope == "rival" or scope == "league" then
+        if target ~= nil then
+          return nil, scope .. " diagnostics accept no target"
+        end
+        projection = debug.project(scope, root)
+        if not projection then
+          return nil, scope .. " state is unavailable"
+        end
+      else
+        return nil, "unknown diagnostic scope " .. scope
+      end
+
+      local live = type(ctx) == "table" and ctx.game or mod.game
+      if type(live) ~= "table" then
+        return nil, "game context is required"
+      end
+      mod.ui.push(live, "AdaptiveTrainerDiagnostics", projection)
+      return projection
+    end)
+  end
+
   local phaseG = {
     enabled = false,
     reason = "dataset_api_unavailable",
