@@ -12,6 +12,16 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        engine:
+          - name: upstream-dev
+            repository: bryanthaboi/gen1recomp
+            ref: e88f2ef060cb8bd1d45d53a6aaa46f997f308791
+          - name: developer-mode-seam
+            repository: MaxTomahawk/gen1recomp
+            ref: 333949ce0d1a739209c0ea51b3063339287d9a3b
     steps:
       - name: Check out Adaptive Trainers
         uses: actions/checkout@v7
@@ -19,8 +29,8 @@ jobs:
       - name: Check out current audited Gen1Recomp dev
         uses: actions/checkout@v7
         with:
-          repository: bryanthaboi/gen1recomp
-          ref: e88f2ef060cb8bd1d45d53a6aaa46f997f308791
+          repository: ${{ matrix.engine.repository }}
+          ref: ${{ matrix.engine.ref }}
           path: .engine/gen1recomp
 
       - name: Install LuaJIT
@@ -51,5 +61,5 @@ jobs:
       - name: Upload package
         uses: actions/upload-artifact@v7
         with:
-          name: adaptive_trainers-development
+          name: adaptive_trainers-development-${{ matrix.engine.name }}
           path: dist/*.modpkg

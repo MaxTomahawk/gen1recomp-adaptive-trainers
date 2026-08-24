@@ -291,13 +291,19 @@ do
   engage(run, game, rosters.members.LORELEI)
   local memberSeed = save.modData.adaptive_trainers.state.leagueRun
     .memberSeeds.LORELEI
-  T.same(choices_since(start), {
+  local expectedChoices = {
     '[info] [adaptive_trainers] choice=league-bird-pair seed=league-run parts=[1]',
     ('[info] [adaptive_trainers] choice=league-member-strategy seed=league-member parts=["LORELEI",%d]'):format(memberSeed),
     ('[info] [adaptive_trainers] choice=league-member-party seed=league-member parts=["LORELEI",%d]'):format(memberSeed),
-  }, "real League sites emit exact deterministic choice order and content")
+  }
+  local developerEnabled = type(
+    run.data.commands["adaptive_trainers:debug"]) == "function"
+  T.same(choices_since(start), developerEnabled and expectedChoices or {},
+    developerEnabled
+      and "real League sites emit exact deterministic choice order and content"
+      or "older engine keeps real League choice logs inert")
   engage(run, game, rosters.members.LORELEI)
-  T.eq(#choices_since(start), 3,
+  T.eq(#choices_since(start), developerEnabled and #expectedChoices or 0,
     "real League rerun does not reconstruct persisted choices")
   local bytes = SaveSerializer.encode(save.modData)
   run.release()

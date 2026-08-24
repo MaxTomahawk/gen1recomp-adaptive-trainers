@@ -218,13 +218,19 @@ do
   local run, save, game = load_run("red", nil, true)
   engage(game, LEADER_CLASSES.BROCK)
   local choices = choices_since(start)
-  T.same(choices, {
+  local expectedChoices = {
     '[info] [adaptive_trainers] choice=boss-strategy seed=boss-attempt parts=["red","BROCK",0]',
     '[info] [adaptive_trainers] choice=boss-flex-pool seed=boss-attempt parts=["red","BROCK",0]',
     '[info] [adaptive_trainers] choice=boss-target-levels seed=boss-attempt parts=["red","BROCK",0]',
-  }, "real boss site emits exact deterministic choice order and content")
+  }
+  local developerEnabled = type(
+    run.data.commands["adaptive_trainers:debug"]) == "function"
+  T.same(choices, developerEnabled and expectedChoices or {},
+    developerEnabled
+      and "real boss site emits exact deterministic choice order and content"
+      or "older engine keeps real boss choice logs inert")
   engage(game, LEADER_CLASSES.BROCK)
-  T.eq(#choices_since(start), 3,
+  T.eq(#choices_since(start), developerEnabled and #expectedChoices or 0,
     "real boss rerun does not reconstruct persisted choices")
   local bytes = SaveSerializer.encode(save.modData)
   run.release()

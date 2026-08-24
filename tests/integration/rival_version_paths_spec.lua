@@ -456,12 +456,18 @@ do
   party_for(run, save, game, oak)
   local state = save.modData.adaptive_trainers.state.rival
   local hi, lo = state.journeySeed.hi, state.journeySeed.lo
-  T.same(choices_since(start), {
+  local expectedChoices = {
     ('[info] [adaptive_trainers] choice=rival-acquisition seed=rival-starter parts=["red",%d,%d]'):format(hi, lo),
     ('[info] [adaptive_trainers] choice=rival-active-party seed=rival-journey parts=["red","OAK_LAB",%d,%d]'):format(hi, lo),
-  }, "real Rival sites emit exact deterministic choice order and content")
+  }
+  local developerEnabled = type(
+    run.data.commands["adaptive_trainers:debug"]) == "function"
+  T.same(choices_since(start), developerEnabled and expectedChoices or {},
+    developerEnabled
+      and "real Rival sites emit exact deterministic choice order and content"
+      or "older engine keeps real Rival choice logs inert")
   party_for(run, save, game, oak)
-  T.eq(#choices_since(start), 2,
+  T.eq(#choices_since(start), developerEnabled and #expectedChoices or 0,
     "real Rival rerun does not reconstruct persisted choices")
   local bytes = SaveSerializer.encode(save.modData)
   run.release()

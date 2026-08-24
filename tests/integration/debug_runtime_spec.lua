@@ -7,6 +7,7 @@ local SaveSerializer = require("src.core.SaveSerializer")
 
 local modPath = assert(os.getenv("ADAPTIVE_TRAINERS_PATH"),
   "ADAPTIVE_TRAINERS_PATH must name the mod relative to Gen1Recomp")
+local probePath = modPath .. "/tests/fixtures/developer_mode_probe"
 
 local function seed_info_count()
   local count = 0
@@ -40,12 +41,23 @@ T.eq(seed_info_count(), 0,
   "production emits no Adaptive Trainers seed-choice info logs")
 production.release()
 
+local probe = T.sdk.loadMod(probePath, { dev = true })
+local developerSupported = type(
+  probe.data.commands["adaptive_trainers_test:developer_probe"]) == "function"
+probe.release()
+
 local run = T.sdk.loadMod(modPath, { dev = true })
 local command = run.data.commands["adaptive_trainers:debug"]
-T.check(type(command) == "function",
-  "developer mode registers adaptive_trainers:debug")
-T.check(type(run.data.screens.AdaptiveTrainerDiagnostics) == "table",
-  "developer mode registers the read-only diagnostics screen")
+if developerSupported then
+  T.check(type(command) == "function",
+    "developer mode registers adaptive_trainers:debug")
+  T.check(type(run.data.screens.AdaptiveTrainerDiagnostics) == "table",
+    "developer mode registers the read-only diagnostics screen")
+else
+  T.eq(command, nil, "older engine exposes no developer diagnostics command")
+  T.eq(run.data.screens.AdaptiveTrainerDiagnostics, nil,
+    "older engine exposes no developer diagnostics screen")
+end
 T.eq(run.loader.exports.adaptive_trainers.debug, nil,
   "developer mode still exposes no diagnostics export")
 T.eq(#run.loader:legacyReport("adaptive_trainers"), 0,
