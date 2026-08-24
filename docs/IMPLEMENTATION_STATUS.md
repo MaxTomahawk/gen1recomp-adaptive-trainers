@@ -34,7 +34,9 @@ Implement the complete approved Adaptive Trainer Ecology & Challenge System v1 a
 - [x] Phase E — Elite Four run snapshot and exactly-one-Bird mechanic
 - [x] Phase F — persistent Rival journey, R/B/Y windows, Yellow Eevee outcomes
 - [ ] Phase G — optional Kanto+ sidecar, Steel, weather, minimal added moves
-- [ ] Phase H — diagnostics, balancing simulations, integration, parity, packaging, release and index submission
+- [ ] Phase H — A-F diagnostics projections, acceptance aggregation, and
+  balancing evidence implemented locally; runtime dev-surface, Phase G
+  integration, final parity/package gates, release, and index submission open
 
 ## Current execution
 
@@ -55,6 +57,21 @@ title soft reset, and also clears on blackout, other League exits, or stale
 post-game home loads so the next entry cannot inherit or reroll the prior run.
 
 Current evidence:
+
+- Phase H A-F acceptance: 470/470 direct and aggregate checks passed against
+  the audited upstream `dev` baseline, including an instrumented proof that
+  filesystem spying is active before SDK discovery, load and pre-generation
+  perform zero filesystem/`mod.storage` writes, and initialization changes only
+  the mod's `mod.save` namespace. A 64-seed boss-core loss variation simulation
+  is also green; the genuine public loss lifecycle is
+  covered separately by the Gym runtime suite. Diagnostic projection and exact
+  `POKEPORT_DEV=1` adapter suites add 162/162 focused checks, including hostile
+  value/cycle/metatable rejection, deep-detachment, every declared A-F choice
+  label, and stable seed ordering. The public
+  runtime boundary adds 3/3 checks proving no ungated command/export or legacy
+  environment shim. This is not final Phase H release evidence: Phase G,
+  public runtime dev activation, complete
+  upstream no-mod parity, and final packaging remain open.
 
 - Public SDK loader: 7/7 checks passed.
 - Phase A public runtime: 327/327 checks passed across Red, Blue, and Yellow,
@@ -85,6 +102,11 @@ Current evidence:
   and Moltres 2,454, within the normative 50/25/25 tolerances.
 - `modkit validate --base fixture`: green.
 - `modkit lint`: green, no ROM-derived content detected.
+- Phase H A-F development double-pack: byte-identical and layout-clean at
+  `SOURCE_DATE_EPOCH=0`; 36 archive entries, including the detached diagnostics
+  modules, SHA-256
+  `3cb3989da599f4f005cedf8c37be3296ef855ae5b4448271ea0c37e3d7471b75`.
+  This is a development artifact only; Phase G and final release gates remain.
 - Last Phase-E reproducible double-pack check: green; 31 distributable files plus
   `.modkit/pack.json`, with no recursive `dist/`, tests, scripts, docs, or DOCX.
 - Last merged Phase-E source-date-zero package SHA-256:
@@ -192,3 +214,23 @@ Battle-checkpoint reconstruction restores `mod.save` before invoking the public
 `trainer.party` hook. The mod therefore persists the active concrete identity
 in its checkpointed save state and reuses it during reconstruction; this closes
 the collision case without private imports or a new engine seam.
+
+### AT-SP-005 — dev-only diagnostics activation
+
+- State: `CANDIDATE`; no engine branch, PR, or released dependency
+- Required by: Phase H runtime access to the Chapter 30 diagnostic projections
+  only when `POKEPORT_DEV=1`
+- Missing capability: a public read-only dev-mode signal or an engine-owned
+  dev-console/screen registration boundary
+- Existing APIs considered: screens, commands, exports, manifest
+  `force_enable_env`, and the legacy `os.getenv` compatibility shim
+- Why insufficient: screens, commands, and exports do not identify dev mode;
+  `force_enable_env` controls enablement rather than exposing the reason; the
+  sandbox intentionally hides the host environment and reports `os.getenv` as
+  legacy compatibility usage
+- Current safe boundary: package the pure detached diagnostics and exact-gated
+  adapter, prove production has no ungated command/export, report projections
+  rather than claiming runtime events, and leave runtime activation disconnected
+- Next approval gate: decide with upstream maintainers whether an existing
+  engine-owned dev surface can host the projection or a small generic public
+  dev-mode seam is justified
