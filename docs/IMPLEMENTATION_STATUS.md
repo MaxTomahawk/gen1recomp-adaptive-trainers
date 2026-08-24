@@ -79,12 +79,15 @@ Current evidence:
   `POKEPORT_DEV=1` adapter suites add 162/162 focused checks, including hostile
   value/cycle/metatable rejection, deep-detachment, every declared A-F choice
   label, and stable seed ordering. The public
-  runtime boundary now adds 66/66 checks against the combined public-seam
+  runtime boundary now adds 82/82 checks against the combined public-seam
   engine: exact boolean-only activation, all four command scopes, invalid and
-  missing targets, detached stable screens, scrolling/close, byte-identical
-  read-only save state, production absence, exact seed-log text, and no
-  reconstructed log on rerun or serialized reload. Generator-level suites pin
-  materialization ordering and seed parts for standard roster/catch/moves,
+  missing/surplus targets, detached stable screens, lossless wrapped drawing,
+  scrolling/close, byte-identical read-only save/runtime/registry inputs,
+  current ceiling/catch/ecology/move-score and boss admission evidence,
+  production absence, exact seed-log text, and no reconstructed log on rerun
+  or serialized reload. Generator-level and real runtime suites pin
+  materialization ordering and seed parts for standard roster/catch/no-catch/
+  growth/moves,
   boss strategy/flex/levels, League Bird/member strategy/party, and Rival
   starter/window/acquisition/party choices. The pending public API and API-v1
   no-mod parity suites are green at 23/23 and 12/12. This is not final Phase H
@@ -100,16 +103,16 @@ Current evidence:
   freezing, and Blue/Yellow badge-path coverage.
 - Phase C public runtime: 35/35 persistent-move, evolution-refresh, merged-AI,
   tactical-switch, and serialized-reload checks.
-- Phase D public runtime: 679/679 all-Leader Red/Blue/Yellow generation,
+- Phase D public runtime: 697/697 all-Leader Red/Blue/Yellow generation,
   registration, scoped-AI, persistence and result checks; public seam lifecycle
   47/47; standalone registration UI 33/33.
-- Phase E public runtime: 144/144 Red/Blue/Yellow entry, member generation,
+- Phase E public runtime: 147/147 Red/Blue/Yellow entry, member generation,
   Hall-of-Fame autosave/post-game recovery,
   save/reload, checkpoint, T4 AI, internal-transition and blackout/re-entry
-  checks; League core 167/167.
-- Phase F public runtime: 323/323 exact R/B/Y scripted-context, persistent
+  checks; League core 176/176.
+- Phase F public runtime: 326/326 exact R/B/Y scripted-context, persistent
   journey, legal T3 move/AI, checkpoint, result-isolation and Yellow outcome
-  checks; Rival core 172/172, including every exact canonical R/B starter and
+  checks; Rival core 182/182, including every exact canonical R/B starter and
   Yellow Eevee path row.
 - Phase G public runtime: 74/74 checks; combined public-engine acceptance:
   26/26; Kanto-only fallback/root reconciliation: 163/163; Kanto+ unit/property
@@ -127,7 +130,7 @@ Current evidence:
   `SOURCE_DATE_EPOCH=0`; 38 distributable files plus `.modkit/pack.json`,
   including the detached diagnostics modules and developer-only choice logger,
   SHA-256
-  `0f6d427d1dec6689cc6ea9d46e2199cf5c7cb87de08014aa5a16f650033acc41`.
+  `2c734c0e25b4b6b98633cb4fb4d48151332dda2ab1915967da4aadf13304d564`.
   This verifies the local combined-seam package only; stable release remains
   gated on the public developer signal reaching the released engine.
 - Last Phase-E reproducible double-pack check: green; 31 distributable files plus
