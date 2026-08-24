@@ -148,29 +148,37 @@ The detailed implementation plan is `docs/superpowers/plans/2026-08-14-adaptive-
 
 ### AT-SP-003 — active-independent semantic dataset view
 
-- State: `IMPLEMENTING_REVIEW`; no upstream PR and no released dependency
+- State: `IMPLEMENTING_REVIEW`; local RFC 0015 branch, no upstream PR and no
+  released dependency
 - Required by: Phase G optional Kanto+ content derived from the player's valid
   Gold import while Red, Blue, or Yellow remains active
 - Missing capability: read-only semantic access to another imported version's
   registries and namespaced generated assets without changing active cache/game
   authority or reading raw ROM bytes
-- Current work: generic `mod.datasets` proposal in an isolated engine worktree;
-  it must be rebased on current `dev`, independently reviewed, renumbered to an
-  unoccupied RFC, linted, and submitted under current Route B rules
+- Current work: generic `mod.datasets` proposal rebased on current `dev`. Its
+  first review rejected executable/unbounded generated-data loading,
+  marker-only cache readiness, incomplete canonical hydration, and combined
+  parity/API evidence. A test-first remediation now uses bounded data-only
+  decoding, per-open cache revalidation, shared canonical R/B/Y/Gold hydration,
+  and separate no-mod/public tests; the complete refactor remains under
+  independent re-review before any push or PR
 - Release gate: unresolved; the mod must fail closed to complete Kanto-only
   behavior until a reviewed public seam is merged and available
 
 ### AT-SP-004 — engine-owned field residual application
 
-- State: `IMPLEMENTING_REVIEW`; no upstream PR and no released dependency
+- State: `UPSTREAM_PR_OPEN` (`bryanthaboi/gen1recomp#1766`, branch commit
+  `2ad2e028d10abec839ee06990f660d881d4ab379`); not merged/released
 - Required by: Phase G Gen 2-style Sandstorm residual damage after vanilla
   status residuals and before weather expiry
 - Missing capability: a public data-only residual request that preserves the
   engine's HP, faint, result, experience, and replacement authority
-- Current work: generic guarded `battle.field_residual` proposal in an isolated
-  engine worktree. Independent review found live-authority leakage and
-  descriptor-order-dependent simultaneous-faint outcomes; both are blocking
-  defects being corrected test-first before submission
+- Current work: generic guarded `battle.field_residual` proposal. Two review
+  rounds removed live battler/callback authority, restored unchanged native
+  simultaneous-faint behavior outside the guarded hook, and scoped deterministic
+  terminal precedence to accepted residual descriptors. Independent re-review
+  is clean; upstream CI is green (headless, mod lint, engine lint, fixture and
+  platform-change gates), and the PR is mergeable pending maintainer review
 - Release gate: unresolved; incomplete Sandstorm mechanics may not activate in
   the distributed mod
 
