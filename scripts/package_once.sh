@@ -10,6 +10,11 @@ REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
 ENGINE_ROOT=${GEN1RECOMP_ROOT:-"$REPO_ROOT/.engine/gen1recomp"}
 OUTPUT=$1
 
+if [[ -e "$OUTPUT" || -L "$OUTPUT" ]]; then
+  echo "package_once.sh refuses to overwrite existing output: $OUTPUT" >&2
+  exit 2
+fi
+
 if [[ ! -f "$ENGINE_ROOT/tools/modkit.py" || ! -f "$ENGINE_ROOT/tests/modkit/init.lua" ]]; then
   echo "GEN1RECOMP_ROOT is not a Gen1Recomp checkout: $ENGINE_ROOT" >&2
   exit 2
@@ -45,6 +50,14 @@ if [[ -d "$REPO_ROOT/assets" ]]; then
   cp -R "$REPO_ROOT/assets" "$PACK_ROOT/assets"
 fi
 
-mkdir -p "$(dirname "$OUTPUT")"
+OUTPUT_PARENT=$(dirname -- "$OUTPUT")
+OUTPUT_NAME=$(basename -- "$OUTPUT")
+mkdir -p "$OUTPUT_PARENT"
+OUTPUT_PARENT=$(cd "$OUTPUT_PARENT" && pwd -P)
+OUTPUT="$OUTPUT_PARENT/$OUTPUT_NAME"
+if [[ -e "$OUTPUT" || -L "$OUTPUT" ]]; then
+  echo "package_once.sh refuses to overwrite existing output: $OUTPUT" >&2
+  exit 2
+fi
 python3 "$ENGINE_ROOT/tools/modkit.py" --repo "$ENGINE_ROOT" \
   pack "$PACK_ROOT" --base fixture --output "$OUTPUT"

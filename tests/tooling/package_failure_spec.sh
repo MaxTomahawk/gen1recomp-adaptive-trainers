@@ -40,8 +40,19 @@ if [[ $STATUS -eq 0 ]]; then
   echo "expected package.sh to fail when layout verification fails" >&2
   exit 1
 fi
+MARKER_COUNT=$(grep -Fc "forced package layout failure" "$TEST_PARENT/package.log" || true)
+if [[ "$MARKER_COUNT" -ne 1 ]]; then
+  echo "forced layout failure marker was not observed exactly once" >&2
+  cat "$TEST_PARENT/package.log" >&2
+  exit 1
+fi
 if [[ -e "$OUTPUT" ]]; then
   echo "failed package gate left a public package artifact: $OUTPUT" >&2
+  exit 1
+fi
+if find "$REPO_ROOT/dist" -maxdepth 1 -name '.adaptive-trainers-package.*' \
+    -print -quit | grep -q .; then
+  echo "failed package gate left a hidden staging directory" >&2
   exit 1
 fi
 
