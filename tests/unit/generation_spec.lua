@@ -415,6 +415,53 @@ eq(catchLogs[1] and catchLogs[1].seedLabel, "trainer-catch",
 eq(catchLogs[2] and catchLogs[2].label, "trainer-moves",
   "a caught individual's selected moves log after the catch")
 
+local noCatchLogs = {}
+local noCatchStandard = standard_factory({
+  rng = rng,
+  player_power = player_power,
+  ecology = ecology,
+  selector = selector,
+  validator = validator,
+  stage_resolver = stage_resolver,
+  growth = { materialize = function() end },
+  roster = {
+    maybe_catch = function()
+      return nil, { reason = "roll", probability = 0.5 }
+    end,
+    center_distance = function() return nil end,
+    rotate = function() return false end,
+  },
+  movesets = { hydrate_legacy = function() end },
+  on_choice = function(label, seedLabel, parts)
+    noCatchLogs[#noCatchLogs + 1] = {
+      label = label, seedLabel = seedLabel, parts = parts,
+    }
+  end,
+})
+local noCatchRoot = { seedHi = root.seedHi, seedLo = root.seedLo,
+  trainers = { [context.identityKey] = {
+    identityKey = context.identityKey,
+    owned = { { id = context.identityKey .. "#1", species = "PIDGEY",
+      level = 8, roleSeed = 1, moves = { "TACKLE" } } },
+    activeIds = { context.identityKey .. "#1" },
+    lastResult = "lose",
+    lastBattleAt = 0,
+    battleCount = 1,
+    lastGrowthBattleCount = 0,
+    lastCatchBattleCount = 0,
+  } } }
+noCatchStandard.build(context, vanillaTeam, noCatchRoot, {
+  data = data, meta = meta, profile = profile,
+})
+eq(noCatchLogs[1] and noCatchLogs[1].label, "trainer-no-catch",
+  "a seeded failed catch logs at decision materialization")
+eq(noCatchLogs[1] and noCatchLogs[1].seedLabel, "trainer-catch",
+  "the no-catch decision names the consumed catch stream")
+eq(noCatchLogs[1] and noCatchLogs[1].parts[1], context.identityKey,
+  "no-catch seed parts name the concrete trainer")
+eq(noCatchLogs[1] and noCatchLogs[1].parts[2], 1,
+  "no-catch seed parts name the battle counter")
+
 local originalRandom = math.random
 math.random = function() error("initial generation must not use math.random") end
 local firstParty, firstState = standard.build(context, vanillaTeam, root, {

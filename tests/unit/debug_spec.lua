@@ -98,12 +98,23 @@ local game = {
   input = input,
   stack = { pop = function() popped = popped + 1 end },
 }
+local currentRows = debug.rows(projection)
 local screen = debug.new(game, projection)
-check(screen.projection == nil and screen.save == nil and screen.registry == nil
-    and screen.generator == nil and screen.callback == nil,
-  "the screen retains rows, not projections or gameplay authority")
-check(screen.rows ~= rows and screen.rows[9] == rows[9],
-  "the screen owns its own detached row list")
+check(screen.game == game,
+  "the screen retains only the documented public UI navigation handle")
+check(screen.projection == nil and screen.root == nil and screen.save == nil
+    and screen.registry == nil and screen.generator == nil
+    and screen.callback == nil and screen.diagnostics == nil,
+  "the screen retains no live diagnostic source or gameplay authority")
+check(screen.rows ~= currentRows
+    and table.concat(screen.rows, "") == table.concat(currentRows, ""),
+  "the screen owns a complete detached rendering of the logical rows")
+local detachedRows = table.concat(screen.rows, "\n")
+projection.identityKey = "MUTATED"
+projection.roster[1].species = "MUTATED"
+root.trainers.trainer.owned[1].species = "MUTATED_AT_SOURCE"
+eq(table.concat(screen.rows, "\n"), detachedRows,
+  "mutating projection and save sources cannot affect retained screen rows")
 eq(screen.offset, 0, "the screen starts at the first row")
 pressed.down = true
 screen:update()
@@ -123,7 +134,49 @@ eq(popped, 2, "START also closes the diagnostics screen")
 
 local first = table.concat(screen.rows, "\n")
 local second = table.concat(debug.new(game, projection).rows, "\n")
-eq(second, first, "row order is repeatable across screen reconstruction")
+check(second ~= first,
+  "a newly constructed screen reflects only its newly supplied projection")
+eq(table.concat(debug.new(game, projection).rows, "\n"), second,
+  "row order is repeatable across screen reconstruction")
+
+local wrapProjection = {
+  kind = "rival",
+  version = "yellow",
+  encounterIndex = 2,
+  eeveeOutcome = "JOLTEON",
+  owned = { {
+    id = "rival:yellow:starter:12345678",
+    species = "JOLTEON",
+    level = 25,
+    originMap = "OAKS_LAB",
+    acquiredAt = 0,
+    attachment = 100,
+    useCount = 9,
+  } },
+  journeyEvents = {},
+}
+local logicalRows = debug.rows(wrapProjection)
+local wrapped = debug.new(game, wrapProjection)
+eq(table.concat(wrapped.rows, ""), table.concat(logicalRows, ""),
+  "deterministic wrapping preserves every character from logical rows")
+for index, row in ipairs(wrapped.rows) do
+  check(#row <= 19, "wrapped row " .. index .. " fits the public screen width")
+end
+
+local priorLove = love
+love = { graphics = {
+  setColor = function() end,
+  rectangle = function() end,
+} }
+fontCalls = {}
+wrapped:draw()
+love = priorLove
+local drawn = {}
+for _, call in ipairs(fontCalls) do
+  if call[1] == "draw" then drawn[#drawn + 1] = call[2] end
+end
+eq(table.concat(drawn, ""), table.concat(logicalRows, ""),
+  "the real draw path renders wrapped diagnostic data without clipping")
 
 if failures > 0 then
   io.stderr:write(string.format("%d/%d debug checks failed\n",

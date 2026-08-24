@@ -78,6 +78,24 @@ eq(graceReport.probability, 0, "grace-period catch probability is exactly zero")
 eq(#grace.owned, 1, "grace-period evaluation cannot add an individual")
 
 local state = fresh()
+local previewState = fresh()
+local preview = roster.catch_preview(previewState,
+  ctx(100 + 72 * 3600), profiles.byName.BUG_CATCHER, evidence)
+check(type(preview) == "table",
+  "catch preview exposes current deterministic evidence")
+eq(preview and preview.candidateCount, 1,
+  "catch preview applies the real candidate-admission constraints")
+check(type(preview and preview.probability) == "number"
+    and preview.probability > 0,
+  "catch preview exposes the current finite probability")
+eq(preview and preview.candidates[1], "BUG",
+  "catch preview exposes accepted ecology line candidates")
+eq(previewState.lastCatchBattleCount, 0,
+  "catch preview cannot consume the authoritative battle check")
+eq(previewState.lastCatchCheckAt, 100,
+  "catch preview cannot change persisted timing authority")
+eq(#previewState.owned, 1,
+  "catch preview cannot materialize a catch")
 local instance, report = roster.maybe_catch(state, ctx(100 + 72 * 3600),
   profiles.byName.BUG_CATCHER, evidence)
 check(instance ~= nil, "a deterministic long-interval catch can succeed")

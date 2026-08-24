@@ -3,6 +3,8 @@ return function(deps)
   local player_power = deps.player_power
   local stage_resolver = deps.stage_resolver
   local movesets = deps.movesets
+  local on_choice = type(deps.on_choice) == "function"
+    and deps.on_choice or function() end
   local M = {}
 
   local BADGE_ANCHOR = {
@@ -51,9 +53,29 @@ return function(deps)
   end
 
   local function deterministic_round(value, stream)
-    if value <= 0 then return 0 end
+    if value <= 0 then return 0, false end
     local whole = math.floor(value)
-    return whole + (stream:float() < value - whole and 1 or 0)
+    return whole + (stream:float() < value - whole and 1 or 0), true
+  end
+
+  local function move_set(instance)
+    local out = {}
+    for _, moveId in ipairs(instance and instance.moves or {}) do
+      out[moveId] = true
+    end
+    return out
+  end
+
+  local function log_new_moves(instance, before)
+    for _, moveId in ipairs(instance and instance.moves or {}) do
+      if not before[moveId] then
+        on_choice("trainer-moves", "trainer-move-role-v1", {
+          tonumber(instance.roleSeed) or 0,
+          instance.id or "",
+          moveId,
+        })
+      end
+    end
   end
 
   function M.materialize(state, ctx, profile)
@@ -98,11 +120,19 @@ return function(deps)
     for _, mon in ipairs(state.owned or {}) do
       local stream = rng.stream(rootSeed, "trainer-growth",
         state.identityKey or "", state.battleCount or 0, mon.id or "")
+      local seedParts = {
+        state.identityKey or "", state.battleCount or 0, mon.id or "",
+      }
       local focus = stream:integer(-1, 1)
+      on_choice("trainer-growth-focus", "trainer-growth", seedParts)
       local desired = math.max(0,
         (effectiveCeiling - currentTop) * factor + focus * factor)
+      local rounded, drewRounding = deterministic_round(desired, stream)
+      if drewRounding then
+        on_choice("trainer-growth-rounding", "trainer-growth", seedParts)
+      end
       local gain = math.min(effectiveCeiling - (tonumber(mon.level) or 1),
-        deterministic_round(desired, stream))
+        rounded)
       if gain > 0 then
         local previousSpecies = mon.species
         mon.level = mon.level + gain
@@ -115,14 +145,20 @@ return function(deps)
         local teamContext = movesets and movesets.team_context(
           teammates(state.owned, mon), ctx.pokemon, ctx.moves) or nil
         if movesets then
-          movesets.refresh(mon, "level-up", ctx.pokemon[previousSpecies],
-            ctx.moves, profile.aiTier, nil, teamContext)
+          local before = move_set(mon)
+          local refreshed = movesets.refresh(mon, "level-up",
+            ctx.pokemon[previousSpecies], ctx.moves, profile.aiTier, nil,
+            teamContext)
+          if refreshed then log_new_moves(mon, before) end
         end
         if species and species ~= mon.species then
           mon.species = species
           if movesets then
-            movesets.refresh(mon, "evolution", ctx.pokemon[species],
-              ctx.moves, profile.aiTier, nil, teamContext)
+            local before = move_set(mon)
+            local refreshed = movesets.refresh(mon, "evolution",
+              ctx.pokemon[species], ctx.moves, profile.aiTier, nil,
+              teamContext)
+            if refreshed then log_new_moves(mon, before) end
           end
           mon.movesetRefreshReason = nil
           mon.evolvedFrom = previousSpecies

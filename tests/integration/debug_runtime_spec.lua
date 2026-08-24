@@ -55,6 +55,25 @@ if type(command) ~= "function" then
   T.finish("adaptive trainers runtime diagnostics")
 end
 
+run.data.moves.TACKLE = { id = "TACKLE", type = "NORMAL", power = 35,
+  accuracy = 95, pp = 35, effect = "NO_ADDITIONAL_EFFECT" }
+run.data.pokemon.BUTTERFREE = {
+  id = "BUTTERFREE", types = { "BUG", "FLYING" },
+  level1Moves = { "TACKLE" }, learnset = {}, tmhm = {}, evolutions = {},
+}
+run.data.pokemon.CATERPIE = {
+  id = "CATERPIE", types = { "BUG" }, level1Moves = { "TACKLE" },
+  learnset = {}, tmhm = {}, evolutions = {},
+}
+run.data.pokemon.GEODUDE = {
+  id = "GEODUDE", types = { "ROCK", "GROUND" },
+  level1Moves = { "TACKLE" }, learnset = {}, tmhm = {},
+  evolutions = { { method = "LEVEL", level = 20, species = "GRAVELER" } },
+}
+run.data.encounters.ROUTE_3 = { grass = { slots = {
+  { species = "CATERPIE", level = 5, weight = 1 },
+} } }
+
 local root = {
   seedHi = 101,
   seedLo = 202,
@@ -65,6 +84,7 @@ local root = {
       mapId = "ROUTE_3",
       lastBattleAt = 900,
       battleCount = 2,
+      vanillaTop = 8,
       activeIds = { "trainer:1" },
       owned = { { id = "trainer:1", lineId = "CATERPIE_LINE",
         species = "BUTTERFREE", level = 12, moves = { "TACKLE" } } },
@@ -109,6 +129,13 @@ local pushed = {}
 local input = { wasPressed = function() return false end }
 local game = {
   data = run.data,
+  save = {
+    version = "red",
+    badgeCount = 1,
+    playTime = 7200,
+    player = { map = "ROUTE_3" },
+    party = { { species = "RATTATA", level = 20 } },
+  },
   input = input,
   stack = {
     push = function(_, screen) pushed[#pushed + 1] = screen end,
@@ -116,11 +143,34 @@ local game = {
   },
 }
 local before = SaveSerializer.encode(run.loader.modSave.adaptive_trainers)
+local runtimeBefore = SaveSerializer.encode(game.save)
+local registryBefore = SaveSerializer.encode({
+  butterfree = game.data.pokemon.BUTTERFREE,
+  caterpie = game.data.pokemon.CATERPIE,
+  geodude = game.data.pokemon.GEODUDE,
+  tackle = game.data.moves.TACKLE,
+  route3 = game.data.encounters.ROUTE_3,
+})
 
 local standard = command({ game = game }, "standard", "trainer")
 T.eq(standard.kind, "standard", "standard scope selects an identity")
+T.eq(standard.ceiling, 20,
+  "runtime standard diagnostics supply the exact current ceiling")
+T.check(type(standard.catchProbability) == "number"
+    and standard.catchProbability > 0 and standard.catchProbability <= 1,
+  "runtime standard diagnostics supply the current catch probability")
+T.same(standard.ecologyCandidates, { "CATERPIE_LINE" },
+  "runtime standard diagnostics supply exact current ecology candidates")
+T.check(type(standard.moveScores.TACKLE) == "number",
+  "runtime standard diagnostics supply selected move scores")
 local boss = command({ game = game }, "boss", "BROCK")
 T.eq(boss.kind, "boss", "boss scope selects a boss id")
+T.eq(boss.poolCandidates[1], "GEODUDE_LINE",
+  "runtime boss diagnostics supply the exact admitted pool candidate")
+T.eq(boss.rejectedConstraints[1], "RHYHORN_LINE:missing-runtime-species",
+  "runtime boss diagnostics supply a specific current rejection reason")
+T.eq(boss.historicalRejectionsAvailable, false,
+  "runtime boss diagnostics label historical rejection trace unavailable")
 local rival = command({ game = game }, "rival")
 T.eq(rival.kind, "rival", "rival scope selects the persisted journey")
 local league = command({ game = game }, "league")
@@ -132,12 +182,10 @@ for index, screen in ipairs(pushed) do
   T.eq(screen.projection, nil,
     "screen " .. index .. " retains rows rather than the projection")
 end
-local standardMoveRow = false
-for _, row in ipairs(pushed[1].rows) do
-  if row == "move TACKLE: <unavailable>" then standardMoveRow = true end
+local retainedRows = {}
+for index, screen in ipairs(pushed) do
+  retainedRows[index] = table.concat(screen.rows, "\n")
 end
-T.check(standardMoveRow,
-  "runtime standard diagnostics retain every selected move score field")
 
 standard.roster[1].species = "MUTATED"
 boss.party[1].level = 100
@@ -151,13 +199,19 @@ T.eq(root.rival.owned[1].attachment, 100,
   "Rival projection is detached from mod.save")
 T.eq(root.leagueRun.birdPair.species, "ARTICUNO",
   "League projection is detached from mod.save")
+for index, screen in ipairs(pushed) do
+  T.eq(table.concat(screen.rows, "\n"), retainedRows[index],
+    "screen " .. index .. " remains detached after source mutation")
+end
 
 local invalid = {
   { nil },
   { "standard" },
   { "standard", "missing" },
+  { "standard", "trainer", "extra" },
   { "boss" },
   { "boss", "missing" },
+  { "boss", "BROCK", "extra" },
   { "rival", "extra" },
   { "league", "extra" },
   { "unknown" },
@@ -171,6 +225,16 @@ end
 T.eq(#pushed, 4, "invalid and missing targets open no screen")
 T.eq(SaveSerializer.encode(run.loader.modSave.adaptive_trainers), before,
   "diagnostics never initialize, migrate, reconcile, mutate, or persist state")
+T.eq(SaveSerializer.encode(game.save), runtimeBefore,
+  "current evidence reads public runtime inputs without mutating them")
+T.eq(SaveSerializer.encode({
+    butterfree = game.data.pokemon.BUTTERFREE,
+    caterpie = game.data.pokemon.CATERPIE,
+    geodude = game.data.pokemon.GEODUDE,
+    tackle = game.data.moves.TACKLE,
+    route3 = game.data.encounters.ROUTE_3,
+  }), registryBefore,
+  "current evidence reads runtime registries without mutating them")
 
 run.loader.modSave.adaptive_trainers = {}
 local absent, absentErr = command({ game = game }, "rival")
@@ -188,9 +252,9 @@ local function species(id, stats, evolutions)
     types = { id == "RATTATA" and "NORMAL" or "FLYING" },
     baseStats = stats,
     evolutions = evolutions or {},
-    learnset = {},
+    learnset = { { level = 1, move = "TACKLE" } },
     tmhm = {},
-    level1Moves = {},
+    level1Moves = { "TACKLE" },
   }
 end
 
@@ -205,6 +269,8 @@ local function choice_data()
   data.encounters.FIX_ROUTE = { grass = { rate = 25, slots = {
     { level = 5, species = "SPEAROW" },
   } } }
+  data.moves.TACKLE = { id = "TACKLE", type = "NORMAL", power = 35,
+    accuracy = 95, pp = 35, effect = "NO_ADDITIONAL_EFFECT" }
   data.trainers.OPP_YOUNGSTER = {
     id = "OPP_YOUNGSTER",
     index = 2,
@@ -264,12 +330,29 @@ choiceRun.loader.modSave = firstGame.save.modData
 Runtime.emit("game.ready", { game = firstGame })
 engage(firstGame)
 local firstChoices = choices_since(choiceStart)
-T.eq(firstChoices[1],
+local choiceState = firstGame.save.modData.adaptive_trainers.state.trainers
+  ["red|FIX_ROUTE|OPP_YOUNGSTER|1"]
+local firstMon = choiceState.owned[1]
+T.same(firstChoices, {
   '[info] [adaptive_trainers] choice=trainer-roster seed=trainer-init parts=["red|FIX_ROUTE|OPP_YOUNGSTER|1"]',
-  "developer runtime emits exact choice and seed content at materialization")
-local materializedCount = #firstChoices
-T.check(materializedCount >= 1,
-  "developer runtime emits at least the standard roster choice")
+  ('[info] [adaptive_trainers] choice=trainer-moves seed=trainer-move-role-v1 parts=[%d,"%s","TACKLE"]'):format(firstMon.roleSeed, firstMon.id),
+}, "real standard initial site emits exact deterministic order and content")
+
+choiceState.lastResult = "lose"
+choiceState.battleCount = 1
+choiceState.lastBattleAt = firstGame.save.playTime - 901
+choiceState.lastGrowthBattleCount = 0
+choiceState.lastCatchBattleCount = 0
+engage(firstGame)
+local afterLoss = choices_since(choiceStart)
+T.same(afterLoss, {
+  firstChoices[1],
+  firstChoices[2],
+  ('[info] [adaptive_trainers] choice=trainer-growth-focus seed=trainer-growth parts=["%s",1,"%s"]'):format(choiceState.identityKey, firstMon.id),
+  ('[info] [adaptive_trainers] choice=trainer-growth-rounding seed=trainer-growth parts=["%s",1,"%s"]'):format(choiceState.identityKey, firstMon.id),
+  ('[info] [adaptive_trainers] choice=trainer-no-catch seed=trainer-catch parts=["%s",1]'):format(choiceState.identityKey),
+}, "real standard loss sites emit exact growth and no-catch order/content")
+local materializedCount = #afterLoss
 engage(firstGame)
 T.eq(#choices_since(choiceStart), materializedCount,
   "runtime rerun does not reconstruct persisted choice logs")

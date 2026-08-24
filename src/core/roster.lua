@@ -209,26 +209,45 @@ return function(deps)
       tonumber(profile and profile.targetOwned) or 1))
   end
 
-  function M.maybe_catch(state, ctx, profile, evidence)
+  local function catch_evidence(state, ctx, profile, evidence)
     state, ctx, profile = state or {}, ctx or {}, profile or {}
     local now = tonumber(ctx.playTime) or 0
     local elapsed = math.max(0, now - (tonumber(state.lastBattleAt) or now))
-    local report = { elapsedSeconds = elapsed, probability = 0,
-      candidateCount = 0 }
+    local candidates, availability = eligible_candidates(evidence, profile,
+      ctx.meta, state, ctx)
+    local accepted = {}
+    for _, candidate in ipairs(candidates) do
+      local lineId = candidate.line and candidate.line.lineId
+      if type(lineId) == "string" then accepted[#accepted + 1] = lineId end
+    end
+    return {
+      elapsedSeconds = elapsed,
+      probability = M.catch_probability(elapsed, #(state.owned or {}),
+        profile, availability),
+      candidateCount = #candidates,
+      ecologyAvailability = availability,
+      candidates = accepted,
+    }, candidates
+  end
+
+  function M.catch_preview(state, ctx, profile, evidence)
+    return catch_evidence(state, ctx, profile, evidence)
+  end
+
+  function M.maybe_catch(state, ctx, profile, evidence)
+    state, ctx, profile = state or {}, ctx or {}, profile or {}
+    local now = tonumber(ctx.playTime) or 0
     if state.lastCatchBattleCount == state.battleCount then
-      report.reason = "already-checked"
-      return nil, report
+      return nil, { elapsedSeconds = math.max(0,
+        now - (tonumber(state.lastBattleAt) or now)), probability = 0,
+        candidateCount = 0, reason = "already-checked" }
     end
     state.lastCatchBattleCount = state.battleCount
     state.lastCatchCheckAt = now
-    local candidates, availability = eligible_candidates(evidence, profile,
-      ctx.meta, state, ctx)
-    report.candidateCount = #candidates
-    report.ecologyAvailability = availability
-    report.probability = M.catch_probability(elapsed, #(state.owned or {}),
-      profile, availability)
+    local report, candidates = catch_evidence(state, ctx, profile, evidence)
     if #candidates == 0 or report.probability <= 0 then
-      report.reason = elapsed <= 900 and "grace" or "no-candidates"
+      report.reason = report.elapsedSeconds <= 900
+        and "grace" or "no-candidates"
       return nil, report
     end
 

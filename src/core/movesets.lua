@@ -288,6 +288,24 @@ return function(deps)
       source = source }
   end
 
+  function M.selected_scores(instance, speciesDef, moveDefs, tier, package,
+      teamContext)
+    instance, moveDefs = instance or {}, moveDefs or {}
+    tier = math.max(0, math.min(4, math.floor(tonumber(tier) or 0)))
+    local _, pool = ranked_candidates(instance, speciesDef, moveDefs, tier,
+      package, teamContext)
+    local scores = {}
+    for _, moveId in ipairs(instance.moves or {}) do
+      local row = existing_row(instance, speciesDef, moveDefs, pool, tier,
+        package, teamContext, moveId)
+      if row.score == row.score and row.score ~= math.huge
+          and row.score ~= -math.huge then
+        scores[moveId] = row.score
+      end
+    end
+    return scores
+  end
+
   function M.refresh(instance, reason, speciesDef, moveDefs, tier, package,
       teamContext)
     tier = math.max(0, math.min(4, math.floor(tonumber(tier) or 0)))

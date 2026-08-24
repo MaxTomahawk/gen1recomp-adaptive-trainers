@@ -204,6 +204,8 @@ function M.boss(root, bossId, evidence)
     party = copy_party(state.party),
     poolCandidates = copy_array(evidence.poolCandidates),
     rejectedConstraints = copy_array(evidence.rejectedConstraints),
+    historicalRejectionsAvailable = evidence.historicalRejectionsAvailable
+      == true,
     choiceLabels = {
       strategy = "boss-strategy",
       roster = "boss-flex-pool",

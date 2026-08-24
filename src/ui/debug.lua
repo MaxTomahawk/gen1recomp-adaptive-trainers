@@ -72,6 +72,8 @@ return function(deps)
       "levels: " .. joined(report.targetLevels),
       "pool: " .. joined(report.poolCandidates),
       "rejected: " .. joined(report.rejectedConstraints),
+      "historical: " .. (report.historicalRejectionsAvailable
+        and "available" or "unavailable"),
     }
     for _, mon in ipairs(report.party or {}) do
       rows[#rows + 1] = roster_row("party: ", mon)
@@ -171,11 +173,6 @@ return function(deps)
     end
   end
 
-  local function clipped(value)
-    value = tostring(value or "")
-    return #value > MAX_WIDTH and value:sub(1, MAX_WIDTH) or value
-  end
-
   function Screen:draw()
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.rectangle("fill", 0, 0, 160, 144)
@@ -183,15 +180,26 @@ return function(deps)
     love.graphics.setColor(0, 0, 0, 1)
     for row = 1, VISIBLE_ROWS do
       local line = self.rows[self.offset + row]
-      if line then ui.Font.draw(clipped(line), 4, (row - 1) * 9 + 4) end
+      if line then ui.Font.draw(line, 4, (row - 1) * 9 + 4) end
     end
     love.graphics.setColor(1, 1, 1, 1)
+  end
+
+  local function append_wrapped(target, value)
+    value = tostring(value or "")
+    if value == "" then
+      target[#target + 1] = ""
+      return
+    end
+    for first = 1, #value, MAX_WIDTH do
+      target[#target + 1] = value:sub(first, first + MAX_WIDTH - 1)
+    end
   end
 
   function M.new(game, projection)
     local rows = M.rows(projection)
     local detached = {}
-    for index, row in ipairs(rows) do detached[index] = tostring(row) end
+    for _, row in ipairs(rows) do append_wrapped(detached, row) end
     return setmetatable({
       game = game,
       rows = detached,

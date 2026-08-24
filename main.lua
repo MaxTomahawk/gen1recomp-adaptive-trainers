@@ -35,6 +35,7 @@ return function(mod)
     player_power = player_power,
     stage_resolver = stage_resolver,
     movesets = movesets,
+    on_choice = on_choice,
   })
   local roster = module("src/core/roster.lua")({
     rng = rng,
@@ -96,7 +97,10 @@ return function(mod)
       new = debug.new,
     })
     mod.commands:register("adaptive_trainers:debug", function(ctx, scope,
-        target)
+        target, ...)
+      if select("#", ...) > 0 then
+        return nil, "diagnostics received surplus arguments"
+      end
       if type(scope) ~= "string" or scope == "" then
         return nil, "diagnostic scope is required"
       end
@@ -105,12 +109,40 @@ return function(mod)
         return nil, "Adaptive Trainers state is unavailable"
       end
 
+      local live = type(ctx) == "table" and ctx.game or mod.game
+      if type(live) ~= "table" then
+        return nil, "game context is required"
+      end
       local projection
       if scope == "standard" then
         if type(target) ~= "string" or target == "" then
           return nil, "standard identity key is required"
         end
-        projection = debug.project("standard", root, target)
+        local state = root.trainers and root.trainers[target]
+        local runtimeSave, data = live.save, live.data
+        local profile = state and profiles.for_class(state.classId)
+        local active = root.activeTrainer
+        local partyIndex = type(active) == "table"
+          and active.identityKey == target and active.partyIndex
+          or tonumber(target:match("|(%d+)|") or target:match("|(%d+)$"))
+          or 1
+        local evidence = {}
+        if type(runtimeSave) == "table" and type(data) == "table"
+            and type(profile) == "table" then
+          evidence = standard.diagnostic_evidence({
+            identityKey = target,
+            partyIndex = partyIndex,
+            playTime = runtimeSave.playTime or 0,
+            playerParty = runtimeSave.party or {},
+            badgeCount = player_power.badge_count(runtimeSave, data),
+          }, root, {
+            data = data,
+            meta = line_meta,
+            profile = profile,
+            ecologyOverrides = ecology_overrides,
+          })
+        end
+        projection = debug.project("standard", root, target, evidence)
         if not projection then
           return nil, "unknown standard identity " .. target
         end
@@ -118,7 +150,19 @@ return function(mod)
         if type(target) ~= "string" or target == "" then
           return nil, "boss id is required"
         end
-        projection = debug.project("boss", root, target)
+        local state = root.bossAttempts and root.bossAttempts[target]
+        local identityDef = boss_rosters.leaders[target]
+        local evidence = identityDef and bosses.diagnostic_evidence(
+          identityDef, state, {
+            rosters = boss_rosters,
+            meta = line_meta,
+            pokemon = live.data and live.data.pokemon,
+          }) or {
+            poolCandidates = {},
+            rejectedConstraints = { "current-identity-definition-unavailable" },
+            historicalRejectionsAvailable = false,
+          }
+        projection = debug.project("boss", root, target, evidence)
         if not projection then return nil, "unknown boss id " .. target end
       elseif scope == "rival" or scope == "league" then
         if target ~= nil then
@@ -132,10 +176,6 @@ return function(mod)
         return nil, "unknown diagnostic scope " .. scope
       end
 
-      local live = type(ctx) == "table" and ctx.game or mod.game
-      if type(live) ~= "table" then
-        return nil, "game context is required"
-      end
       mod.ui.push(live, "AdaptiveTrainerDiagnostics", projection)
       return projection
     end)

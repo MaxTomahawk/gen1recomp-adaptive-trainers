@@ -232,6 +232,29 @@ loggingBosses.build(brock, {
 }, choiceRoot, services)
 eq(#choiceLogs, bossLogCount,
   "persisted boss reruns do not reconstruct choice logs")
+local probeIdentity = {
+  id = "PROBE",
+  flexPool = { "MISSING_LINE", "GEODUDE_LINE" },
+}
+local probeState = {
+  version = "red",
+  targetLevels = { 20, 18 },
+}
+local diagnosticEvidence = loggingBosses.diagnostic_evidence(probeIdentity,
+  probeState, services)
+eq(diagnosticEvidence and diagnosticEvidence.poolCandidates[1],
+  "GEODUDE_LINE",
+  "boss diagnostics expose currently admitted configured pool candidates")
+eq(diagnosticEvidence and diagnosticEvidence.rejectedConstraints[1],
+  "MISSING_LINE:missing-line-metadata",
+  "boss diagnostics label the specific current candidate rejection reason")
+eq(diagnosticEvidence and diagnosticEvidence.historicalRejectionsAvailable,
+  false,
+  "boss diagnostics explicitly distinguish unavailable historical trace")
+eq(probeIdentity.flexPool[1], "MISSING_LINE",
+  "boss diagnostic admission cannot mutate configured identity data")
+eq(probeState.targetLevels[2], 18,
+  "boss diagnostic admission cannot mutate persisted attempt state")
 local party, state = bosses.build(brock, {
   version = "red", playerLevels = { 20, 18, 16 },
 }, root, services)
