@@ -233,7 +233,7 @@ the collision case without private imports or a new engine seam.
 ### AT-SP-005 — dev-only diagnostics activation
 
 - State: `UPSTREAM_PR_OPEN` (`bryanthaboi/gen1recomp#1769`, branch head
-  `fb95dc5b6a7e1ac6eef36782ffa831844e31a6cb`); not merged/released
+  `333949ce0d1a739209c0ea51b3063339287d9a3b`); not merged/released
 - Required by: Phase H runtime access to the Chapter 30 diagnostic projections
   only when `POKEPORT_DEV=1`
 - Missing capability: a public read-only dev-mode signal or an engine-owned
