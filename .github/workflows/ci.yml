@@ -31,6 +31,11 @@ jobs:
       - name: Verify command diagnostics
         run: bash tests/tooling/check_script_spec.sh
 
+      - name: Verify failed package gate is fail-closed
+        env:
+          GEN1RECOMP_ROOT: ${{ github.workspace }}/.engine/gen1recomp
+        run: bash tests/tooling/package_failure_spec.sh
+
       - name: Test, validate, and lint
         env:
           GEN1RECOMP_ROOT: ${{ github.workspace }}/.engine/gen1recomp
