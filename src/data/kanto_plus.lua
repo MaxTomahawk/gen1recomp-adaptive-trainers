@@ -19,9 +19,9 @@ local MOVE_REQUIREMENTS = {
     effect = "ADAPTIVE_METAL_CLAW_EFFECT", category = "physical" },
   { id = "STEEL_WING", type = "STEEL", power = 70, accuracy = 90, pp = 25,
     effect = "ADAPTIVE_STEEL_WING_EFFECT", category = "physical" },
-  { id = "RAIN_DANCE", type = "WATER", power = 0, accuracy = 100, pp = 5,
+  { id = "RAIN_DANCE", type = "WATER", power = 0, accuracy = 90, pp = 5,
     effect = "ADAPTIVE_RAIN_EFFECT", category = "status" },
-  { id = "SUNNY_DAY", type = "FIRE", power = 0, accuracy = 100, pp = 5,
+  { id = "SUNNY_DAY", type = "FIRE", power = 0, accuracy = 90, pp = 5,
     effect = "ADAPTIVE_SUN_EFFECT", category = "status" },
   { id = "SANDSTORM", type = "ROCK", power = 0, accuracy = 100, pp = 10,
     effect = "ADAPTIVE_SAND_EFFECT", category = "status" },
@@ -310,6 +310,10 @@ local function translate_species(record, moves, assets)
       end
     end
   end
+  local growthRate = record.growthRate
+  if type(growthRate) == "string" then
+    growthRate = growthRate:gsub("^GROWTH_", "")
+  end
   local tmhm = {}
   for _, moveId in ipairs(record.tmhm or {}) do
     if translated_move_available(moveId, moves) then
@@ -322,7 +326,7 @@ local function translate_species(record, moves, assets)
     baseStats = { hp = stats.hp, attack = stats.attack, defense = stats.defense,
       speed = stats.speed, special = special },
     catchRate = record.catchRate, baseExp = record.baseExp,
-    level1Moves = level1Moves, growthRate = record.growthRate,
+    level1Moves = level1Moves, growthRate = growthRate,
     tmhm = tmhm, learnset = learnset, evolutions = {},
     spriteFront = assets and assets.spriteFront,
     spriteBack = assets and assets.spriteBack,

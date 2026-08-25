@@ -64,8 +64,8 @@ local move_rows = {
   IRON_TAIL = { "IRON TAIL", "STEEL", 100, 75, 15 },
   METAL_CLAW = { "METAL CLAW", "STEEL", 50, 95, 35 },
   STEEL_WING = { "STEEL WING", "STEEL", 70, 90, 25 },
-  RAIN_DANCE = { "RAIN DANCE", "WATER", 0, 100, 5 },
-  SUNNY_DAY = { "SUNNY DAY", "FIRE", 0, 100, 5 },
+  RAIN_DANCE = { "RAIN DANCE", "WATER", 0, 90, 5 },
+  SUNNY_DAY = { "SUNNY DAY", "FIRE", 0, 90, 5 },
   SANDSTORM = { "SANDSTORM", "ROCK", 0, 100, 10 },
   SLUDGE_BOMB = { "SLUDGE BOMB", "POISON", 90, 100, 10 },
   SHADOW_BALL = { "SHADOW BALL", "GHOST", 80, 100, 15 },
@@ -92,7 +92,7 @@ local function source_registries(includeAssets)
       types = { target == "STEELIX" and "STEEL" or "NORMAL" },
       baseStats = { hp = 60, attack = 70, defense = 80, speed = 50,
         specialAttack = 45, specialDefense = 65 },
-      catchRate = 45, baseExp = 120, growthRate = "MEDIUM_FAST",
+      catchRate = 45, baseExp = 120, growthRate = "GROWTH_MEDIUM_FAST",
       levelMoves = { { level = 1, move = "TACKLE" },
         { level = 20, move = "IRON_TAIL" } },
       tmhm = { "IRON_TAIL" }, evolutions = {},
@@ -286,6 +286,8 @@ eq(target.pokemon:get("CROBAT").baseStats.special, 55,
   "apply folds Gold split Special into the Gen1 stat model")
 eq(target.pokemon:get("CROBAT").baseStats.specialAttack, nil,
   "apply does not copy a Gold-only Special field into Gen1 content")
+eq(target.pokemon:get("CROBAT").growthRate, "MEDIUM_FAST",
+  "apply normalizes Gold growth-rate ids into the Gen1 registry namespace")
 eq(target.pokemon:get("CROBAT").level1Moves[1], "TACKLE",
   "Gold level-one rows become Gen1 level1Moves")
 eq(target.pokemon:get("CROBAT").learnset[1].move, "IRON_TAIL",
