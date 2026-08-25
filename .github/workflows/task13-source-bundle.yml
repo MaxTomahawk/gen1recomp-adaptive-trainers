@@ -1,0 +1,53 @@
+name: Task 13 local source bundle
+
+on:
+  push:
+    branches:
+      - agent/task13-local-harness
+    paths:
+      - .github/workflows/task13-source-bundle.yml
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Adaptive Trainers release prep
+        uses: actions/checkout@v4
+        with:
+          path: adaptive-trainers
+
+      - name: Checkout released Gen1Recomp engine
+        uses: actions/checkout@v4
+        with:
+          repository: bryanthaboi/gen1recomp
+          ref: v0.2.25
+          path: gen1recomp
+
+      - name: Assert exact revisions
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C adaptive-trainers rev-parse HEAD)" = "$(git -C adaptive-trainers rev-parse HEAD)"
+          test "$(git -C gen1recomp rev-parse HEAD)" = "08121faa3dd01ba68bb6bb74676650c5ebe1d116"
+          printf 'adaptive_trainers=%s\n' "$(git -C adaptive-trainers rev-parse HEAD)" > task13-revisions.txt
+          printf 'gen1recomp=%s\n' "$(git -C gen1recomp rev-parse HEAD)" >> task13-revisions.txt
+
+      - name: Remove VCS metadata
+        shell: bash
+        run: |
+          rm -rf adaptive-trainers/.git gen1recomp/.git
+
+      - name: Upload local-only source bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: task13-local-source
+          path: |
+            adaptive-trainers
+            gen1recomp
+            task13-revisions.txt
+          include-hidden-files: true
+          if-no-files-found: error
+          compression-level: 6
