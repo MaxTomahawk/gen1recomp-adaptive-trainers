@@ -280,11 +280,11 @@ jobs:
           ! grep -Fq '333949ce0d1a739209c0ea51b3063339287d9a3b' .github/workflows/ci.yml
           ! grep -Fq 'e88f2ef060cb8bd1d45d53a6aaa46f997f308791' .github/workflows/ci.yml
 
-      - name: Commit released-engine baseline
+      - name: Commit released-engine baseline metadata
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add manifest.json .github/workflows/ci.yml docs/IMPLEMENTATION_STATUS.md docs/DEFINITION_OF_DONE_AUDIT.md
+          git add manifest.json docs/IMPLEMENTATION_STATUS.md docs/DEFINITION_OF_DONE_AUDIT.md
           git commit -m "chore: pin released engine baseline"
           git push origin HEAD:agent/release-0.1.0-prep
