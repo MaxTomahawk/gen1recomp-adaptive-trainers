@@ -26,7 +26,9 @@ jobs:
       - name: Install ROM-free test dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes luajit python3-pil
+          sudo apt-get install --yes luajit lua5.1 luarocks python3-pil
+          sudo luarocks --lua-version=5.1 install luacheck
+          luacheck --version
 
       - name: Verify exact engine release SHA
         run: |
