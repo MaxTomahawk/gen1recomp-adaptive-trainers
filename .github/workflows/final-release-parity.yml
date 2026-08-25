@@ -1,0 +1,45 @@
+name: Final released-engine parity
+
+on:
+  push:
+    branches: ["agent/final-release-parity"]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out release candidate
+        uses: actions/checkout@v7
+        with:
+          ref: 79a5ccd5266771a605578fde4a3f1a6e9b5d6639
+
+      - name: Check out exact Gen1Recomp release
+        uses: actions/checkout@v7
+        with:
+          repository: bryanthaboi/gen1recomp
+          ref: 08121faa3dd01ba68bb6bb74676650c5ebe1d116
+          path: .engine/gen1recomp
+          fetch-depth: 1
+
+      - name: Install test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes luajit python3-pil
+
+      - name: Run full released-engine ROM-free regression and no-mod parity
+        working-directory: .engine/gen1recomp
+        run: ./scripts/test.sh
+
+      - name: Run Adaptive Trainers release gate
+        env:
+          GEN1RECOMP_ROOT: ${{ github.workspace }}/.engine/gen1recomp
+          SOURCE_DATE_EPOCH: "0"
+        run: ./scripts/package.sh
+
+      - name: Verify patch hygiene
+        run: |
+          git diff --check
+          test -z "$(git status --short --untracked-files=no)"
