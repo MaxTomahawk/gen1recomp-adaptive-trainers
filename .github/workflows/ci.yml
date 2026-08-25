@@ -16,17 +16,14 @@ jobs:
       fail-fast: false
       matrix:
         engine:
-          - name: upstream-dev
+          - name: release-0.2.25
             repository: bryanthaboi/gen1recomp
-            ref: e88f2ef060cb8bd1d45d53a6aaa46f997f308791
-          - name: developer-mode-seam
-            repository: MaxTomahawk/gen1recomp
-            ref: 333949ce0d1a739209c0ea51b3063339287d9a3b
+            ref: 08121faa3dd01ba68bb6bb74676650c5ebe1d116
     steps:
       - name: Check out Adaptive Trainers
         uses: actions/checkout@v7
 
-      - name: Check out current audited Gen1Recomp dev
+      - name: Check out audited Gen1Recomp release
         uses: actions/checkout@v7
         with:
           repository: ${{ matrix.engine.repository }}
