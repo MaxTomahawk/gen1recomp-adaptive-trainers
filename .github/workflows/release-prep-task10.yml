@@ -33,6 +33,9 @@ jobs:
           residual_merge = "0ab4ef2755c84df38b22566570950b1a7ce36e81"
           developer_merge = "ff826ce01e47e523e0e265c5856cb4d7cb6d1a89"
 
+          def block(*rows):
+              return "\n".join(rows)
+
           manifest_path = Path("manifest.json")
           manifest = json.loads(manifest_path.read_text())
           assert manifest["game_version"] == ">=0.0.0-dev <1.0.0", manifest["game_version"]
@@ -41,21 +44,25 @@ jobs:
 
           ci_path = Path(".github/workflows/ci.yml")
           ci = ci_path.read_text()
-          old_matrix = '''      matrix:
-        engine:
-          - name: upstream-dev
-            repository: bryanthaboi/gen1recomp
-            ref: e88f2ef060cb8bd1d45d53a6aaa46f997f308791
-          - name: developer-mode-seam
-            repository: MaxTomahawk/gen1recomp
-            ref: 333949ce0d1a739209c0ea51b3063339287d9a3b
-'''
-          new_matrix = f'''      matrix:
-        engine:
-          - name: release-{release_version}
-            repository: bryanthaboi/gen1recomp
-            ref: {release_sha}
-'''
+          old_matrix = block(
+              "      matrix:",
+              "        engine:",
+              "          - name: upstream-dev",
+              "            repository: bryanthaboi/gen1recomp",
+              "            ref: e88f2ef060cb8bd1d45d53a6aaa46f997f308791",
+              "          - name: developer-mode-seam",
+              "            repository: MaxTomahawk/gen1recomp",
+              "            ref: 333949ce0d1a739209c0ea51b3063339287d9a3b",
+              "",
+          )
+          new_matrix = block(
+              "      matrix:",
+              "        engine:",
+              f"          - name: release-{release_version}",
+              "            repository: bryanthaboi/gen1recomp",
+              f"            ref: {release_sha}",
+              "",
+          )
           assert ci.count(old_matrix) == 1
           ci = ci.replace(old_matrix, new_matrix, 1)
           ci = ci.replace("Check out current audited Gen1Recomp dev", "Check out audited Gen1Recomp release", 1)
@@ -64,43 +71,73 @@ jobs:
           status_path = Path("docs/IMPLEMENTATION_STATUS.md")
           status = status_path.read_text()
           status = status.replace("Updated: 2026-08-24", "Updated: 2026-08-25", 1)
-          old = '''- Upstream: `bryanthaboi/gen1recomp` `dev` at
-  `e88f2ef060cb8bd1d45d53a6aaa46f997f308791` (verified 2026-08-24).'''
-          new = f'''- Released engine baseline: `bryanthaboi/gen1recomp` `{release_tag}` at
-  `{release_sha}` (published and verified 2026-08-25). The release history
-  contains the #1767 dataset-view merge `{dataset_merge}`.'''
+          old = block(
+              "- Upstream: `bryanthaboi/gen1recomp` `dev` at",
+              "  `e88f2ef060cb8bd1d45d53a6aaa46f997f308791` (verified 2026-08-24).",
+          )
+          new = block(
+              f"- Released engine baseline: `bryanthaboi/gen1recomp` `{release_tag}` at",
+              f"  `{release_sha}` (published and verified 2026-08-25). The release history",
+              f"  contains the #1767 dataset-view merge `{dataset_merge}`.",
+          )
           assert status.count(old) == 1
           status = status.replace(old, new, 1)
-          old = '''- Current public seams cover trainer party replacement, registry reads,
-  per-save mod state, migrations, world context, trainer-engagement context,
-  screens, battle lifecycle events, damage hooks, and charge decisions. An
-  active-independent semantic dataset view and engine-owned field-residual
-  application are now proposed in upstream PRs, but are not treated as merged
-  or released dependencies.'''
-          new = '''- The official `v0.2.25` release contains every public seam required by the
-  approved mod: trainer eligibility, charge decisions, active-independent
-  imported dataset views, engine-owned field residual descriptors, and the
-  public loader developer-mode signal. Final release claims still require a
-  fresh Adaptive Trainers acceptance run against this exact release SHA.'''
+          old = block(
+              "- Current public seams cover trainer party replacement, registry reads,",
+              "  per-save mod state, migrations, world context, trainer-engagement context,",
+              "  screens, battle lifecycle events, damage hooks, and charge decisions. An",
+              "  active-independent semantic dataset view and engine-owned field-residual",
+              "  application are now proposed in upstream PRs, but are not treated as merged",
+              "  or released dependencies.",
+          )
+          new = block(
+              "- The official `v0.2.25` release contains every public seam required by the",
+              "  approved mod: trainer eligibility, charge decisions, active-independent",
+              "  imported dataset views, engine-owned field residual descriptors, and the",
+              "  public loader developer-mode signal. Final release claims still require a",
+              "  fresh Adaptive Trainers acceptance run against this exact release SHA.",
+          )
           assert status.count(old) == 1
           status = status.replace(old, new, 1)
-          old = '''This is not final Phase H
-  release evidence: the released engine still lacks the public developer
-  signal until upstream PR #1769 lands.'''
-          new = '''This remains historical pre-release Phase H evidence; `v0.2.25` now contains
-  the required public developer signal and final release evidence must be
-  regenerated against that exact released-engine SHA.'''
+          old = block(
+              "This is not final Phase H",
+              "  release evidence: the released engine still lacks the public developer",
+              "  signal until upstream PR #1769 lands.",
+          )
+          new = block(
+              "This remains historical pre-release Phase H evidence; `v0.2.25` now contains",
+              "  the required public developer signal and final release evidence must be",
+              "  regenerated against that exact released-engine SHA.",
+          )
           assert status.count(old) == 1
           status = status.replace(old, new, 1)
-          old = '''Stable release remains gated on the required public seams reaching a released
-  engine.'''
-          new = '''All required public seams are now present in official release `v0.2.25`;
-  stable publication remains gated on fresh released-engine acceptance,
-  private real-import acceptance, and the final Definition of Done audit.'''
+          old = block(
+              "Stable release remains gated on the required public seams reaching a released",
+              "  engine.",
+          )
+          new = block(
+              "All required public seams are now present in official release `v0.2.25`;",
+              "  stable publication remains gated on fresh released-engine acceptance,",
+              "  private real-import acceptance, and the final Definition of Done audit.",
+          )
           assert status.count(old) == 1
           status = status.replace(old, new, 1)
-          status = status.replace("- Release gate: cleared on current upstream `dev`; stable publication still\n  waits for the complete mod Definition of Done, not for another engine change", "- Release gate: cleared in official Gen1Recomp release `v0.2.25`; stable\n  publication still waits for the complete mod Definition of Done", 1)
-          status = status.replace("- Release gate: cleared on current upstream `dev`", "- Release gate: cleared in official Gen1Recomp release `v0.2.25`", 1)
+          status = status.replace(
+              block(
+                  "- Release gate: cleared on current upstream `dev`; stable publication still",
+                  "  waits for the complete mod Definition of Done, not for another engine change",
+              ),
+              block(
+                  "- Release gate: cleared in official Gen1Recomp release `v0.2.25`; stable",
+                  "  publication still waits for the complete mod Definition of Done",
+              ),
+              1,
+          )
+          status = status.replace(
+              "- Release gate: cleared on current upstream `dev`",
+              "- Release gate: cleared in official Gen1Recomp release `v0.2.25`",
+              1,
+          )
 
           def replace_between(text, start, end, replacement):
               pattern = re.escape(start) + r".*?(?=" + re.escape(end) + r")"
@@ -108,101 +145,125 @@ jobs:
               assert count == 1, start
               return result
 
+          section_003 = block(
+              "### AT-SP-003 — active-independent semantic dataset view",
+              "",
+              "- State: `RELEASED_AVAILABLE` (`bryanthaboi/gen1recomp#1767`, merge commit",
+              f"  `{dataset_merge}`, released in `{release_tag}` at `{release_sha}`)",
+              "- Required by: Phase G optional Kanto+ content derived from the player's valid",
+              "  Gold import while Red, Blue, or Yellow remains active",
+              "- Public delta: bounded read-only `mod.datasets` semantic views and sanitized",
+              "  selected-cache generated asset paths without raw ROM bytes, generated Lua",
+              "  execution, mount changes, or active-game authority changes",
+              "- Verification at merge: full upstream ROM-free CI and focused cache/dataset",
+              "  regressions were green on the integrated PR head; the official release is an",
+              "  ancestor-preserving descendant of that merge",
+              "- Release gate: engine seam cleared; final mod acceptance against the exact",
+              "  released engine remains required",
+          )
           status = replace_between(
               status,
               "### AT-SP-003 — active-independent semantic dataset view",
               "### AT-SP-004 — engine-owned field residual application",
-              f'''### AT-SP-003 — active-independent semantic dataset view
+              section_003,
+          )
 
-- State: `RELEASED_AVAILABLE` (`bryanthaboi/gen1recomp#1767`, merge commit
-  `{dataset_merge}`, released in `{release_tag}` at `{release_sha}`)
-- Required by: Phase G optional Kanto+ content derived from the player's valid
-  Gold import while Red, Blue, or Yellow remains active
-- Public delta: bounded read-only `mod.datasets` semantic views and sanitized
-  selected-cache generated asset paths without raw ROM bytes, generated Lua
-  execution, mount changes, or active-game authority changes
-- Verification at merge: full upstream ROM-free CI and focused cache/dataset
-  regressions were green on the integrated PR head; the official release is an
-  ancestor-preserving descendant of that merge
-- Release gate: engine seam cleared; final mod acceptance against the exact
-  released engine remains required''')
-
+          section_004 = block(
+              "### AT-SP-004 — engine-owned field residual application",
+              "",
+              "- State: `RELEASED_AVAILABLE` (`bryanthaboi/gen1recomp#1766`, merge commit",
+              f"  `{residual_merge}`, released by `{release_tag}`)",
+              "- Required by: Phase G Gen 2-style Sandstorm residual damage after vanilla",
+              "  status residuals and before weather expiry",
+              "- Public delta: guarded data-only `battle.field_residual` descriptors while the",
+              "  engine retains HP, faint, result, EXP, replacement, and checkpoint authority",
+              "- Release gate: engine seam cleared; final mod acceptance against the exact",
+              "  released engine remains required",
+          )
           status = replace_between(
               status,
               "### AT-SP-004 — engine-owned field residual application",
               "### Trainer identity context",
-              f'''### AT-SP-004 — engine-owned field residual application
+              section_004,
+          )
 
-- State: `RELEASED_AVAILABLE` (`bryanthaboi/gen1recomp#1766`, merge commit
-  `{residual_merge}`, released by `{release_tag}`)
-- Required by: Phase G Gen 2-style Sandstorm residual damage after vanilla
-  status residuals and before weather expiry
-- Public delta: guarded data-only `battle.field_residual` descriptors while the
-  engine retains HP, faint, result, EXP, replacement, and checkpoint authority
-- Release gate: engine seam cleared; final mod acceptance against the exact
-  released engine remains required''')
-
-          start = "### AT-SP-005 — dev-only diagnostics activation"
-          pattern = re.escape(start) + r".*\Z"
-          replacement = f'''### AT-SP-005 — dev-only diagnostics activation
-
-- State: `RELEASED_AVAILABLE` (`bryanthaboi/gen1recomp#1769`, merge commit
-  `{developer_merge}`, released by `{release_tag}`)
-- Required by: Phase H runtime access to Chapter 30 diagnostic projections only
-  for developer boots
-- Public delta: fixed boolean `mod.developer`, available before the sandboxed
-  mod entry chunk runs and granting no additional permission
-- Current safe boundary: diagnostics register only when
-  `mod.developer == true`; false, nil, and non-boolean values remain inert and
-  no environment shim, export, `mod.storage`, or private import is used
-- Release gate: engine seam cleared; final released-engine diagnostics and
-  no-mod parity acceptance remain required
-'''
-          status, count = re.subn(pattern, replacement, status, count=1, flags=re.S)
+          section_005 = block(
+              "### AT-SP-005 — dev-only diagnostics activation",
+              "",
+              "- State: `RELEASED_AVAILABLE` (`bryanthaboi/gen1recomp#1769`, merge commit",
+              f"  `{developer_merge}`, released by `{release_tag}`)",
+              "- Required by: Phase H runtime access to Chapter 30 diagnostic projections only",
+              "  for developer boots",
+              "- Public delta: fixed boolean `mod.developer`, available before the sandboxed",
+              "  mod entry chunk runs and granting no additional permission",
+              "- Current safe boundary: diagnostics register only when",
+              "  `mod.developer == true`; false, nil, and non-boolean values remain inert and",
+              "  no environment shim, export, `mod.storage`, or private import is used",
+              "- Release gate: engine seam cleared; final released-engine diagnostics and",
+              "  no-mod parity acceptance remain required",
+              "",
+          )
+          status, count = re.subn(
+              re.escape("### AT-SP-005 — dev-only diagnostics activation") + r".*\Z",
+              section_005,
+              status,
+              count=1,
+              flags=re.S,
+          )
           assert count == 1
           status_path.write_text(status)
 
           dod_path = Path("docs/DEFINITION_OF_DONE_AUDIT.md")
           dod = dod_path.read_text()
           dod = dod.replace("Updated: 2026-08-24", "Updated: 2026-08-25", 1)
-          old = '''- `VERIFIED_G` — Phase G executable evidence exists against the disposable
-  combined public-engine surface while released seams remain a separate gate.'''
-          new = '''- `VERIFIED_G` — historical Phase G executable evidence exists; all required
-  seams are now released in `v0.2.25`, but final status requires a fresh run
-  against the exact release SHA.'''
+          old = block(
+              "- `VERIFIED_G` — Phase G executable evidence exists against the disposable",
+              "  combined public-engine surface while released seams remain a separate gate.",
+          )
+          new = block(
+              "- `VERIFIED_G` — historical Phase G executable evidence exists; all required",
+              "  seams are now released in `v0.2.25`, but final status requires a fresh run",
+              "  against the exact release SHA.",
+          )
           assert dod.count(old) == 1
           dod = dod.replace(old, new, 1)
-          old = '''| Optional Kanto+ with graceful base fallback, Steelix, weather, and Steel | `PARTIAL` | Phase G is implemented and green against the combined public-engine surface; AT-SP-003 and AT-SP-004 are not merged/released. |'''
-          new = '''| Optional Kanto+ with graceful base fallback, Steelix, weather, and Steel | `PARTIAL` | All required engine seams are released in `v0.2.25`; fresh released-engine and real-import acceptance remain. |'''
+          old = "| Optional Kanto+ with graceful base fallback, Steelix, weather, and Steel | `PARTIAL` | Phase G is implemented and green against the combined public-engine surface; AT-SP-003 and AT-SP-004 are not merged/released. |"
+          new = "| Optional Kanto+ with graceful base fallback, Steelix, weather, and Steel | `PARTIAL` | All required engine seams are released in `v0.2.25`; fresh released-engine and real-import acceptance remain. |"
           assert dod.count(old) == 1
           dod = dod.replace(old, new, 1)
-          old = '''The current released public mod sandbox intentionally does not expose the host
-environment or an equivalent `mod.developer` flag. Upstream PR #1769 proposes
-that generic boolean. The adapter is therefore tested
-and package-ready but is not wired to a production-visible screen or export.
-Runtime activation requires either an approved public dev-mode seam or an
-engine-owned dev-screen integration; using the legacy `os.getenv` compatibility
-shim would add warnings and violate the clean public-API target.'''
-          new = '''Official Gen1Recomp release `v0.2.25` exposes the required public
-`mod.developer` boolean. The adapter is already implemented against that public
-contract; final acceptance must prove production absence and developer-only
-activation against the exact release SHA. The legacy `os.getenv` compatibility
-shim remains out of bounds.'''
+          old = block(
+              "The current released public mod sandbox intentionally does not expose the host",
+              "environment or an equivalent `mod.developer` flag. Upstream PR #1769 proposes",
+              "that generic boolean. The adapter is therefore tested",
+              "and package-ready but is not wired to a production-visible screen or export.",
+              "Runtime activation requires either an approved public dev-mode seam or an",
+              "engine-owned dev-screen integration; using the legacy `os.getenv` compatibility",
+              "shim would add warnings and violate the clean public-API target.",
+          )
+          new = block(
+              "Official Gen1Recomp release `v0.2.25` exposes the required public",
+              "`mod.developer` boolean. The adapter is already implemented against that public",
+              "contract; final acceptance must prove production absence and developer-only",
+              "activation against the exact release SHA. The legacy `os.getenv` compatibility",
+              "shim remains out of bounds.",
+          )
           assert dod.count(old) == 1
           dod = dod.replace(old, new, 1)
-          release_section = '''## Release gates still open
-
-1. Pin CI and `manifest.json` to official Gen1Recomp `v0.2.25` at
-   `08121faa3dd01ba68bb6bb74676650c5ebe1d116`.
-2. Run the complete released-engine no-mod and relevant public-API regression
-   suites plus the full Adaptive Trainers A-H acceptance set.
-3. Run final Red/Blue/Yellow, Kanto-only, Kanto+, validation, lint, ROM scan,
-   and byte-identical package gates against the released engine.
-4. Complete sanitized real-import Gold-backed Kanto+ acceptance without
-   committing or distributing ROM-derived data.
-5. Review final gameplay identity, update release metadata, publish the stable
-   `.zip`, and follow the then-current mod-index process.
-'''
+          release_section = block(
+              "## Release gates still open",
+              "",
+              "1. Pin CI and `manifest.json` to official Gen1Recomp `v0.2.25` at",
+              "   `08121faa3dd01ba68bb6bb74676650c5ebe1d116`.",
+              "2. Run the complete released-engine no-mod and relevant public-API regression",
+              "   suites plus the full Adaptive Trainers A-H acceptance set.",
+              "3. Run final Red/Blue/Yellow, Kanto-only, Kanto+, validation, lint, ROM scan,",
+              "   and byte-identical package gates against the released engine.",
+              "4. Complete sanitized real-import Gold-backed Kanto+ acceptance without",
+              "   committing or distributing ROM-derived data.",
+              "5. Review final gameplay identity, update release metadata, publish the stable",
+              "   `.zip`, and follow the then-current mod-index process.",
+              "",
+          )
           dod, count = re.subn(r"## Release gates still open.*\Z", release_section, dod, count=1, flags=re.S)
           assert count == 1
           dod_path.write_text(dod)
