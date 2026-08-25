@@ -1,0 +1,94 @@
+name: Task 13 verified fix push
+
+on:
+  push:
+    branches: ["agent/task13-fix-push"]
+
+permissions:
+  contents: write
+
+jobs:
+  verify-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout release-prep target
+        uses: actions/checkout@v7
+        with:
+          ref: agent/release-0.1.0-prep
+          fetch-depth: 0
+
+      - name: Assert target head
+        run: test "$(git rev-parse HEAD)" = "aa599ab9f376b0e1be522bda6608ca3f7c2d5eb6"
+
+      - name: Checkout exact released Gen1Recomp engine
+        uses: actions/checkout@v7
+        with:
+          repository: bryanthaboi/gen1recomp
+          ref: 08121faa3dd01ba68bb6bb74676650c5ebe1d116
+          path: .engine/gen1recomp
+          fetch-depth: 1
+
+      - name: Install test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes luajit python3-pil
+
+      - name: Apply verified real-import corrections
+        shell: python
+        run: |
+          from pathlib import Path
+
+          production = Path("src/data/kanto_plus.lua")
+          text = production.read_text()
+          replacements = {
+            '{ id = "RAIN_DANCE", type = "WATER", power = 0, accuracy = 100, pp = 5,': '{ id = "RAIN_DANCE", type = "WATER", power = 0, accuracy = 90, pp = 5,',
+            '{ id = "SUNNY_DAY", type = "FIRE", power = 0, accuracy = 100, pp = 5,': '{ id = "SUNNY_DAY", type = "FIRE", power = 0, accuracy = 90, pp = 5,',
+            '  local tmhm = {}\n': '  local growthRate = record.growthRate\n  if type(growthRate) == "string" then\n    growthRate = growthRate:gsub("^GROWTH_", "")\n  end\n  local tmhm = {}\n',
+            'level1Moves = level1Moves, growthRate = record.growthRate,': 'level1Moves = level1Moves, growthRate = growthRate,',
+          }
+          for old, new in replacements.items():
+            if text.count(old) != 1:
+              raise SystemExit(f"expected exactly one production occurrence: {old!r}")
+            text = text.replace(old, new, 1)
+          production.write_text(text)
+
+          test = Path("tests/unit/kanto_plus_spec.lua")
+          text = test.read_text()
+          replacements = {
+            'RAIN_DANCE = { "RAIN DANCE", "WATER", 0, 100, 5 },': 'RAIN_DANCE = { "RAIN DANCE", "WATER", 0, 90, 5 },',
+            'SUNNY_DAY = { "SUNNY DAY", "FIRE", 0, 100, 5 },': 'SUNNY_DAY = { "SUNNY DAY", "FIRE", 0, 90, 5 },',
+            'catchRate = 45, baseExp = 120, growthRate = "MEDIUM_FAST",': 'catchRate = 45, baseExp = 120, growthRate = "GROWTH_MEDIUM_FAST",',
+          }
+          for old, new in replacements.items():
+            if text.count(old) != 1:
+              raise SystemExit(f"expected exactly one test occurrence: {old!r}")
+            text = text.replace(old, new, 1)
+          needle = 'eq(target.pokemon:get("CROBAT").baseStats.specialAttack, nil,\n  "apply does not copy a Gold-only Special field into Gen1 content")\n'
+          insert = needle + 'eq(target.pokemon:get("CROBAT").growthRate, "MEDIUM_FAST",\n  "apply normalizes Gold growth-rate ids into the Gen1 registry namespace")\n'
+          if text.count(needle) != 1:
+            raise SystemExit("growth-rate assertion insertion point missing")
+          text = text.replace(needle, insert, 1)
+          test.write_text(text)
+
+      - name: Verify focused regression
+        env:
+          ADAPTIVE_TRAINERS_ROOT: ${{ github.workspace }}
+        run: luajit tests/unit/kanto_plus_spec.lua
+
+      - name: Run full ROM-free project gate
+        env:
+          GEN1RECOMP_ROOT: ${{ github.workspace }}/.engine/gen1recomp
+        run: ./scripts/check.sh
+
+      - name: Verify patch hygiene and scope
+        run: |
+          git diff --check
+          test "$(git diff --name-only | sort)" = $'src/data/kanto_plus.lua\ntests/unit/kanto_plus_spec.lua'
+
+      - name: Commit and fast-forward target branch
+        run: |
+          git config user.name "Max"
+          git config user.email "111605374+MaxTomahawk@users.noreply.github.com"
+          git add src/data/kanto_plus.lua tests/unit/kanto_plus_spec.lua
+          git commit -m "fix: normalize Gold Kanto+ semantics"
+          git push origin HEAD:agent/release-0.1.0-prep
