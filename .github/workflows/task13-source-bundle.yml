@@ -1,0 +1,77 @@
+name: Task 13 local source bundle
+
+on:
+  push:
+    branches:
+      - agent/task13-source-bundle
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact Adaptive Trainers release prep
+        uses: actions/checkout@v4
+        with:
+          ref: aa599ab9f376b0e1be522bda6608ca3f7c2d5eb6
+          path: adaptive-trainers
+
+      - name: Checkout exact released Gen1Recomp engine
+        uses: actions/checkout@v4
+        with:
+          repository: bryanthaboi/gen1recomp
+          ref: v0.2.25
+          path: gen1recomp
+
+      - name: Assert exact revisions
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C adaptive-trainers rev-parse HEAD)" = "aa599ab9f376b0e1be522bda6608ca3f7c2d5eb6"
+          test "$(git -C gen1recomp rev-parse HEAD)" = "08121faa3dd01ba68bb6bb74676650c5ebe1d116"
+          printf 'adaptive_trainers=%s\n' "$(git -C adaptive-trainers rev-parse HEAD)" > task13-revisions.txt
+          printf 'gen1recomp=%s\n' "$(git -C gen1recomp rev-parse HEAD)" >> task13-revisions.txt
+
+      - name: Stage local LuaJIT runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq luajit
+          mkdir -p task13-tools/lib
+          cp "$(command -v luajit)" task13-tools/luajit
+          ldd "$(command -v luajit)" | awk '/=> \/.*\.so/ {print $3}' | while read -r lib; do
+            cp -L "$lib" task13-tools/lib/
+          done
+          task13-tools/luajit -v
+          ldd task13-tools/luajit > task13-tools/ldd.txt
+
+      - name: Fetch official v0.2.25 Linux release
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 3 \
+            -o gen1recomp-0.2.25-linux.zip \
+            'https://github.com/bryanthaboi/gen1recomp/releases/download/v0.2.25/gen1recomp-0.2.25-linux.zip'
+          echo '2009a73f38e24b49cd9a254e86421221ff9561aed48054e4529c70d92b97f2e2  gen1recomp-0.2.25-linux.zip' | sha256sum -c -
+
+      - name: Remove VCS metadata
+        shell: bash
+        run: |
+          rm -rf adaptive-trainers/.git gen1recomp/.git
+
+      - name: Upload local-only source bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: task13-local-source
+          path: |
+            adaptive-trainers
+            gen1recomp
+            task13-tools
+            gen1recomp-0.2.25-linux.zip
+            task13-revisions.txt
+          include-hidden-files: true
+          if-no-files-found: error
+          compression-level: 6
