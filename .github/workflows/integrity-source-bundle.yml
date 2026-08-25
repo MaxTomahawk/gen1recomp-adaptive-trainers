@@ -1,0 +1,66 @@
+name: Integrity source bundle
+
+on:
+  push:
+    branches:
+      - agent/integrity-source-bundle
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout helper repository
+        uses: actions/checkout@v4
+        with:
+          path: helper
+
+      - name: Checkout corrective mod branch
+        uses: actions/checkout@v4
+        with:
+          repository: MaxTomahawk/gen1recomp-adaptive-trainers
+          ref: agent/progression-challenge-integrity
+          path: adaptive-trainers
+
+      - name: Checkout released engine
+        uses: actions/checkout@v4
+        with:
+          repository: bryanthaboi/gen1recomp
+          ref: v0.2.25
+          path: engine-release
+
+      - name: Checkout current engine dev
+        uses: actions/checkout@v4
+        with:
+          repository: bryanthaboi/gen1recomp
+          ref: dev
+          path: engine-dev
+
+      - name: Stage LuaJIT runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y luajit
+          mkdir -p tools/bin tools/lib
+          cp /usr/bin/luajit tools/bin/
+          lib="$(ldd /usr/bin/luajit | awk '/libluajit/{print $3; exit}')"
+          test -n "$lib"
+          cp -L "$lib" tools/lib/libluajit-5.1.so.2
+          printf 'mod=%s\nrelease=%s\ndev=%s\n' \
+            "$(git -C adaptive-trainers rev-parse HEAD)" \
+            "$(git -C engine-release rev-parse HEAD)" \
+            "$(git -C engine-dev rev-parse HEAD)" > revisions.txt
+
+      - name: Upload source bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: integrity-source-bundle
+          retention-days: 1
+          if-no-files-found: error
+          path: |
+            adaptive-trainers
+            engine-release
+            engine-dev
+            tools
+            revisions.txt
