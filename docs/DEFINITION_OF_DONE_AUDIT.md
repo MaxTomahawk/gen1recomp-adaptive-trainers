@@ -1,6 +1,6 @@
 # Definition of Done audit
 
-Updated: 2026-08-24
+Updated: 2026-08-25
 
 This ledger maps the normative Definition of Done and Chapter 29 in
 `Gen1Recomp_Adaptive_Trainers_Complete_Design_Spec_NL.docx` to executable
@@ -10,8 +10,9 @@ upstream-release, runtime-observability, packaging, and publication gates.
 Status meanings:
 
 - `VERIFIED_A_F` — executable evidence exists in the current mod tree.
-- `VERIFIED_G` — Phase G executable evidence exists against the disposable
-  combined public-engine surface while released seams remain a separate gate.
+- `VERIFIED_G` — historical Phase G executable evidence exists; all required
+  seams are now released in `v0.2.25`, but final status requires a fresh run
+  against the exact release SHA.
 - `PARTIAL` — part of the clause is executable, but a named gate remains.
 - `PENDING_RELEASE` — meaningful only against the final merged tree and released
   engine dependency.
@@ -60,7 +61,7 @@ from turning the ledger into a source-text assertion.
 | Rival owned history, windows, attachment, core, bounded pressure, and no species countering | `VERIFIED_A_F` | Phase F runtime, core, and fairness properties. |
 | Exact Yellow Eevee path | `VERIFIED_A_F` | Phase F R/B/Y integration. |
 | Legendary exclusions and population model | `VERIFIED_A_F` | Data, catch, standard, League, and Rival properties. |
-| Optional Kanto+ with graceful base fallback, Steelix, weather, and Steel | `PARTIAL` | Phase G is implemented and green against the combined public-engine surface; AT-SP-003 and AT-SP-004 are not merged/released. |
+| Optional Kanto+ with graceful base fallback, Steelix, weather, and Steel | `PARTIAL` | All required engine seams are released in `v0.2.25`; fresh released-engine and real-import acceptance remain. |
 | Every Chapter 29 test, validate/lint, and no ROM-derived bytes | `PENDING_RELEASE` | A-G aggregate evidence exists; final H tree, released engine SHA, ROM scan, and double-package evidence remain. |
 | Central trainer identity and gameplay fantasy remain legible | `PARTIAL` | Existing README/design describe the identity; final gameplay review belongs to the complete G/H build. |
 
@@ -76,24 +77,21 @@ seed labels, parts, and values; it does not claim to observe runtime events.
 `src/ui/debug.lua` emits nothing unless its injected environment contains the
 exact string `POKEPORT_DEV=1`.
 
-The current released public mod sandbox intentionally does not expose the host
-environment or an equivalent `mod.developer` flag. Upstream PR #1769 proposes
-that generic boolean. The adapter is therefore tested
-and package-ready but is not wired to a production-visible screen or export.
-Runtime activation requires either an approved public dev-mode seam or an
-engine-owned dev-screen integration; using the legacy `os.getenv` compatibility
-shim would add warnings and violate the clean public-API target.
+Official Gen1Recomp release `v0.2.25` exposes the required public
+`mod.developer` boolean. The adapter is already implemented against that public
+contract; final acceptance must prove production absence and developer-only
+activation against the exact release SHA. The legacy `os.getenv` compatibility
+shim remains out of bounds.
 
 ## Release gates still open
 
-1. Merge/release AT-SP-003 and AT-SP-004, then rerun Phase G against that
-   released engine.
-2. Merge/release AT-SP-005 and wire the diagnostic adapter through the public
-   developer-mode signal.
-3. Pin CI and `manifest.json` to the released engine containing every required
-   seam.
-4. Run the complete upstream no-mod and relevant public-API regression suites.
-5. Run the final R/B/Y, Kanto-only, Kanto+, validation, lint, ROM scan, and
-   byte-identical double-package gates.
-6. Review the final gameplay identity, update release metadata, and follow the
-   then-current mod-index process.
+1. Pin CI and `manifest.json` to official Gen1Recomp `v0.2.25` at
+   `08121faa3dd01ba68bb6bb74676650c5ebe1d116`.
+2. Run the complete released-engine no-mod and relevant public-API regression
+   suites plus the full Adaptive Trainers A-H acceptance set.
+3. Run final Red/Blue/Yellow, Kanto-only, Kanto+, validation, lint, ROM scan,
+   and byte-identical package gates against the released engine.
+4. Complete sanitized real-import Gold-backed Kanto+ acceptance without
+   committing or distributing ROM-derived data.
+5. Review final gameplay identity, update release metadata, publish the stable
+   `.zip`, and follow the then-current mod-index process.

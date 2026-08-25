@@ -1,6 +1,6 @@
 # Implementation status
 
-Updated: 2026-08-24
+Updated: 2026-08-25
 
 ## Objective
 
@@ -8,17 +8,17 @@ Implement the complete approved Adaptive Trainer Ecology & Challenge System v1 a
 
 ## Verified baseline
 
-- Upstream: `bryanthaboi/gen1recomp` `dev` at
-  `e88f2ef060cb8bd1d45d53a6aaa46f997f308791` (verified 2026-08-24).
+- Released engine baseline: `bryanthaboi/gen1recomp` `v0.2.25` at
+  `08121faa3dd01ba68bb6bb74676650c5ebe1d116` (published and verified 2026-08-25). The release history
+  contains the #1767 dataset-view merge `9dd38e06a578b0ed5e275934908fbd52e8a8c785`.
 - Specification snapshot: `26e9e1d597060216168a03e49f138101726a8f3b`; upstream changes since that snapshot do not replace the trainer-party or Gym eligibility assumptions.
 - Toolchain available: Git, authenticated GitHub CLI, LuaJIT, LÖVE, Python 3, upstream `tools/modkit.py`, and GitHub Actions.
 - Intended mod id `adaptive_trainers` is valid under the current manifest rules.
-- Current public seams cover trainer party replacement, registry reads,
-  per-save mod state, migrations, world context, trainer-engagement context,
-  screens, battle lifecycle events, damage hooks, and charge decisions. An
-  active-independent semantic dataset view and engine-owned field-residual
-  application are now proposed in upstream PRs, but are not treated as merged
-  or released dependencies.
+- The official `v0.2.25` release contains every public seam required by the
+  approved mod: trainer eligibility, charge decisions, active-independent
+  imported dataset views, engine-owned field residual descriptors, and the
+  public loader developer-mode signal. Final release claims still require a
+  fresh Adaptive Trainers acceptance run against this exact release SHA.
 - The public `trainer.before_battle` continuation and battle-local
   `playerPartyIndices` scope are available on current `dev`. The generic seam
   was merged through upstream PR `bryanthaboi/gen1recomp#1286` as merge commit
@@ -90,9 +90,9 @@ Current evidence:
   growth/moves,
   boss strategy/flex/levels, League Bird/member strategy/party, and Rival
   starter/window/acquisition/party choices. The pending public API and API-v1
-  no-mod parity suites are green at 23/23 and 12/12. This is not final Phase H
-  release evidence: the released engine still lacks the public developer
-  signal until upstream PR #1769 lands.
+  no-mod parity suites are green at 23/23 and 12/12. This remains historical pre-release Phase H evidence; `v0.2.25` now contains
+  the required public developer signal and final release evidence must be
+  regenerated against that exact released-engine SHA.
 
 - Public SDK loader: 7/7 checks passed.
 - Phase A public runtime: 327/327 checks passed across Red, Blue, and Yellow,
@@ -138,8 +138,9 @@ Current evidence:
   including the detached diagnostics modules and developer-only choice logger,
   SHA-256
   `09a8e6cc94ff9a21f6a64cb7dfd81f9f68df54127dc595eeab95be5143bdee6d`.
-  Stable release remains gated on the required public seams reaching a released
-  engine.
+  All required public seams are now present in official release `v0.2.25`;
+  stable publication remains gated on fresh released-engine acceptance,
+  private real-import acceptance, and the final Definition of Done audit.
 - Last Phase-E reproducible double-pack check: green; 31 distributable files plus
   `.modkit/pack.json`, with no recursive `dist/`, tests, scripts, docs, or DOCX.
 - Last merged Phase-E source-date-zero package SHA-256:
@@ -181,8 +182,8 @@ The detailed implementation plan is `docs/superpowers/plans/2026-08-14-adaptive-
 - Verification: 167/167 engine suites and 19/19 modkit suites green locally;
   dedicated party-scope 20/20, public-hook 15/15, and trainer cancel lifecycle
   24/24; independent review reports no findings
-- Release gate: cleared on current upstream `dev`; stable publication still
-  waits for the complete mod Definition of Done, not for another engine change
+- Release gate: cleared in official Gen1Recomp release `v0.2.25`; stable
+  publication still waits for the complete mod Definition of Done
 
 ### AT-SP-002 — charge-stage decision
 
@@ -199,45 +200,33 @@ The detailed implementation plan is `docs/superpowers/plans/2026-08-14-adaptive-
   semantics preserved
 - Verification: focused public/no-mod coverage, Gen 1/Gen 2 compatibility gates,
   full engine/modkit suites, independent clean review, and upstream CI green
-- Release gate: cleared on current upstream `dev`
+- Release gate: cleared in official Gen1Recomp release `v0.2.25`
 
 ### AT-SP-003 — active-independent semantic dataset view
 
-- State: `UPSTREAM_PR_OPEN` (`bryanthaboi/gen1recomp#1767`, branch head
-  `68fc01dd1cedcd064debf3264bd95f5d091be467`); not merged/released
+- State: `RELEASED_AVAILABLE` (`bryanthaboi/gen1recomp#1767`, merge commit
+  `9dd38e06a578b0ed5e275934908fbd52e8a8c785`, released in `v0.2.25` at `08121faa3dd01ba68bb6bb74676650c5ebe1d116`)
 - Required by: Phase G optional Kanto+ content derived from the player's valid
   Gold import while Red, Blue, or Yellow remains active
-- Missing capability: read-only semantic access to another imported version's
-  registries and namespaced generated assets without changing active cache/game
-  authority or reading raw ROM bytes
-- Current work: generic `mod.datasets` proposal rebased on current `dev`. Three
-  independent review/fix rounds replaced executable generated-data loading
-  with a bounded data-only decoder, added per-operation cache revalidation and
-  canonical R/B/Y/Gold hydration, reserved hidden Gen 2 extractor metadata
-  against every active-registry mutation verb, and separated no-mod/public
-  evidence. Expected optional-import absence is silent while stale or malformed
-  data remains actionable. Upstream CI is green (headless, engine/mod lint,
-  fixture, platform selftests and Xbox build), and the PR is clean and
-  mergeable pending maintainer review.
-- Release gate: unresolved; the mod must fail closed to complete Kanto-only
-  behavior until a reviewed public seam is merged and available
+- Public delta: bounded read-only `mod.datasets` semantic views and sanitized
+  selected-cache generated asset paths without raw ROM bytes, generated Lua
+  execution, mount changes, or active-game authority changes
+- Verification at merge: full upstream ROM-free CI and focused cache/dataset
+  regressions were green on the integrated PR head; the official release is an
+  ancestor-preserving descendant of that merge
+- Release gate: engine seam cleared; final mod acceptance against the exact
+  released engine remains required
 
 ### AT-SP-004 — engine-owned field residual application
 
-- State: `UPSTREAM_PR_OPEN` (`bryanthaboi/gen1recomp#1766`, branch commit
-  `2ad2e028d10abec839ee06990f660d881d4ab379`); not merged/released
+- State: `RELEASED_AVAILABLE` (`bryanthaboi/gen1recomp#1766`, merge commit
+  `0ab4ef2755c84df38b22566570950b1a7ce36e81`, released by `v0.2.25`)
 - Required by: Phase G Gen 2-style Sandstorm residual damage after vanilla
   status residuals and before weather expiry
-- Missing capability: a public data-only residual request that preserves the
-  engine's HP, faint, result, experience, and replacement authority
-- Current work: generic guarded `battle.field_residual` proposal. Two review
-  rounds removed live battler/callback authority, restored unchanged native
-  simultaneous-faint behavior outside the guarded hook, and scoped deterministic
-  terminal precedence to accepted residual descriptors. Independent re-review
-  is clean; upstream CI is green (headless, mod lint, engine lint, fixture and
-  platform-change gates), and the PR is mergeable pending maintainer review
-- Release gate: unresolved; incomplete Sandstorm mechanics may not activate in
-  the distributed mod
+- Public delta: guarded data-only `battle.field_residual` descriptors while the
+  engine retains HP, faint, result, EXP, replacement, and checkpoint authority
+- Release gate: engine seam cleared; final mod acceptance against the exact
+  released engine remains required
 
 ### Trainer identity context
 
@@ -250,27 +239,14 @@ the collision case without private imports or a new engine seam.
 
 ### AT-SP-005 — dev-only diagnostics activation
 
-- State: `UPSTREAM_PR_OPEN` (`bryanthaboi/gen1recomp#1769`, branch head
-  `333949ce0d1a739209c0ea51b3063339287d9a3b`); not merged/released
-- Required by: Phase H runtime access to the Chapter 30 diagnostic projections
-  only when `POKEPORT_DEV=1`
-- Missing capability: a public read-only dev-mode signal or an engine-owned
-  dev-console/screen registration boundary
-- Existing APIs considered: screens, commands, exports, manifest
-  `force_enable_env`, and the legacy `os.getenv` compatibility shim
-- Why insufficient: screens, commands, and exports do not identify dev mode;
-  `force_enable_env` controls enablement rather than exposing the reason; the
-  sandbox intentionally hides the host environment and reports `os.getenv` as
-  legacy compatibility usage
-- Current work: generic additive `mod.developer` boolean proposal with separate
-  no-mod/API-v1 parity, Gen 1/Gen 2 documentation, RFC 0017, full ROM-free
-  regression and lint evidence. Upstream CI is green; maintainer review is
-  pending.
-- Current safe boundary: the exact `mod.developer == true` runtime command,
-  screen, and materialization-site info logging are implemented and verified
-  against the combined public-seam engine. False, nil, and non-boolean values
-  remain inert; no export, `mod.storage`, environment shim, or private import is
-  used. Do not publish this build against a released engine that lacks the
-  public signal
-- Release gate: unresolved; keep stable publication blocked until the generic
-  public signal is merged and available in the released engine
+- State: `RELEASED_AVAILABLE` (`bryanthaboi/gen1recomp#1769`, merge commit
+  `ff826ce01e47e523e0e265c5856cb4d7cb6d1a89`, released by `v0.2.25`)
+- Required by: Phase H runtime access to Chapter 30 diagnostic projections only
+  for developer boots
+- Public delta: fixed boolean `mod.developer`, available before the sandboxed
+  mod entry chunk runs and granting no additional permission
+- Current safe boundary: diagnostics register only when
+  `mod.developer == true`; false, nil, and non-boolean values remain inert and
+  no environment shim, export, `mod.storage`, or private import is used
+- Release gate: engine seam cleared; final released-engine diagnostics and
+  no-mod parity acceptance remain required
