@@ -41,4 +41,6 @@ if grep -Fq 'dist/adaptive_trainers-' "$REPO_ROOT/tests/tooling/package_layout_s
   exit 1
 fi
 
+bash "$REPO_ROOT/tests/tooling/release_package_name_spec.sh"
+
 echo "check script contract passed"
