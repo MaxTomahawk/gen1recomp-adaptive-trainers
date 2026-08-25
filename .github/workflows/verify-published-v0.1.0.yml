@@ -1,0 +1,89 @@
+name: Verify published v0.1.0
+
+on:
+  push:
+    branches: ["agent/verify-published-v0.1.0"]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download live GitHub Release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p /tmp/published
+          gh release download v0.1.0 \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern 'adaptive_trainers-0.1.0.zip' \
+            --dir /tmp/published
+
+      - name: Verify digest, layout, manifest, and private-content exclusions
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, pathlib, zipfile
+
+          p = pathlib.Path('/tmp/published/adaptive_trainers-0.1.0.zip')
+          data = p.read_bytes()
+          digest = hashlib.sha256(data).hexdigest()
+          expected = '1d94de943d56a8d2155577fc1493d381771a9e18af8c6079cd5eab982956001a'
+          assert digest == expected, (digest, expected)
+
+          with zipfile.ZipFile(p) as z:
+              names = z.namelist()
+              assert len(names) == 39, len(names)
+              required = {
+                  'manifest.json', 'mod.card', 'main.lua', '.modkit/pack.json',
+                  'src/core/rng.lua', 'src/data/kanto_plus.lua'
+              }
+              assert required.issubset(names), required - set(names)
+              forbidden_prefixes = ('dist/', 'build/', 'tests/', 'scripts/', 'docs/', '.engine/', '.git/')
+              forbidden_suffixes = ('.gb', '.gbc', '.rom', '.sav', '.docx')
+              for name in names:
+                  lower = name.lower()
+                  assert not lower.startswith(forbidden_prefixes), name
+                  assert not lower.endswith(forbidden_suffixes), name
+                  assert 'data/generated/' not in lower, name
+                  assert 'rom-cache' not in lower, name
+              manifest = json.loads(z.read('manifest.json'))
+              assert manifest['id'] == 'adaptive_trainers'
+              assert manifest['version'] == '0.1.0'
+              assert manifest['api'] == 2
+              assert manifest['game_version'] == '>=0.2.25 <1.0.0'
+              assert manifest['games'] == ['red', 'blue', 'yellow']
+              z.extractall('/tmp/published/extracted')
+
+          print('sha256=' + digest)
+          print('entries=39')
+          print('manifest=adaptive_trainers 0.1.0 api2 >=0.2.25 <1.0.0 red/blue/yellow')
+          print('forbidden-content-scan=clean')
+          PY
+
+      - name: Check out exact Gen1Recomp release
+        uses: actions/checkout@v7
+        with:
+          repository: bryanthaboi/gen1recomp
+          ref: 08121faa3dd01ba68bb6bb74676650c5ebe1d116
+          path: engine
+          fetch-depth: 1
+
+      - name: Install validation dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes luajit python3-pil
+
+      - name: Validate and lint downloaded published package
+        run: |
+          python3 engine/tools/modkit.py --repo engine validate /tmp/published/extracted --base fixture
+          python3 engine/tools/modkit.py --repo engine lint /tmp/published/extracted
+
+      - name: Verify live tag target
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test "$(gh api repos/$GITHUB_REPOSITORY/git/ref/tags/v0.1.0 --jq .object.sha)" = \
+            "34fca7f7ea5d8cb445131b8f6042538b3458b901"
+          echo 'published-package-verification=PASS'
