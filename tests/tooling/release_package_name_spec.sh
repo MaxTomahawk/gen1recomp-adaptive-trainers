@@ -10,7 +10,11 @@ trap cleanup EXIT
 
 mkdir -p "$FIXTURE/scripts" "$FIXTURE/tests/tooling" "$FIXTURE/engine"
 cp "$REPO_ROOT/scripts/package.sh" "$FIXTURE/scripts/package.sh"
-printf '%s\n' '{"version":"0.1.0"}' > "$FIXTURE/manifest.json"
+cat > "$FIXTURE/manifest.json" <<'EOF'
+{
+  "version": "0.1.0"
+}
+EOF
 
 cat > "$FIXTURE/scripts/check.sh" <<'EOF'
 #!/usr/bin/env bash
