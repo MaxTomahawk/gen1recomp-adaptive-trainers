@@ -5,7 +5,7 @@ REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)
 ENGINE_ROOT=${GEN1RECOMP_ROOT:?GEN1RECOMP_ROOT must name the audited engine checkout}
 VERSION=$(sed -n 's/^[[:space:]]*"version":[[:space:]]*"\([^"]*\)".*/\1/p' \
   "$REPO_ROOT/manifest.json")
-OUTPUT="$REPO_ROOT/dist/adaptive_trainers-$VERSION.modpkg"
+OUTPUT="$REPO_ROOT/dist/adaptive_trainers-$VERSION.zip"
 TEST_PARENT=$(mktemp -d /tmp/adaptive-trainers-package-failure.XXXXXX)
 cleanup() {
   if [[ "$TEST_PARENT" == /tmp/adaptive-trainers-package-failure.* ]]; then
