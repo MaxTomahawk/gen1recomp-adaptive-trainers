@@ -43,10 +43,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y luajit
           mkdir -p tools/bin tools/lib
-          cp /usr/bin/luajit tools/bin/
+          cp -L /usr/bin/luajit tools/bin/luajit
           lib="$(ldd /usr/bin/luajit | awk '/libluajit/{print $3; exit}')"
-          test -n "$lib"
-          cp -L "$lib" tools/lib/libluajit-5.1.so.2
+          if [ -n "$lib" ]; then
+            cp -L "$lib" tools/lib/libluajit-5.1.so.2
+          fi
+          tools/bin/luajit -v
           printf 'mod=%s\nrelease=%s\ndev=%s\n' \
             "$(git -C adaptive-trainers rev-parse HEAD)" \
             "$(git -C engine-release rev-parse HEAD)" \
@@ -58,6 +60,7 @@ jobs:
           name: integrity-source-bundle
           retention-days: 1
           if-no-files-found: error
+          include-hidden-files: true
           path: |
             adaptive-trainers
             engine-release
