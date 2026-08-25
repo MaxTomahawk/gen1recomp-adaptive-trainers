@@ -16,7 +16,7 @@ if [[ -z "${SOURCE_DATE_EPOCH:-}" ]]; then
   export SOURCE_DATE_EPOCH
 fi
 
-OUTPUT="$REPO_ROOT/dist/adaptive_trainers-$VERSION.modpkg"
+OUTPUT="$REPO_ROOT/dist/adaptive_trainers-$VERSION.zip"
 DIST_PARENT="$REPO_ROOT/dist"
 rm -f -- "$OUTPUT"
 mkdir -p "$DIST_PARENT"
@@ -37,7 +37,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-STAGED_OUTPUT="$STAGE_PARENT/adaptive_trainers-$VERSION.modpkg"
+STAGED_OUTPUT="$STAGE_PARENT/adaptive_trainers-$VERSION.zip"
 GEN1RECOMP_ROOT="$ENGINE_ROOT" SOURCE_DATE_EPOCH="$SOURCE_DATE_EPOCH" \
   "$REPO_ROOT/scripts/package_once.sh" "$STAGED_OUTPUT"
 
