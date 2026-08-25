@@ -1,0 +1,87 @@
+name: Publish v0.1.0
+
+on:
+  push:
+    branches: ["agent/publish-v0.1.0"]
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out exact verified release commit
+        uses: actions/checkout@v7
+        with:
+          ref: 34fca7f7ea5d8cb445131b8f6042538b3458b901
+          fetch-depth: 0
+
+      - name: Assert release commit and version
+        run: |
+          test "$(git rev-parse HEAD)" = "34fca7f7ea5d8cb445131b8f6042538b3458b901"
+          test "$(python3 -c 'import json; print(json.load(open("manifest.json"))["version"])')" = "0.1.0"
+
+      - name: Refuse to overwrite an existing release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v0.1.0 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "v0.1.0 already exists; refusing to overwrite" >&2
+            exit 1
+          fi
+
+      - name: Check out exact Gen1Recomp release
+        uses: actions/checkout@v7
+        with:
+          repository: bryanthaboi/gen1recomp
+          ref: 08121faa3dd01ba68bb6bb74676650c5ebe1d116
+          path: .engine/gen1recomp
+          fetch-depth: 1
+
+      - name: Install release dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes luajit python3-pil
+
+      - name: Build and verify canonical release ZIP
+        env:
+          GEN1RECOMP_ROOT: ${{ github.workspace }}/.engine/gen1recomp
+          SOURCE_DATE_EPOCH: "0"
+        run: |
+          ./scripts/package.sh
+          test -f dist/adaptive_trainers-0.1.0.zip
+          sha256sum dist/adaptive_trainers-0.1.0.zip
+          test "$(unzip -Z1 dist/adaptive_trainers-0.1.0.zip | wc -l)" -eq 39
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > /tmp/release-notes.md <<'EOF'
+          Initial stable release of Adaptive Trainers for Gen1Recomp.
+
+          Requires Gen1Recomp v0.2.25 or newer within the 0.x line.
+
+          Highlights:
+          - persistent context/ecology-aware ordinary trainers
+          - registered-party Gym challenges and adaptive Elite Four runs
+          - persistent Red/Blue/Yellow Rival journey
+          - optional fail-closed Gold-backed Kanto+ sidecar
+          - deterministic developer diagnostics
+          - reproducible ROM-free release packaging
+
+          Kanto+ is optional: without a compatible imported Pokémon Gold dataset the mod remains safely Kanto-only.
+          EOF
+          gh release create v0.1.0 \
+            dist/adaptive_trainers-0.1.0.zip \
+            --repo "$GITHUB_REPOSITORY" \
+            --target 34fca7f7ea5d8cb445131b8f6042538b3458b901 \
+            --title "Adaptive Trainers v0.1.0" \
+            --notes-file /tmp/release-notes.md
+
+      - name: Verify published release metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view v0.1.0 --repo "$GITHUB_REPOSITORY" --json tagName,name,isDraft,isPrerelease,targetCommitish
