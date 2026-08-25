@@ -2,96 +2,92 @@
 
 Updated: 2026-08-25
 
-This ledger maps the normative Definition of Done and Chapter 29 in
-`Gen1Recomp_Adaptive_Trainers_Complete_Design_Spec_NL.docx` to executable
-evidence. It deliberately separates implemented A-G behavior from
-upstream-release, runtime-observability, packaging, and publication gates.
+This ledger maps Chapter 29 and the final Definition of Done in
+`Gen1Recomp_Adaptive_Trainers_Complete_Design_Spec_NL.docx` to fresh release-candidate evidence.
+
+Release engine: `bryanthaboi/gen1recomp` `v0.2.25`
+(`08121faa3dd01ba68bb6bb74676650c5ebe1d116`).
 
 Status meanings:
 
-- `VERIFIED_A_F` — executable evidence exists in the current mod tree.
-- `VERIFIED_G` — historical Phase G executable evidence exists; all required
-  seams are now released in `v0.2.25`, but final status requires a fresh run
-  against the exact release SHA.
-- `PARTIAL` — part of the clause is executable, but a named gate remains.
-- `PENDING_RELEASE` — meaningful only against the final merged tree and released
-  engine dependency.
+- `VERIFIED` — fresh executable or artifact evidence satisfies the clause.
+- `PRIVATE_VERIFIED` — satisfied with sanitized local real-import evidence; no ROM-derived data is committed or distributed.
+- `PUBLICATION` — release mechanics performed after all technical gates; not a gameplay implementation requirement.
 
-## Chapter 29 executable evidence
+## Chapter 29 acceptance
 
-| Normative acceptance area | Status | Executable evidence |
+| Acceptance area | Status | Fresh evidence |
 |---|---|---|
-| Same seed, identity, and state produce byte-equivalent parties over 100 reruns | `VERIFIED_A_F` | `tests/integration/phase_a_mod_spec.lua`; `tests/property/phase_a_properties_spec.lua` |
-| Standard-trainer save/reload persistence | `VERIFIED_A_F` | `tests/integration/phase_a_mod_spec.lua`; `tests/integration/phase_b_persistence_spec.lua` |
-| Gym save/reload and genuine-loss attempt advancement | `VERIFIED_A_F` | `tests/integration/phase_d_bosses_spec.lua`; `tests/integration/gym_runtime_spec.lua`; `tests/acceptance/definition_of_done.lua` |
-| A loss can produce a different valid Gym strategy or flex roster | `VERIFIED_A_F` | `tests/acceptance/definition_of_done.lua` checks attempts zero and one across 64 fixed seeds while rechecking size, signature, and target levels |
-| League run, Bird pair, member seeds, and parties survive reload | `VERIFIED_A_F` | `tests/integration/league_persistence_spec.lua` |
-| Exact 900-second grace and bounded monotonic long-loss growth | `VERIFIED_A_F` | `tests/integration/phase_b_persistence_spec.lua`; `tests/unit/growth_spec.lua`; `tests/property/phase_b_properties_spec.lua` |
-| At most one ecological non-Legendary catch per interval | `VERIFIED_A_F` | `tests/unit/catch_spec.lua`; `tests/property/phase_b_properties_spec.lua` |
-| Collector/expert differentiation and full-party bench safety | `VERIFIED_A_F` | `tests/unit/catch_spec.lua`; `tests/property/phase_b_properties_spec.lua` |
-| Initial party remains within the normative power band | `VERIFIED_A_F` | `tests/property/phase_a_properties_spec.lua` |
-| Gym N, top-N formula, floors, signature, structure, and player-species blindness | `VERIFIED_A_F` | `tests/integration/phase_d_bosses_spec.lua`; `tests/property/gym_properties_spec.lua` |
-| Registered Gym mask is preserved through public battle state | `PARTIAL` | Mod lifecycle: `tests/integration/gym_runtime_spec.lua`. Final audit must rerun the upstream menu, switch, auto-send, exhaustion, checkpoint, and no-mod suites against the released engine SHA. |
-| Ten-thousand-run exactly-one-Bird distribution | `VERIFIED_A_F` | `tests/property/league_bird_simulation_spec.lua` |
-| Rival species/move blindness, journey persistence, and R/B/Y anchors | `VERIFIED_A_F` | `tests/property/rival_fairness_spec.lua`; `tests/integration/rival_version_paths_spec.lua` |
-| Exact Yellow Eevee outcomes | `VERIFIED_A_F` | `tests/integration/rival_version_paths_spec.lua` |
-| Disabled mod leaves vanilla behavior unchanged | `PARTIAL` | Focused public-loader evidence exists in `tests/integration/phase_a_mod_spec.lua`. The final gate is the complete upstream no-mod suite at the release SHA. |
-| No load/pre-standard-generation writes outside `mod.save` | `VERIFIED_A_F` | `tests/acceptance/definition_of_done.lua` installs its filesystem spy before SDK discovery/load, attributes `mod_storage/` and legacy `mod_compat/` writes to the loaded mod while excluding engine-owned loader bookkeeping, proves both persistence paths are detectable and unused, preserves another mod namespace, and proves an unmapped class creates no trainer state. |
-| Mid-battle checkpoint restores the correct authority or fails closed | `VERIFIED_A_F` | `tests/integration/phase_b_persistence_spec.lua`; `tests/integration/gym_runtime_spec.lua`; `tests/integration/league_persistence_spec.lua`; `tests/integration/rival_version_paths_spec.lua` |
-| R/B/Y boss floors and Rival anchors | `VERIFIED_A_F` | `tests/integration/phase_d_bosses_spec.lua`; `tests/unit/rival_spec.lua`; `tests/integration/rival_version_paths_spec.lua` |
-| Kanto-only fallback without Gold identifiers | `VERIFIED_G` | `tests/integration/kanto_fallback_spec.lua`; `tests/integration/phase_g_runtime_spec.lua`; ordinary-engine loader tests. |
+| Same seed + identity + state => byte-equivalent party over 100 reruns | `VERIFIED` | Phase A public runtime and property suites in `scripts/check.sh` |
+| Save/reload before Gym attempt preserves flex/strategy | `VERIFIED` | `phase_d_bosses_spec.lua`, `gym_runtime_spec.lua`, DoD acceptance |
+| Genuine Gym loss advances attempt and can produce a different valid strategy/flex | `VERIFIED` | DoD acceptance plus 64-seed boss loss-variation simulation |
+| League save/reload preserves Bird pair and member parties | `VERIFIED` | `league_persistence_spec.lua` |
+| <900 seconds after loss freezes standard party | `VERIFIED` | Phase B persistence/property suites |
+| Long-loss growth is bounded/monotonic and never exceeds ceilings | `VERIFIED` | growth unit/property suites |
+| At most one valid non-Legendary ecology catch per interval | `VERIFIED` | catch unit/property suites |
+| Collector/expert behavior differs; full party without Center access is safe | `VERIFIED` | catch/roster suites and Phase B properties |
+| Initial generated team remains inside the normative power band | `VERIFIED` | Phase A property suite |
+| Gym N mask is enforced through menu/switch/auto-send/exhaustion | `VERIFIED` | released-engine full ROM-free regression/no-mod parity plus mod Gym runtime/registration suites |
+| Boss top-N formula, floors, signature, and player-species blindness | `VERIFIED` | Phase D runtime/property suites |
+| 10,000 League runs contain exactly one allowed Bird pairing | `VERIFIED` | League Bird property simulation: 140,004 assertions |
+| Rival result is player-species/move blind at equal encounter/time/levels/owned state | `VERIFIED` | Rival fairness property suite: 61,357 assertions |
+| Yellow Eevee outcomes are exact | `VERIFIED` | Rival version-path integration |
+| No mod enabled leaves released-engine vanilla/no-mod suites green | `VERIFIED` | full `v0.2.25` ROM-free `./scripts/test.sh` release-parity gate |
+| Pre-standard-generation mod writes remain inside `mod.save` | `VERIFIED` | instrumented DoD acceptance filesystem spy |
+| Mid-battle checkpoint restores authority or fails closed | `VERIFIED` | standard/Gym/League/Rival checkpoint suites |
+| R/B/Y version-specific floors and Rival anchors are correct | `VERIFIED` | Phase D/F R/B/Y integration |
+| Kanto+ disabled gives graceful Kanto-only fallback | `VERIFIED` | fallback/root reconciliation and Phase G runtime |
+| Real imported Gold activates complete Kanto+ through public APIs | `PRIVATE_VERIFIED` | sanitized local Blue+Gold acceptance: 27/27 checks; active Blue authority preserved |
 
-`scripts/check.sh` discovers `tests/acceptance/*.lua` in addition to every
-`*_spec.lua`. The acceptance executable reruns the representative A-F Chapter
-29 suites in isolated Lua processes, preventing shared runtime registrations
-from turning the ledger into a source-text assertion.
+## Final product Definition of Done
 
-## Full normative Definition of Done
-
-| Definition of Done clause | Status | Evidence or remaining gate |
+| Clause | Status | Evidence |
 |---|---|---|
-| Public R/B/Y loader and no behavior when disabled | `PARTIAL` | Public loader evidence is green; full released-engine no-mod parity remains. |
-| Deterministic persistent context/ecology-aware standard trainer | `VERIFIED_A_F` | Phase A runtime and property suites. |
-| Grace, saturating growth, profile catches, and finite scaling | `VERIFIED_A_F` | Phase B unit, integration, and property suites. |
-| Center-safe bench rotation and differentiated trainer profiles | `VERIFIED_A_F` | Catch/roster unit tests and Phase B properties. |
-| Data-driven legal persistent moves and class AI | `VERIFIED_A_F` | Phase C runtime, unit, and property suites. |
-| Gym N/mask/top-N/signature/reroll/structural packages | `PARTIAL` | Mod behavior is green; final released-engine mask-path parity remains. |
-| All eight Leaders have named pools, packages, and floors | `VERIFIED_A_F` | Phase D runtime and Gym properties. |
-| Elite Four snapshot/scaling and one visible valid Bird | `VERIFIED_A_F` | Phase E runtime and 10,000-run simulation. |
-| Rival owned history, windows, attachment, core, bounded pressure, and no species countering | `VERIFIED_A_F` | Phase F runtime, core, and fairness properties. |
-| Exact Yellow Eevee path | `VERIFIED_A_F` | Phase F R/B/Y integration. |
-| Legendary exclusions and population model | `VERIFIED_A_F` | Data, catch, standard, League, and Rival properties. |
-| Optional Kanto+ with graceful base fallback, Steelix, weather, and Steel | `PARTIAL` | All required engine seams are released in `v0.2.25`; fresh released-engine and real-import acceptance remain. |
-| Every Chapter 29 test, validate/lint, and no ROM-derived bytes | `PENDING_RELEASE` | A-G aggregate evidence exists; final H tree, released engine SHA, ROM scan, and double-package evidence remain. |
-| Central trainer identity and gameplay fantasy remain legible | `PARTIAL` | Existing README/design describe the identity; final gameplay review belongs to the complete G/H build. |
+| Loads on Red, Blue, Yellow through the public loader; disabled behavior remains vanilla | `VERIFIED` | public loader/R/B/Y suites + full released-engine no-mod regression |
+| Context/ecology-aware deterministic persistent standard trainers | `VERIFIED` | Phase A |
+| Grace, bounded growth, profile catches, finite scaling | `VERIFIED` | Phase B |
+| Center-safe bench rotation and differentiated profiles | `VERIFIED` | Phase B |
+| Data-driven legal persistent moves and class AI | `VERIFIED` | Phase C |
+| Gym registration mask/top-N/signature/reroll/strategy packages | `VERIFIED` | Phase D + released-engine mask paths |
+| All eight Leaders use approved pools/packages/floors | `VERIFIED` | Phase D runtime/properties |
+| Elite Four snapshot/scaling and exactly one visible valid Bird | `VERIFIED` | Phase E + 10,000-run simulation |
+| Rival journey/owned history/windows/attachment/core/bounded pressure and species blindness | `VERIFIED` | Phase F + fairness properties |
+| Exact Yellow Eevee path | `VERIFIED` | Phase F version paths |
+| Legendary exclusions and population/instance model | `VERIFIED` | data/catch/standard/League/Rival suites |
+| Optional Kanto+; core works without Gold; Steelix/Steel/weather work with compatible Gold | `PRIVATE_VERIFIED` | Phase G fixture suites + 27/27 real Blue+Gold acceptance |
+| Dev-only observability without production leakage | `VERIFIED` | Phase H runtime diagnostics through public `mod.developer` |
+| Chapter 29 tests, validate/lint, reproducible package, no ROM-derived bytes | `VERIFIED` | canonical `scripts/package.sh`, strict staging, independent SHA comparison, lint/content gate |
+| Central fantasy remains persistent people rather than per-battle randomization | `VERIFIED` | final design/implementation review: standard trainers persist; bosses reroll only on genuine challenge attempts; Rival/League maintain independent persistent authorities |
 
-## Observability boundary
+## Real-import boundary
 
-`src/core/diagnostics.lua` provides deterministic, detached, whitelisted
-projections for standard trainers, bosses, League, and Rival state. It exposes
-the normative seed/choice labels without player names, the player's roster, or
-unknown save fields. Nested supplied evidence is recursively detached while
-functions, userdata, threads, metatables, cycles, NaN, and infinities are
-omitted. The adapter reports every declared A-F projection choice with stable
-seed labels, parts, and values; it does not claim to observe runtime events.
-`src/ui/debug.lua` emits nothing unless its injected environment contains the
-exact string `POKEPORT_DEV=1`.
+The sanitized real-import gate used the official `v0.2.25` importer for a compatible Blue and Gold dataset in an isolated local identity. No ROM, imported cache, generated private data, machine path, or ROM-derived asset was sent to GitHub or included in an artifact.
 
-Official Gen1Recomp release `v0.2.25` exposes the required public
-`mod.developer` boolean. The adapter is already implemented against that public
-contract; final acceptance must prove production absence and developer-only
-activation against the exact release SHA. The legacy `os.getenv` compatibility
-shim remains out of bounds.
+The gate proved:
 
-## Release gates still open
+- active Blue game/cache authority did not change when opening Gold;
+- `mod.datasets:open("gold")` exposed the expected bounded semantic dataset;
+- all nine approved continuations, evolutions, required moves/type data and generated asset paths admitted cleanly;
+- Kanto+ weather/charge/residual paths activated through public APIs;
+- representative standard trainer, save/reload, Rival, League, and Brock/Gym paths remained clean;
+- Kanto+ produced zero missing requirements and zero loader errors.
 
-1. Pin CI and `manifest.json` to official Gen1Recomp `v0.2.25` at
-   `08121faa3dd01ba68bb6bb74676650c5ebe1d116`.
-2. Run the complete released-engine no-mod and relevant public-API regression
-   suites plus the full Adaptive Trainers A-H acceptance set.
-3. Run final Red/Blue/Yellow, Kanto-only, Kanto+, validation, lint, ROM scan,
-   and byte-identical package gates against the released engine.
-4. Complete sanitized real-import Gold-backed Kanto+ acceptance without
-   committing or distributing ROM-derived data.
-5. Review final gameplay identity, update release metadata, publish the stable
-   `.zip`, and follow the then-current mod-index process.
+The real dataset exposed and fixed two pre-release fixture mismatches: Gold reports Rain Dance/Sunny Day accuracy as 90, and Gen 2 growth-rate IDs use a `GROWTH_*` namespace. Both now have deterministic regression coverage.
+
+## Packaging and publication boundary
+
+The canonical distributable is `adaptive_trainers-0.1.0.zip`.
+
+`scripts/package.sh` is fail-closed: it runs the full project gate, stages through
+`scripts/package_once.sh`, verifies archive layout, independently rebuilds a
+second archive with the same `SOURCE_DATE_EPOCH`, compares SHA-256, and only
+then publishes the accepted file under `dist/`.
+
+The release workflow checks out exact Gen1Recomp `v0.2.25`, rejects a
+tag/manifest version mismatch, invokes the same canonical package path, and
+uploads only `dist/adaptive_trainers-0.1.0.zip`.
+
+Publication is allowed only after the final release-candidate CI is green. The
+published ZIP is then downloaded and re-inspected before the release is handed
+to the user for in-game testing. Mod-index submission is intentionally outside
+this release gate and requires the user's post-test approval.

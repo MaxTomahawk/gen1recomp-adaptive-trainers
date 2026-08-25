@@ -10,15 +10,15 @@ return {
     },
     added = {
       "trainer ecology, growth, collection, and challenge state in mod.save",
-      "optional Kanto+ content when compatible imported registries are present",
+      "optional Kanto+ content when a compatible imported Gold dataset is available",
     },
     known = {
-      "the 0.1.0 development line is not yet release-complete",
+      "Kanto+ is optional and fails closed to Kanto-only behavior without a compatible Gold import",
     },
   },
   credits = {
     { who = "bryanthaboi/gen1recomp contributors", for_ = "native mod platform and engine" },
     { who = "pret/pokered and pret/pokeyellow contributors", for_ = "documented vanilla behavior research" },
   },
-  compat = { engine = ">=0.0.0-dev <1.0.0", modApi = 2 },
+  compat = { engine = ">=0.2.25 <1.0.0", modApi = 2 },
 }
