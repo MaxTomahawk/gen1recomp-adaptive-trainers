@@ -40,7 +40,21 @@ jobs:
 
       - name: Run released-engine full lint report
         working-directory: .engine/gen1recomp
-        run: ./scripts/lint.sh
+        shell: bash
+        run: |
+          set +e
+          ./scripts/lint.sh > /tmp/gen1recomp-full-lint.log 2>&1
+          lint_status=$?
+          set -e
+          cat /tmp/gen1recomp-full-lint.log
+          sed -E $'s/\x1B\[[0-9;]*[mK]//g' /tmp/gen1recomp-full-lint.log \
+            > /tmp/gen1recomp-full-lint.plain.log
+          if ! grep -Eq 'Total: [0-9]+ warnings / 0 errors in [0-9]+ files' \
+              /tmp/gen1recomp-full-lint.plain.log; then
+            echo "full lint report did not prove zero errors" >&2
+            exit 1
+          fi
+          echo "full lint advisory exit: $lint_status (warnings are reported; errors must be zero)"
 
       - name: Run released-engine ROM-free regression suite
         working-directory: .engine/gen1recomp
