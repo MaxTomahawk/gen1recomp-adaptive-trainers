@@ -21,7 +21,7 @@ if [[ -n "${PACKAGE_PATH:-}" ]]; then
   fi
 else
   TEMP_PARENT=$(mktemp -d /tmp/adaptive-trainers-layout.XXXXXX)
-  PACKAGE="$TEMP_PARENT/adaptive_trainers-$VERSION.modpkg"
+  PACKAGE="$TEMP_PARENT/adaptive_trainers-$VERSION.zip"
   GEN1RECOMP_ROOT="$ENGINE_ROOT" SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-}" \
     "$REPO_ROOT/scripts/package_once.sh" "$PACKAGE" >/dev/null
 fi
@@ -30,7 +30,7 @@ FIRST_SHA=$(sha256sum "$PACKAGE" | cut -d' ' -f1)
 if [[ -z "$TEMP_PARENT" ]]; then
   TEMP_PARENT=$(mktemp -d /tmp/adaptive-trainers-layout.XXXXXX)
 fi
-SECOND_PACKAGE="$TEMP_PARENT/second.modpkg"
+SECOND_PACKAGE="$TEMP_PARENT/second.zip"
 GEN1RECOMP_ROOT="$ENGINE_ROOT" SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-}" \
   "$REPO_ROOT/scripts/package_once.sh" "$SECOND_PACKAGE" >/dev/null
 SECOND_SHA=$(sha256sum "$SECOND_PACKAGE" | cut -d' ' -f1)
